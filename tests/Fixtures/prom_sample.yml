@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="2026-04-01 12:00">
+    <shop>
+        <name>Prom Demo Shop</name>
+        <categories>
+            <category id="100" rz_id="2001">Одяг</category>
+            <category id="101" parentId="100">Футболки</category>
+        </categories>
+        <offers>
+            <offer id="SKU-1" available="true">
+                <name>Футболка Basic Black S</name>
+                <price>799</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>101</categoryId>
+                <vendor>Acme</vendor>
+                <vendorCode>TSHIRT-001</vendorCode>
+                <description>Базова футболка</description>
+                <picture>https://example.test/img-1.jpg</picture>
+                <param name="Color">Black</param>
+                <param name="Size">S</param>
+            </offer>
+            <offer id="SKU-2" available="true">
+                <name>Футболка Basic Black M</name>
+                <price>799</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>101</categoryId>
+                <vendor>Acme</vendor>
+                <vendorCode>TSHIRT-001</vendorCode>
+                <description>Базова футболка</description>
+                <picture>https://example.test/img-2.jpg</picture>
+                <param name="Color">Black</param>
+                <param name="Size">M</param>
+            </offer>
+        </offers>
+    </shop>
+</yml_catalog>
