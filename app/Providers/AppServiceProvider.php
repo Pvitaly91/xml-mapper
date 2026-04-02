@@ -22,10 +22,12 @@ use App\Services\Mappings\ValueMappingService;
 use App\Services\Source\ProductNormalizer;
 use App\Services\Source\PromYmlParser;
 use App\Services\Source\SourceImportService;
+use App\Services\Ops\HeartbeatService;
 use App\Services\Validation\ValidationService;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -56,5 +58,9 @@ class AppServiceProvider extends ServiceProvider
 
         Authenticate::redirectUsing(static fn () => route('login'));
         RedirectIfAuthenticated::redirectUsing(static fn () => route('admin.dashboard'));
+
+        Queue::looping(static function (): void {
+            app(HeartbeatService::class)->recordWorkerHeartbeat();
+        });
     }
 }

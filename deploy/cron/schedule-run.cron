@@ -1,0 +1,1 @@
+* * * * * cd /var/www/xml-mapper && php artisan schedule:run >> /var/log/xml-mapper/scheduler.log 2>&1

@@ -19,9 +19,24 @@ class NormalizeProductsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 1800;
+
+    public int $tries = 3;
+
+    public int $maxExceptions = 2;
+
     public function __construct(
         public readonly int $sourceImportId,
     ) {
+        $this->onQueue((string) config('feed_mediator.queues.normalization'));
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function backoff(): array
+    {
+        return [60, 300, 900];
     }
 
     public function handle(PromYmlParserInterface $parser, ProductNormalizerInterface $normalizer): void

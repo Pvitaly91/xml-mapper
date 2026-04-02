@@ -1,0 +1,50 @@
+[
+  {
+    "kasta_category_external_id": "KASTA-TSHIRTS",
+    "kasta_attribute_code": "color",
+    "external_id": "val-black",
+    "value": "Black",
+    "is_active": true,
+    "sort_order": 10
+  },
+  {
+    "kasta_category_external_id": "KASTA-TSHIRTS",
+    "kasta_attribute_code": "color",
+    "external_id": "val-white",
+    "value": "White",
+    "is_active": true,
+    "sort_order": 20
+  },
+  {
+    "kasta_category_external_id": "KASTA-TSHIRTS",
+    "kasta_attribute_code": "size",
+    "external_id": "val-s",
+    "value": "S",
+    "is_active": true,
+    "sort_order": 10
+  },
+  {
+    "kasta_category_external_id": "KASTA-TSHIRTS",
+    "kasta_attribute_code": "size",
+    "external_id": "val-m",
+    "value": "M",
+    "is_active": true,
+    "sort_order": 20
+  },
+  {
+    "kasta_category_external_id": "KASTA-SNEAKERS",
+    "kasta_attribute_code": "color",
+    "external_id": "val-shoe-black",
+    "value": "Black",
+    "is_active": true,
+    "sort_order": 10
+  },
+  {
+    "kasta_category_external_id": "KASTA-SNEAKERS",
+    "kasta_attribute_code": "size",
+    "external_id": "val-shoe-42",
+    "value": "42",
+    "is_active": true,
+    "sort_order": 10
+  }
+]

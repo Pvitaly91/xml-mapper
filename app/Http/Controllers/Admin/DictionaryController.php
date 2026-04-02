@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Admin\Dictionaries\ImportKastaDictionariesAction;
 use App\Http\Requests\Admin\Dictionaries\DictionaryImportRequest;
+use App\Models\DictionaryImport;
 use App\Models\KastaAttribute;
 use App\Models\KastaAttributeValue;
 use App\Models\KastaCategory;
@@ -27,6 +28,7 @@ class DictionaryController extends AdminController
                 'size_grids' => SizeGrid::query()->where(fn ($query) => $query->whereNull('shop_id')->orWhere('shop_id', $shop->id))->count(),
             ],
             'recentCategories' => KastaCategory::query()->orderByDesc('id')->limit(10)->get(),
+            'recentImports' => DictionaryImport::query()->latest('id')->limit(10)->get(),
         ]);
     }
 
@@ -128,7 +130,7 @@ class DictionaryController extends AdminController
 
     public function import(DictionaryImportRequest $request, ImportKastaDictionariesAction $action): RedirectResponse
     {
-        $summary = $action->handle($request->validated('path'));
+        $summary = $action->handle($request->validated('path'), $request->user()?->id);
 
         return back()->with('status', sprintf(
             'Dictionaries imported: %d categories, %d attributes, %d values, %d size grids.',

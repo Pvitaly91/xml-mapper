@@ -16,9 +16,17 @@ class KastaAttributeValue extends Model
         'external_id',
         'value',
         'normalized_value',
+        'is_active',
         'value_hash',
         'sort_order',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function kastaAttribute(): BelongsTo
     {

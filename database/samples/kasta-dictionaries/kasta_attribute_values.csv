@@ -1,0 +1,7 @@
+kasta_category_external_id,kasta_attribute_code,external_id,value,is_active,sort_order
+KASTA-TSHIRTS,color,val-black,Black,true,10
+KASTA-TSHIRTS,color,val-white,White,true,20
+KASTA-TSHIRTS,size,val-s,S,true,10
+KASTA-TSHIRTS,size,val-m,M,true,20
+KASTA-SNEAKERS,color,val-shoe-black,Black,true,10
+KASTA-SNEAKERS,size,val-shoe-42,42,true,10

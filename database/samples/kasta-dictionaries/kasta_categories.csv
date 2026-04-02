@@ -1,0 +1,4 @@
+external_id,parent_external_id,name,full_path,rz_id,is_active,metadata_json
+KASTA-TSHIRTS,,T-Shirts,Apparel > T-Shirts,2001,true,"{""department"":""apparel""}"
+KASTA-SHOES,,Shoes,Apparel > Shoes,3001,true,"{""department"":""apparel""}"
+KASTA-SNEAKERS,KASTA-SHOES,Sneakers,Apparel > Shoes > Sneakers,3002,true,"{""department"":""footwear""}"

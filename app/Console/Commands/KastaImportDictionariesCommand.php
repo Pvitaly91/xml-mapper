@@ -13,7 +13,7 @@ class KastaImportDictionariesCommand extends Command
 
     public function handle(KastaDictionaryImportServiceInterface $service): int
     {
-        $summary = $service->import($this->option('path') ?: null);
+        $summary = $service->importBundle($this->option('path') ?: null);
 
         $this->table(['Dataset', 'Imported rows'], [
             ['categories', $summary['categories']],

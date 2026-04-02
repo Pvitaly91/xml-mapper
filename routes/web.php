@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CategoryMappingAutomapController;
 use App\Http\Controllers\Admin\CategoryMappingController;
 use App\Http\Controllers\Admin\DictionaryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DictionaryImportController;
 use App\Http\Controllers\Admin\FeedBuildController;
 use App\Http\Controllers\Admin\FeedItemController;
 use App\Http\Controllers\Admin\FeedProfileController;
@@ -46,6 +47,10 @@ Route::prefix('admin')->group(function (): void {
         Route::get('/dictionaries/attributes', [DictionaryController::class, 'attributes'])->name('dictionaries.attributes');
         Route::get('/dictionaries/values', [DictionaryController::class, 'values'])->name('dictionaries.values');
         Route::get('/dictionaries/size-grids', [DictionaryController::class, 'sizeGrids'])->name('dictionaries.size-grids');
+        Route::get('/dictionaries/imports', [DictionaryImportController::class, 'index'])->name('dictionary-imports.index');
+        Route::post('/dictionaries/imports', [DictionaryImportController::class, 'store'])->name('dictionary-imports.store');
+        Route::post('/dictionaries/imports/reimport', [DictionaryImportController::class, 'reimport'])->name('dictionary-imports.reimport');
+        Route::get('/dictionaries/imports/{dictionary_import}', [DictionaryImportController::class, 'show'])->name('dictionary-imports.show');
 
         Route::get('/feed-profiles/{feed_profile}/category-mappings', [CategoryMappingController::class, 'index'])->name('feed-profiles.category-mappings.index');
         Route::post('/feed-profiles/{feed_profile}/category-mappings', [CategoryMappingController::class, 'store'])->name('feed-profiles.category-mappings.store');

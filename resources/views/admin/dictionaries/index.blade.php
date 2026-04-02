@@ -7,12 +7,13 @@
         <form method="POST" action="{{ route('admin.dictionaries.import') }}" class="toolbar">
             @csrf
             <div class="field" style="min-width: 320px;">
-                <label for="path">Optional custom path</label>
+                <label for="path">Optional legacy bundle path</label>
                 <input id="path" name="path" value="{{ old('path') }}" placeholder="{{ config('feed_mediator.kasta_dictionary_stub_path') }}">
             </div>
-            <button class="button" type="submit">Import / reimport dictionaries</button>
+            <button class="button" type="submit">Import sample bundle</button>
+            <a class="button secondary" href="{{ route('admin.dictionary-imports.index') }}">Open import history</a>
         </form>
-        <p class="muted">Default stub path: <code>{{ config('feed_mediator.kasta_dictionary_stub_path') }}</code></p>
+        <p class="muted">Legacy sample bundle path: <code>{{ config('feed_mediator.kasta_dictionary_stub_path') }}</code></p>
     </section>
 
     <div class="stats">
@@ -43,6 +44,33 @@
                     </tr>
                 @empty
                     <tr><td colspan="4" class="muted">Dictionary is empty.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Recent Imports</h2>
+            <a class="button secondary" href="{{ route('admin.dictionary-imports.index') }}">View all imports</a>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Format</th><th>Rows</th><th>Started</th><th></th></tr></thead>
+                <tbody>
+                @forelse($recentImports as $import)
+                    <tr>
+                        <td>#{{ $import->id }}</td>
+                        <td>{{ $import->type }}</td>
+                        <td>{{ $import->status }}</td>
+                        <td>{{ $import->source_format }}</td>
+                        <td>{{ $import->rows_total }}</td>
+                        <td>{{ optional($import->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</td>
+                        <td><a class="button link" href="{{ route('admin.dictionary-imports.show', $import) }}">Details</a></td>
+                    </tr>
+                @empty
+                    <tr><td colspan="7" class="muted">No dictionary imports yet.</td></tr>
                 @endforelse
                 </tbody>
             </table>

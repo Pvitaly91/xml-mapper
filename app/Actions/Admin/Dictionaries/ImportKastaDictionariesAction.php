@@ -14,8 +14,8 @@ class ImportKastaDictionariesAction
     /**
      * @return array{categories:int,attributes:int,attribute_values:int,size_grids:int}
      */
-    public function handle(?string $directory = null): array
+    public function handle(?string $directory = null, ?int $initiatedByUserId = null): array
     {
-        return $this->service->import($directory);
+        return $this->service->importBundle($directory, $initiatedByUserId);
     }
 }

@@ -9,6 +9,6 @@ class KastaDictionarySeeder extends Seeder
 {
     public function run(): void
     {
-        app(KastaDictionaryImportServiceInterface::class)->import();
+        app(KastaDictionaryImportServiceInterface::class)->importBundle();
     }
 }

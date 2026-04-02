@@ -12,9 +12,11 @@ use App\Models\FeedProfile;
 use App\Models\SourceProduct;
 use App\Models\SourceVariant;
 use App\Models\SyncLog;
+use App\Services\Ops\ProcessLockService;
 use App\Support\Canonicalizer;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 use XMLWriter;
 
 class FeedBuildService implements FeedBuildServiceInterface
@@ -23,140 +25,176 @@ class FeedBuildService implements FeedBuildServiceInterface
         private readonly CategoryMappingServiceInterface $categoryMappingService,
         private readonly AttributeMappingServiceInterface $attributeMappingService,
         private readonly ValidationServiceInterface $validationService,
+        private readonly ProcessLockService $lockService,
     ) {
     }
 
-    public function build(FeedProfile $feedProfile): FeedGeneration
+    public function build(FeedProfile $feedProfile, ?int $sourceImportId = null): FeedGeneration
     {
-        $feedProfile->loadMissing(['shop', 'sourceConnection']);
+        return $this->lockService->runExclusive(
+            $this->lockService->feedBuildKey($feedProfile->id),
+            (int) config('feed_mediator.locks.feed_build_ttl_seconds'),
+            'Feed build is already in progress for this profile.',
+            function () use ($feedProfile, $sourceImportId): FeedGeneration {
+                $feedProfile->loadMissing(['shop', 'sourceConnection']);
 
-        $generation = FeedGeneration::create([
-            'shop_id' => $feedProfile->shop_id,
-            'feed_profile_id' => $feedProfile->id,
-            'status' => FeedGeneration::STATUS_BUILDING,
-        ]);
+                if ($sourceImportId !== null) {
+                    $existingGeneration = $feedProfile->generations()
+                        ->where('source_import_id', $sourceImportId)
+                        ->whereIn('status', [FeedGeneration::STATUS_BUILT, FeedGeneration::STATUS_PUBLISHED])
+                        ->latest('id')
+                        ->first();
 
-        $validFeedItemIds = [];
-        $usedCategories = [];
-        $itemsTotal = 0;
-        $validItems = 0;
-        $invalidItems = 0;
-
-        SourceVariant::query()
-            ->with(['product.sourceCategory'])
-            ->where('shop_id', $feedProfile->shop_id)
-            ->where('source_connection_id', $feedProfile->source_connection_id)
-            ->where('is_enabled', true)
-            ->orderBy('id')
-            ->chunk(250, function ($variants) use (
-                $feedProfile,
-                $generation,
-                &$validFeedItemIds,
-                &$usedCategories,
-                &$itemsTotal,
-                &$validItems,
-                &$invalidItems
-            ): void {
-                foreach ($variants as $variant) {
-                    $product = $variant->product;
-
-                    if ($product === null || ! $product->is_active) {
-                        continue;
+                    if ($existingGeneration instanceof FeedGeneration) {
+                        return $existingGeneration;
                     }
+                }
 
-                    if (! $feedProfile->include_unavailable && ! $variant->is_available) {
-                        $this->upsertExcludedFeedItem($feedProfile, $generation, $product->id, $variant->id, 'Variant is unavailable.');
+                $generation = FeedGeneration::create([
+                    'shop_id' => $feedProfile->shop_id,
+                    'feed_profile_id' => $feedProfile->id,
+                    'source_import_id' => $sourceImportId,
+                    'status' => FeedGeneration::STATUS_BUILDING,
+                ]);
 
-                        continue;
-                    }
+                try {
+                    $validFeedItemIds = [];
+                    $usedCategories = [];
+                    $itemsTotal = 0;
+                    $validItems = 0;
+                    $invalidItems = 0;
 
-                    $itemsTotal++;
+                    SourceVariant::query()
+                        ->with(['product.sourceCategory'])
+                        ->where('shop_id', $feedProfile->shop_id)
+                        ->where('source_connection_id', $feedProfile->source_connection_id)
+                        ->where('is_enabled', true)
+                        ->orderBy('id')
+                        ->chunk(250, function ($variants) use (
+                            $feedProfile,
+                            $generation,
+                            &$validFeedItemIds,
+                            &$usedCategories,
+                            &$itemsTotal,
+                            &$validItems,
+                            &$invalidItems
+                        ): void {
+                            foreach ($variants as $variant) {
+                                $product = $variant->product;
 
-                    $feedItem = FeedItem::firstOrCreate(
-                        [
-                            'feed_profile_id' => $feedProfile->id,
-                            'source_variant_id' => $variant->id,
-                        ],
-                        [
-                            'shop_id' => $feedProfile->shop_id,
-                            'source_product_id' => $product->id,
-                            'status' => FeedItem::STATUS_PENDING,
-                            'is_enabled' => true,
-                            'is_manual_override' => false,
-                        ]
-                    );
+                                if ($product === null || ! $product->is_active) {
+                                    continue;
+                                }
 
-                    $feedItem->fill([
-                        'shop_id' => $feedProfile->shop_id,
-                        'source_product_id' => $product->id,
-                        'last_built_generation_id' => $generation->id,
+                                if (! $feedProfile->include_unavailable && ! $variant->is_available) {
+                                    $this->upsertExcludedFeedItem($feedProfile, $generation, $product->id, $variant->id, 'Variant is unavailable.');
+
+                                    continue;
+                                }
+
+                                $itemsTotal++;
+
+                                $feedItem = FeedItem::firstOrCreate(
+                                    [
+                                        'feed_profile_id' => $feedProfile->id,
+                                        'source_variant_id' => $variant->id,
+                                    ],
+                                    [
+                                        'shop_id' => $feedProfile->shop_id,
+                                        'source_product_id' => $product->id,
+                                        'status' => FeedItem::STATUS_PENDING,
+                                        'is_enabled' => true,
+                                        'is_manual_override' => false,
+                                    ]
+                                );
+
+                                $feedItem->fill([
+                                    'shop_id' => $feedProfile->shop_id,
+                                    'source_product_id' => $product->id,
+                                    'last_built_generation_id' => $generation->id,
+                                ]);
+
+                                $errors = $this->validationService->validate($feedProfile, $product, $variant, $feedItem);
+                                $this->validationService->syncValidationState($feedProfile, $feedItem, $product, $variant, $errors);
+                                $feedItem->last_validation_hash = Canonicalizer::fingerprint($errors);
+
+                                if (! $feedItem->is_enabled) {
+                                    $feedItem->status = FeedItem::STATUS_EXCLUDED;
+                                    $feedItem->excluded_reason = $feedItem->excluded_reason ?: 'Feed item is manually disabled.';
+                                    $feedItem->save();
+
+                                    continue;
+                                }
+
+                                if ($errors !== []) {
+                                    $feedItem->status = FeedItem::STATUS_INVALID;
+                                    $feedItem->excluded_reason = null;
+                                    $feedItem->save();
+                                    $invalidItems++;
+
+                                    continue;
+                                }
+
+                                $mappedCategory = $this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory);
+
+                                if ($mappedCategory === null) {
+                                    $feedItem->status = FeedItem::STATUS_INVALID;
+                                    $feedItem->save();
+                                    $invalidItems++;
+
+                                    continue;
+                                }
+
+                                $feedItem->status = FeedItem::STATUS_READY;
+                                $feedItem->excluded_reason = null;
+                                $feedItem->save();
+
+                                $validFeedItemIds[] = $feedItem->id;
+                                $usedCategories[$mappedCategory->external_id] = $mappedCategory->name;
+                                $validItems++;
+                            }
+                        });
+
+                    $path = $this->buildXmlFile($feedProfile, $generation, $validFeedItemIds, $usedCategories);
+                    $builtAt = now();
+
+                    $generation->update([
+                        'status' => FeedGeneration::STATUS_BUILT,
+                        'items_total' => $itemsTotal,
+                        'valid_items_total' => $validItems,
+                        'invalid_items_total' => $invalidItems,
+                        'file_path' => $path,
+                        'checksum' => hash_file('sha256', Storage::disk(config('feed_mediator.storage_disk'))->path($path)) ?: null,
+                        'built_at' => $builtAt,
+                        'error_message' => null,
                     ]);
 
-                    $errors = $this->validationService->validate($feedProfile, $product, $variant, $feedItem);
-                    $this->validationService->syncValidationState($feedProfile, $feedItem, $product, $variant, $errors);
-                    $feedItem->last_validation_hash = Canonicalizer::fingerprint($errors);
+                    $feedProfile->update([
+                        'last_built_at' => $builtAt,
+                        'next_build_at' => $builtAt->copy()->addMinutes($feedProfile->build_interval_minutes),
+                    ]);
 
-                    if (! $feedItem->is_enabled) {
-                        $feedItem->status = FeedItem::STATUS_EXCLUDED;
-                        $feedItem->excluded_reason = $feedItem->excluded_reason ?: 'Feed item is manually disabled.';
-                        $feedItem->save();
+                    $this->log($feedProfile, $generation, 'info', 'feed.built', 'Feed XML generated.', [
+                        'file_path' => $path,
+                        'valid_items' => $validItems,
+                        'invalid_items' => $invalidItems,
+                    ]);
 
-                        continue;
-                    }
+                    return $generation->refresh();
+                } catch (Throwable $exception) {
+                    $generation->update([
+                        'status' => FeedGeneration::STATUS_FAILED,
+                        'error_message' => $exception->getMessage(),
+                    ]);
 
-                    if ($errors !== []) {
-                        $feedItem->status = FeedItem::STATUS_INVALID;
-                        $feedItem->excluded_reason = null;
-                        $feedItem->save();
-                        $invalidItems++;
+                    $this->log($feedProfile, $generation, 'error', 'feed.build_failed', $exception->getMessage(), [
+                        'exception' => $exception::class,
+                    ]);
 
-                        continue;
-                    }
-
-                    $mappedCategory = $this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory);
-
-                    if ($mappedCategory === null) {
-                        $feedItem->status = FeedItem::STATUS_INVALID;
-                        $feedItem->save();
-                        $invalidItems++;
-
-                        continue;
-                    }
-
-                    $feedItem->status = FeedItem::STATUS_READY;
-                    $feedItem->excluded_reason = null;
-                    $feedItem->save();
-
-                    $validFeedItemIds[] = $feedItem->id;
-                    $usedCategories[$mappedCategory->external_id] = $mappedCategory->name;
-                    $validItems++;
+                    throw $exception;
                 }
-            });
-
-        $path = $this->buildXmlFile($feedProfile, $generation, $validFeedItemIds, $usedCategories);
-
-        $generation->update([
-            'status' => FeedGeneration::STATUS_BUILT,
-            'items_total' => $itemsTotal,
-            'valid_items_total' => $validItems,
-            'invalid_items_total' => $invalidItems,
-            'file_path' => $path,
-            'checksum' => hash_file('sha256', Storage::disk(config('feed_mediator.storage_disk'))->path($path)) ?: null,
-            'built_at' => now(),
-        ]);
-
-        $feedProfile->update([
-            'last_built_at' => now(),
-            'next_build_at' => now()->addMinutes($feedProfile->build_interval_minutes),
-        ]);
-
-        $this->log($feedProfile, $generation, 'info', 'feed.built', 'Feed XML generated.', [
-            'file_path' => $path,
-            'valid_items' => $validItems,
-            'invalid_items' => $invalidItems,
-        ]);
-
-        return $generation->refresh();
+            }
+        );
     }
 
     /**

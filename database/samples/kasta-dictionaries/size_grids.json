@@ -1,0 +1,20 @@
+[
+  {
+    "shop_slug": null,
+    "code": "adult-alpha",
+    "name": "Adult Alpha",
+    "schema": {
+      "labels": ["XS", "S", "M", "L", "XL"]
+    },
+    "is_active": true
+  },
+  {
+    "shop_slug": null,
+    "code": "adult-eu-shoes",
+    "name": "Adult EU Shoes",
+    "schema": {
+      "labels": ["39", "40", "41", "42", "43"]
+    },
+    "is_active": true
+  }
+]

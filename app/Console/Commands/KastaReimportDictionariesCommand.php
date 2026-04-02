@@ -13,7 +13,7 @@ class KastaReimportDictionariesCommand extends Command
 
     public function handle(KastaDictionaryImportServiceInterface $service): int
     {
-        $summary = $service->import($this->option('path') ?: null);
+        $summary = $service->importBundle($this->option('path') ?: null);
 
         $this->info(sprintf(
             'Reimport completed: %d categories, %d attributes, %d values, %d size grids.',

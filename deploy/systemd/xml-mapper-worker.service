@@ -1,0 +1,17 @@
+[Unit]
+Description=XML Mapper queue worker
+After=network.target redis.service mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/xml-mapper
+ExecStart=/usr/bin/php artisan queue:work redis --queue=imports,normalization,feeds,dictionaries --sleep=3 --tries=3 --timeout=1800 --max-time=3600
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=3600
+
+[Install]
+WantedBy=multi-user.target

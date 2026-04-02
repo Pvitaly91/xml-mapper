@@ -19,6 +19,7 @@ class KastaAttribute extends Model
         'data_type',
         'is_required',
         'allows_custom_value',
+        'is_active',
         'sort_order',
     ];
 
@@ -27,6 +28,7 @@ class KastaAttribute extends Model
         return [
             'is_required' => 'boolean',
             'allows_custom_value' => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 

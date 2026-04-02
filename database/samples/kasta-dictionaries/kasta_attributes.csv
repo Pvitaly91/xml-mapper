@@ -1,0 +1,6 @@
+kasta_category_external_id,external_id,name,code,data_type,is_required,allows_custom_value,is_active,sort_order
+KASTA-TSHIRTS,attr-color,Color,color,string,true,false,true,10
+KASTA-TSHIRTS,attr-size,Size,size,string,true,false,true,20
+KASTA-TSHIRTS,attr-material,Material,material,string,false,true,true,30
+KASTA-SNEAKERS,attr-shoe-color,Color,color,string,true,false,true,10
+KASTA-SNEAKERS,attr-shoe-size,Size,size,string,true,false,true,20

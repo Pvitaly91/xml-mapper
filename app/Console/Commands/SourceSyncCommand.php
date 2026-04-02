@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Ops\ResolveDueSourceConnectionsAction;
 use App\Jobs\SyncSourceJob;
 use App\Models\SourceConnection;
+use App\Services\Ops\ProcessLockService;
 use Illuminate\Console\Command;
 
 class SourceSyncCommand extends Command
@@ -12,9 +14,9 @@ class SourceSyncCommand extends Command
 
     protected $description = 'Sync source feed XML from Prom.';
 
-    public function handle(): int
+    public function handle(ResolveDueSourceConnectionsAction $resolveDueSourceConnections, ProcessLockService $lockService): int
     {
-        $connections = $this->resolveConnections();
+        $connections = $this->resolveConnections($resolveDueSourceConnections);
 
         if ($connections->isEmpty()) {
             $this->warn('No source connections found for sync.');
@@ -24,10 +26,21 @@ class SourceSyncCommand extends Command
 
         foreach ($connections as $connection) {
             if ($this->option('queue')) {
-                SyncSourceJob::dispatch($connection->id);
+                $dispatchOwner = $lockService->acquireDispatchLock(
+                    $lockService->sourceSyncKey($connection->id),
+                    (int) config('feed_mediator.locks.dispatch_ttl_seconds')
+                );
+
+                if ($dispatchOwner === null) {
+                    $this->warn("Skipped source sync for connection #{$connection->id}: already queued.");
+
+                    continue;
+                }
+
+                SyncSourceJob::dispatch($connection->id, (bool) $this->option('due'), $dispatchOwner);
                 $this->line("Queued source sync for connection #{$connection->id}.");
             } else {
-                SyncSourceJob::dispatchSync($connection->id);
+                SyncSourceJob::dispatchSync($connection->id, (bool) $this->option('due'));
                 $this->line("Synced source connection #{$connection->id}.");
             }
         }
@@ -35,13 +48,14 @@ class SourceSyncCommand extends Command
         return self::SUCCESS;
     }
 
-    private function resolveConnections()
+    private function resolveConnections(ResolveDueSourceConnectionsAction $resolveDueSourceConnections)
     {
+        if ($this->option('due')) {
+            return $resolveDueSourceConnections->handle(null, $this->argument('sourceConnectionId') ? (int) $this->argument('sourceConnectionId') : null);
+        }
+
         return SourceConnection::query()
             ->when($this->argument('sourceConnectionId'), fn ($query, $id) => $query->whereKey($id))
-            ->when($this->option('due'), fn ($query) => $query->where('status', SourceConnection::STATUS_ACTIVE)->where(function ($innerQuery): void {
-                $innerQuery->whereNull('next_sync_at')->orWhere('next_sync_at', '<=', now());
-            }))
             ->orderBy('id')
             ->get();
     }

@@ -25,6 +25,7 @@ class AdminPageRenderingTest extends TestCase
         $this->actingAs($admin)->get(route('admin.source-connections.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.feed-profiles.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.dictionaries.index'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.dictionary-imports.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.dictionaries.categories'))->assertOk();
         $this->actingAs($admin)->get(route('admin.feed-profiles.category-mappings.index', $feedProfile))->assertOk();
         $this->actingAs($admin)->get(route('admin.feed-profiles.attribute-mappings.index', ['feed_profile' => $feedProfile, 'source_category_id' => $sourceCategory->id]))->assertOk();

@@ -33,7 +33,7 @@
             <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
             <a href="{{ route('admin.source-connections.index') }}" class="{{ request()->routeIs('admin.source-connections.*') ? 'active' : '' }}">Source Connections</a>
             <a href="{{ route('admin.feed-profiles.index') }}" class="{{ request()->routeIs('admin.feed-profiles.*') ? 'active' : '' }}">Feed Profiles</a>
-            <a href="{{ route('admin.dictionaries.index') }}" class="{{ request()->routeIs('admin.dictionaries.*') ? 'active' : '' }}">Kasta Dictionaries</a>
+            <a href="{{ route('admin.dictionaries.index') }}" class="{{ request()->routeIs('admin.dictionaries.*') || request()->routeIs('admin.dictionary-imports.*') ? 'active' : '' }}">Kasta Dictionaries</a>
         </nav>
         <div class="meta">
             @if(auth()->user())

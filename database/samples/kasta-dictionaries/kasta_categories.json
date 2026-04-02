@@ -1,0 +1,35 @@
+[
+  {
+    "external_id": "KASTA-TSHIRTS",
+    "parent_external_id": null,
+    "name": "T-Shirts",
+    "full_path": "Apparel > T-Shirts",
+    "rz_id": "2001",
+    "is_active": true,
+    "metadata": {
+      "department": "apparel"
+    }
+  },
+  {
+    "external_id": "KASTA-SHOES",
+    "parent_external_id": null,
+    "name": "Shoes",
+    "full_path": "Apparel > Shoes",
+    "rz_id": "3001",
+    "is_active": true,
+    "metadata": {
+      "department": "apparel"
+    }
+  },
+  {
+    "external_id": "KASTA-SNEAKERS",
+    "parent_external_id": "KASTA-SHOES",
+    "name": "Sneakers",
+    "full_path": "Apparel > Shoes > Sneakers",
+    "rz_id": "3002",
+    "is_active": true,
+    "metadata": {
+      "department": "footwear"
+    }
+  }
+]

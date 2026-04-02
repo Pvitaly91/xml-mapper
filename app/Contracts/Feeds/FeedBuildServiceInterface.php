@@ -7,5 +7,5 @@ use App\Models\FeedProfile;
 
 interface FeedBuildServiceInterface
 {
-    public function build(FeedProfile $feedProfile): FeedGeneration;
+    public function build(FeedProfile $feedProfile, ?int $sourceImportId = null): FeedGeneration;
 }

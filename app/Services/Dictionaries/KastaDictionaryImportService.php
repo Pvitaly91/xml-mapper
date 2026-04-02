@@ -2,241 +2,317 @@
 
 namespace App\Services\Dictionaries;
 
+use App\Contracts\Dictionaries\DictionaryReaderInterface;
+use App\Contracts\Dictionaries\DictionaryTypeImporterInterface;
 use App\Contracts\Dictionaries\KastaDictionaryImportServiceInterface;
-use App\Models\KastaAttribute;
-use App\Models\KastaAttributeValue;
-use App\Models\KastaCategory;
-use App\Models\Shop;
-use App\Models\SizeGrid;
-use App\Support\Canonicalizer;
+use App\Data\Dictionaries\DictionaryImportOptions;
+use App\Models\DictionaryImport;
+use App\Services\Dictionaries\Importers\KastaAttributesDictionaryImporter;
+use App\Services\Dictionaries\Importers\KastaAttributeValuesDictionaryImporter;
+use App\Services\Dictionaries\Importers\KastaCategoriesDictionaryImporter;
+use App\Services\Dictionaries\Importers\SizeGridsDictionaryImporter;
+use App\Services\Dictionaries\Readers\CsvDictionaryReader;
+use App\Services\Dictionaries\Readers\JsonDictionaryReader;
+use App\Services\Ops\ProcessLockService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class KastaDictionaryImportService implements KastaDictionaryImportServiceInterface
 {
-    public function import(?string $directory = null): array
+    /**
+     * @var array<string, DictionaryReaderInterface>
+     */
+    private array $readers;
+
+    /**
+     * @var array<string, DictionaryTypeImporterInterface>
+     */
+    private array $importers;
+
+    public function __construct(
+        JsonDictionaryReader $jsonReader,
+        CsvDictionaryReader $csvReader,
+        KastaCategoriesDictionaryImporter $categoriesImporter,
+        KastaAttributesDictionaryImporter $attributesImporter,
+        KastaAttributeValuesDictionaryImporter $attributeValuesImporter,
+        SizeGridsDictionaryImporter $sizeGridsImporter,
+        private readonly ProcessLockService $lockService,
+    ) {
+        $this->readers = [
+            $jsonReader->format() => $jsonReader,
+            $csvReader->format() => $csvReader,
+        ];
+
+        $this->importers = [
+            $categoriesImporter->type() => $categoriesImporter,
+            $attributesImporter->type() => $attributesImporter,
+            $attributeValuesImporter->type() => $attributeValuesImporter,
+            $sizeGridsImporter->type() => $sizeGridsImporter,
+        ];
+    }
+
+    public function import(DictionaryImportOptions $options): DictionaryImport
+    {
+        $sourcePath = $this->resolveSourcePath($options);
+        $format = $this->resolveFormat($options, $sourcePath);
+        $checksum = hash_file('sha256', $sourcePath);
+
+        if (! is_string($checksum)) {
+            throw new RuntimeException(sprintf('Unable to calculate checksum for [%s].', $sourcePath));
+        }
+
+        $storedPath = $this->storeSourceFile(
+            $sourcePath,
+            $options->type,
+            $checksum,
+            $format,
+            $options->originalFilename ?? basename($sourcePath)
+        );
+
+        return $this->lockService->runExclusive(
+            $this->lockService->dictionaryImportKey($options->type, $checksum),
+            (int) config('feed_mediator.locks.dictionary_import_ttl_seconds'),
+            'Dictionary import for this file is already in progress.',
+            function () use ($options, $format, $checksum, $storedPath, $sourcePath): DictionaryImport {
+                if (! $options->dryRun && ! $options->allowDuplicateChecksum) {
+                    $duplicate = DictionaryImport::query()
+                        ->where('type', $options->type)
+                        ->where('checksum', $checksum)
+                        ->where('dry_run', false)
+                        ->where('status', DictionaryImport::STATUS_COMPLETED)
+                        ->latest('id')
+                        ->first();
+
+                    if ($duplicate instanceof DictionaryImport) {
+                        return DictionaryImport::create([
+                            'type' => $options->type,
+                            'source_path' => $storedPath,
+                            'original_filename' => $options->originalFilename ?? basename($sourcePath),
+                            'source_format' => $format,
+                            'checksum' => $checksum,
+                            'rows_total' => $duplicate->rows_total,
+                            'created_count' => 0,
+                            'updated_count' => 0,
+                            'skipped_count' => $duplicate->rows_total,
+                            'deactivated_count' => 0,
+                            'dry_run' => false,
+                            'status' => DictionaryImport::STATUS_SKIPPED,
+                            'started_at' => now(),
+                            'finished_at' => now(),
+                            'metadata' => [
+                                'duplicate_of_import_id' => $duplicate->id,
+                                'deactivate_missing' => $options->deactivateMissing,
+                            ],
+                            'initiated_by_user_id' => $options->initiatedByUserId,
+                        ]);
+                    }
+                }
+
+                $import = DictionaryImport::create([
+                    'type' => $options->type,
+                    'source_path' => $storedPath,
+                    'original_filename' => $options->originalFilename ?? basename($sourcePath),
+                    'source_format' => $format,
+                    'checksum' => $checksum,
+                    'dry_run' => $options->dryRun,
+                    'status' => DictionaryImport::STATUS_RUNNING,
+                    'started_at' => now(),
+                    'metadata' => [
+                        'deactivate_missing' => $options->deactivateMissing,
+                        'provided_source_path' => $sourcePath,
+                    ],
+                    'initiated_by_user_id' => $options->initiatedByUserId,
+                ]);
+
+                try {
+                    $reader = $this->readerFor($format);
+                    $importer = $this->importerFor($options->type);
+                    $absoluteStoredPath = Storage::disk(config('feed_mediator.storage_disk'))->path($storedPath);
+                    $execute = fn () => $importer->import($reader->read($absoluteStoredPath), $options);
+                    $result = $options->dryRun ? $execute() : DB::transaction($execute);
+
+                    $import->update([
+                        'rows_total' => $result->rowsTotal,
+                        'created_count' => $result->createdCount,
+                        'updated_count' => $result->updatedCount,
+                        'skipped_count' => $result->skippedCount,
+                        'deactivated_count' => $result->deactivatedCount,
+                        'status' => DictionaryImport::STATUS_COMPLETED,
+                        'finished_at' => now(),
+                        'error_summary' => null,
+                        'metadata' => array_merge($import->metadata ?? [], $result->metadata),
+                    ]);
+
+                    return $import->refresh();
+                } catch (Throwable $exception) {
+                    $import->update([
+                        'status' => DictionaryImport::STATUS_FAILED,
+                        'finished_at' => now(),
+                        'error_summary' => $exception->getMessage(),
+                    ]);
+
+                    throw $exception;
+                }
+            }
+        );
+    }
+
+    public function reimportLatest(string $type, bool $dryRun = false, bool $deactivateMissing = false, ?int $initiatedByUserId = null): DictionaryImport
+    {
+        $latest = DictionaryImport::query()
+            ->where('type', $type)
+            ->where('status', '!=', DictionaryImport::STATUS_RUNNING)
+            ->latest('id')
+            ->first();
+
+        if (! $latest instanceof DictionaryImport) {
+            throw new RuntimeException(sprintf('No previous dictionary import found for type [%s].', $type));
+        }
+
+        return $this->import(new DictionaryImportOptions(
+            type: $type,
+            filePath: Storage::disk(config('feed_mediator.storage_disk'))->path($latest->source_path),
+            format: $latest->source_format,
+            dryRun: $dryRun,
+            deactivateMissing: $deactivateMissing,
+            allowDuplicateChecksum: true,
+            initiatedByUserId: $initiatedByUserId,
+            originalFilename: $latest->original_filename,
+        ));
+    }
+
+    public function importBundle(?string $directory = null, ?int $initiatedByUserId = null): array
     {
         $directory ??= (string) config('feed_mediator.kasta_dictionary_stub_path');
+        $summary = [
+            'categories' => 0,
+            'attributes' => 0,
+            'attribute_values' => 0,
+            'size_grids' => 0,
+        ];
 
-        if (! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Dictionary directory [%s] does not exist.', $directory));
-        }
+        foreach ($this->legacyBundleFileMap() as $type => $filename) {
+            $path = rtrim($directory, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$filename;
 
-        $categories = $this->readJson($directory.'/categories.json');
-        $attributes = $this->readJson($directory.'/attributes.json');
-        $attributeValues = $this->readJson($directory.'/attribute_values.json');
-        $sizeGrids = $this->readJson($directory.'/size_grids.json');
-
-        return DB::transaction(function () use ($categories, $attributes, $attributeValues, $sizeGrids): array {
-            $categoryMap = $this->importCategories($categories);
-            $attributeMap = $this->importAttributes($attributes, $categoryMap);
-            $this->importAttributeValues($attributeValues, $attributeMap);
-            $this->importSizeGrids($sizeGrids);
-
-            return [
-                'categories' => count($categories),
-                'attributes' => count($attributes),
-                'attribute_values' => count($attributeValues),
-                'size_grids' => count($sizeGrids),
-            ];
-        });
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $payload
-     * @return array<string, KastaCategory>
-     */
-    private function importCategories(array $payload): array
-    {
-        foreach ($payload as $row) {
-            $category = KastaCategory::updateOrCreate(
-                ['external_id' => (string) $this->required($row, 'external_id')],
-                [
-                    'name' => (string) $this->required($row, 'name'),
-                    'full_path' => $this->nullableString($row['full_path'] ?? null),
-                    'rz_id' => $this->nullableString($row['rz_id'] ?? null),
-                    'is_active' => (bool) ($row['is_active'] ?? true),
-                    'metadata' => is_array($row['metadata'] ?? null) ? $row['metadata'] : null,
-                ]
-            );
-
-            $category->parent_id = null;
-            $category->save();
-        }
-
-        $map = KastaCategory::query()->get()->keyBy('external_id')->all();
-
-        foreach ($payload as $row) {
-            $externalId = (string) $this->required($row, 'external_id');
-            $parentExternalId = $this->nullableString($row['parent_external_id'] ?? null);
-            $category = $map[$externalId];
-
-            $category->parent_id = $parentExternalId && isset($map[$parentExternalId])
-                ? $map[$parentExternalId]->id
-                : null;
-            $category->full_path = $this->nullableString($row['full_path'] ?? null)
-                ?? $this->buildCategoryPath($category, $map);
-            $category->save();
-
-            $map[$externalId] = $category->fresh();
-        }
-
-        return $map;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $payload
-     * @param  array<string, KastaCategory>  $categoryMap
-     * @return array<string, KastaAttribute>
-     */
-    private function importAttributes(array $payload, array $categoryMap): array
-    {
-        $map = [];
-
-        foreach ($payload as $row) {
-            $categoryExternalId = (string) $this->required($row, 'kasta_category_external_id');
-
-            if (! isset($categoryMap[$categoryExternalId])) {
-                throw new RuntimeException(sprintf('Unknown category external ID [%s] for attribute import.', $categoryExternalId));
+            if (! is_file($path)) {
+                continue;
             }
 
-            $attribute = KastaAttribute::updateOrCreate(
-                [
-                    'kasta_category_id' => $categoryMap[$categoryExternalId]->id,
-                    'code' => (string) $this->required($row, 'code'),
-                ],
-                [
-                    'external_id' => $this->nullableString($row['external_id'] ?? null),
-                    'name' => (string) $this->required($row, 'name'),
-                    'data_type' => (string) ($row['data_type'] ?? 'string'),
-                    'is_required' => (bool) ($row['is_required'] ?? false),
-                    'allows_custom_value' => (bool) ($row['allows_custom_value'] ?? true),
-                    'sort_order' => (int) ($row['sort_order'] ?? 0),
-                ]
-            );
+            $import = $this->import(new DictionaryImportOptions(
+                type: $type,
+                filePath: $path,
+                format: 'json',
+                initiatedByUserId: $initiatedByUserId,
+            ));
 
-            $map[$categoryExternalId.'|'.$attribute->code] = $attribute;
+            $summary[$this->summaryKey($type)] = $import->rows_total;
         }
 
-        return $map;
+        return $summary;
     }
 
-    /**
-     * @param  array<int, array<string, mixed>>  $payload
-     * @param  array<string, KastaAttribute>  $attributeMap
-     */
-    private function importAttributeValues(array $payload, array $attributeMap): void
+    public function supportedTypes(): array
     {
-        foreach ($payload as $row) {
-            $categoryExternalId = (string) $this->required($row, 'kasta_category_external_id');
-            $attributeCode = (string) $this->required($row, 'kasta_attribute_code');
-            $value = (string) $this->required($row, 'value');
-            $key = $categoryExternalId.'|'.$attributeCode;
+        return array_keys($this->importers);
+    }
 
-            if (! isset($attributeMap[$key])) {
-                throw new RuntimeException(sprintf('Unknown attribute [%s] in category [%s] for value import.', $attributeCode, $categoryExternalId));
+    public function supportedFormats(): array
+    {
+        return array_keys($this->readers);
+    }
+
+    public function sampleFileFor(string $type, string $format = 'json'): string
+    {
+        return rtrim((string) config('feed_mediator.kasta_dictionary_sample_path'), DIRECTORY_SEPARATOR)
+            .DIRECTORY_SEPARATOR
+            .$type.'.'.$format;
+    }
+
+    private function resolveSourcePath(DictionaryImportOptions $options): string
+    {
+        $path = $options->filePath ?: $this->sampleFileFor($options->type, $options->format ?: 'json');
+
+        if (! is_file($path)) {
+            throw new RuntimeException(sprintf('Dictionary source file [%s] does not exist.', $path));
+        }
+
+        return $path;
+    }
+
+    private function resolveFormat(DictionaryImportOptions $options, string $sourcePath): string
+    {
+        $format = $options->format ?: strtolower((string) pathinfo($sourcePath, PATHINFO_EXTENSION));
+
+        if (! isset($this->readers[$format])) {
+            throw new RuntimeException(sprintf('Unsupported dictionary format [%s].', $format));
+        }
+
+        return $format;
+    }
+
+    private function readerFor(string $format): DictionaryReaderInterface
+    {
+        return $this->readers[$format];
+    }
+
+    private function importerFor(string $type): DictionaryTypeImporterInterface
+    {
+        if (! isset($this->importers[$type])) {
+            throw new RuntimeException(sprintf('Unsupported dictionary type [%s].', $type));
+        }
+
+        return $this->importers[$type];
+    }
+
+    private function storeSourceFile(string $sourcePath, string $type, string $checksum, string $format, string $originalFilename): string
+    {
+        $disk = Storage::disk(config('feed_mediator.storage_disk'));
+        $slug = Str::slug(pathinfo($originalFilename, PATHINFO_FILENAME));
+        $slug = $slug !== '' ? $slug : $type;
+        $relativePath = trim((string) config('feed_mediator.kasta_dictionary_storage_directory'), '/')
+            .'/'.$type.'/'.now()->format('Y/m/d').'/'.$slug.'-'.$checksum.'.'.$format;
+
+        if (! $disk->exists($relativePath)) {
+            $stream = fopen($sourcePath, 'rb');
+
+            if ($stream === false) {
+                throw new RuntimeException(sprintf('Unable to open source file [%s].', $sourcePath));
             }
 
-            KastaAttributeValue::updateOrCreate(
-                [
-                    'kasta_attribute_id' => $attributeMap[$key]->id,
-                    'value_hash' => Canonicalizer::fingerprint($value),
-                ],
-                [
-                    'external_id' => $this->nullableString($row['external_id'] ?? null),
-                    'value' => $value,
-                    'normalized_value' => Canonicalizer::normalizeText(mb_strtolower($value)),
-                    'sort_order' => (int) ($row['sort_order'] ?? 0),
-                ]
-            );
-        }
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $payload
-     */
-    private function importSizeGrids(array $payload): void
-    {
-        foreach ($payload as $row) {
-            $shopSlug = $this->nullableString($row['shop_slug'] ?? null);
-            $shopId = $shopSlug ? Shop::query()->where('slug', $shopSlug)->value('id') : null;
-
-            SizeGrid::updateOrCreate(
-                [
-                    'shop_id' => $shopId,
-                    'code' => (string) $this->required($row, 'code'),
-                ],
-                [
-                    'name' => (string) $this->required($row, 'name'),
-                    'schema' => is_array($row['schema'] ?? null) ? $row['schema'] : null,
-                    'is_active' => (bool) ($row['is_active'] ?? true),
-                ]
-            );
-        }
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function readJson(string $path): array
-    {
-        if (! file_exists($path)) {
-            return [];
-        }
-
-        $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-
-        if (! is_array($decoded)) {
-            throw new RuntimeException(sprintf('Dictionary file [%s] must decode into an array.', $path));
-        }
-
-        return $decoded;
-    }
-
-    /**
-     * @param  array<string, mixed>  $row
-     */
-    private function required(array $row, string $key): mixed
-    {
-        $value = $row[$key] ?? null;
-
-        if ($value === null || $value === '') {
-            throw new RuntimeException(sprintf('Dictionary row is missing required key [%s].', $key));
-        }
-
-        return $value;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        return Canonicalizer::normalizeText((string) $value);
-    }
-
-    /**
-     * @param  array<string, KastaCategory>  $categoryMap
-     */
-    private function buildCategoryPath(KastaCategory $category, array $categoryMap): string
-    {
-        $segments = [$category->name];
-        $seen = [$category->external_id => true];
-        $parentId = $category->parent_id;
-
-        while ($parentId !== null) {
-            $parent = collect($categoryMap)->first(fn (KastaCategory $candidate) => $candidate->id === $parentId);
-
-            if ($parent === null || isset($seen[$parent->external_id])) {
-                break;
+            try {
+                $disk->put($relativePath, $stream);
+            } finally {
+                fclose($stream);
             }
-
-            $seen[$parent->external_id] = true;
-            array_unshift($segments, $parent->name);
-            $parentId = $parent->parent_id;
         }
 
-        return implode(' > ', $segments);
+        return $relativePath;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function legacyBundleFileMap(): array
+    {
+        return [
+            DictionaryImport::TYPE_KASTA_CATEGORIES => 'categories.json',
+            DictionaryImport::TYPE_KASTA_ATTRIBUTES => 'attributes.json',
+            DictionaryImport::TYPE_KASTA_ATTRIBUTE_VALUES => 'attribute_values.json',
+            DictionaryImport::TYPE_SIZE_GRIDS => 'size_grids.json',
+        ];
+    }
+
+    private function summaryKey(string $type): string
+    {
+        return match ($type) {
+            DictionaryImport::TYPE_KASTA_CATEGORIES => 'categories',
+            DictionaryImport::TYPE_KASTA_ATTRIBUTES => 'attributes',
+            DictionaryImport::TYPE_KASTA_ATTRIBUTE_VALUES => 'attribute_values',
+            DictionaryImport::TYPE_SIZE_GRIDS => 'size_grids',
+            default => throw new RuntimeException(sprintf('Unsupported dictionary type [%s].', $type)),
+        };
     }
 }
