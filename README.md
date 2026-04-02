@@ -21,6 +21,8 @@ The application stores normalized source data locally, validates exportability, 
 - feed profile CRUD, build, publish and public feed endpoint
 - category, attribute and value mappings
 - feed item workflow and revalidation
+- Kasta export conformance layer with diagnostics, XML preview and generation diff
+- publish guardrails and pilot-readiness checks on feed profiles
 - dual source drivers via `source_connections.driver`:
   - `prom_yml`
   - `prom_api`
@@ -223,6 +225,97 @@ The sync workflow is:
 
 Build, publish and sync execution are protected with distributed cache locks. Build is idempotent for the same `source_import_id`, and publish is idempotent for an already published generation with an existing public file.
 
+## Kasta Export Conformance
+
+Build now evaluates every `feed_item` through three explicit layers:
+
+- source validation
+- mapping completeness
+- export conformance
+
+Resulting item statuses:
+
+- `pending`
+- `invalid_source`
+- `invalid_mapping`
+- `invalid_conformance`
+- `ready`
+- `excluded`
+- `published`
+
+The conformance layer checks:
+
+- category mapping exists
+- required Kasta attributes for the mapped category are satisfied
+- missing attribute mapping vs missing value mapping vs missing source value are separated
+- vendor, article, color and size are normalized centrally
+- pictures satisfy `minimum_pictures` and remain valid URLs
+- export key stability is preserved through the existing stable offer ID pipeline
+
+## Feed Item Diagnostics
+
+`/admin/feed-profiles/{profile}/feed-items/{item}` now shows:
+
+- source product and source variant snapshots
+- normalized export snapshot
+- mapped category
+- mapped attributes and value resolution
+- required attribute diagnostics
+- XML preview fragment for the future Kasta-ready offer
+- active validation/conformance errors
+
+Operator-facing diagnostics distinguish:
+
+- missing category mapping
+- missing attribute mapping
+- missing value mapping
+- missing required source value
+- invalid color/size
+- missing images
+
+## Feed Profile Export Settings
+
+`/admin/feed-profiles/{profile}/edit` exposes export-specific settings on top of the existing profile settings JSON:
+
+- `publish_guard_enabled`
+- `minimum_ready_items`
+- `maximum_invalid_ratio`
+- `block_publish_on_critical_conformance`
+- `minimum_pictures`
+- existing `include_unavailable`, `currency`, `language`
+
+These settings are stored in `feed_profiles.settings`.
+
+## Publish Guard And Diff
+
+Every built generation stores summary metadata and a diff against the latest published generation:
+
+- added items
+- removed items
+- changed items
+- changed fields for `price`, `availability`, `categoryId`, `vendorCode`
+
+Publish guardrails can block publication when:
+
+- ready items are below the configured threshold
+- invalid ratio exceeds the configured maximum
+- critical conformance errors remain in the built generation
+
+Admin can still force publish manually when an operator intentionally overrides the guard.
+
+## Pilot Workflow
+
+Recommended first pilot run:
+
+1. Sync the source connection.
+2. Import Kasta dictionaries.
+3. Complete category, attribute and value mappings.
+4. Open the feed profile and review `Pilot Readiness`.
+5. Build the generation.
+6. Review generation summary, diff and blocked reasons.
+7. Inspect a few feed-item diagnostics and XML previews.
+8. Publish normally, or force publish only after confirming the risks.
+
 ## Dictionary Import
 
 Legacy sample-bundle import remains available for local dev:
@@ -288,6 +381,14 @@ Prom API handling localizes uncertain contract details in the adapter/client lay
 4. The documented read payload does not expose arbitrary custom product attributes. The importer maps documented product fields like presence, status, measure unit, category and SKU into normalized source attributes.
 5. If vendor/brand is missing in the read payload, the importer uses `options.default_vendor`; if it is not set, it falls back to the shop name so the feed validation pipeline can stay operational.
 
+Kasta export assumptions:
+
+1. Stable offer IDs remain the authoritative export key; the new conformance layer does not replace the existing stable offer ID pipeline.
+2. Article normalization removes internal whitespace and uppercases the value before export diagnostics.
+3. Color normalization keeps the human-readable text but canonicalizes case/spacing for comparisons.
+4. Size normalization uppercases the display value for stable comparison.
+5. Required-attribute enforcement is driven from imported Kasta dictionaries, not hardcoded in Blade or controllers.
+
 ## Troubleshooting Prom API
 
 Auth failures:
@@ -307,6 +408,12 @@ Import / payload errors:
 - inspect the latest `source_imports.meta`
 - inspect the cached raw snapshot in `storage/app/imports/prom/...`
 - compare payload shape against [Prom public API docs](https://public-api.docs.prom.ua/)
+
+Export / conformance errors:
+
+- open the feed-item details page and review `Operator Summary`, `Required Attribute Diagnostics` and `Normalized Export Snapshot`
+- filter `/admin/feed-profiles/{profile}/feed-items` by missing mapping, missing value mapping, missing images, or invalid color/size
+- open the feed profile and review `Pilot Readiness`, generation diff, and publish-guard reasons before publishing
 
 ## Production Basics
 

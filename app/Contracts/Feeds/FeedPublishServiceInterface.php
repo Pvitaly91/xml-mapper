@@ -7,5 +7,5 @@ use App\Models\FeedProfile;
 
 interface FeedPublishServiceInterface
 {
-    public function publish(FeedProfile $feedProfile, ?FeedGeneration $generation = null): FeedGeneration;
+    public function publish(FeedProfile $feedProfile, ?FeedGeneration $generation = null, bool $force = false): FeedGeneration;
 }

@@ -15,11 +15,12 @@ use RuntimeException;
 class FeedPublishService implements FeedPublishServiceInterface
 {
     public function __construct(
+        private readonly FeedPublishGuardService $publishGuardService,
         private readonly ProcessLockService $lockService,
     ) {
     }
 
-    public function publish(FeedProfile $feedProfile, ?FeedGeneration $generation = null): FeedGeneration
+    public function publish(FeedProfile $feedProfile, ?FeedGeneration $generation = null, bool $force = false): FeedGeneration
     {
         $generation ??= $this->resolveGeneration($feedProfile);
 
@@ -39,12 +40,12 @@ class FeedPublishService implements FeedPublishServiceInterface
                 $this->lockService->feedPublishGenerationKey($generation->id),
                 (int) config('feed_mediator.locks.feed_publish_ttl_seconds'),
                 'Feed publish is already in progress for this generation.',
-                fn (): FeedGeneration => $this->publishGeneration($feedProfile->fresh(), $generation->fresh())
+                fn (): FeedGeneration => $this->publishGeneration($feedProfile->fresh(), $generation->fresh(), $force)
             )
         );
     }
 
-    private function publishGeneration(FeedProfile $feedProfile, FeedGeneration $generation): FeedGeneration
+    private function publishGeneration(FeedProfile $feedProfile, FeedGeneration $generation, bool $force): FeedGeneration
     {
         $disk = Storage::disk(config('feed_mediator.storage_disk'));
 
@@ -64,14 +65,26 @@ class FeedPublishService implements FeedPublishServiceInterface
             throw new RuntimeException(sprintf('Feed build file [%s] does not exist.', $generation->file_path));
         }
 
+        $guard = $this->publishGuardService->evaluate($feedProfile, $generation);
+
+        if (! $force && ! $guard['allowed']) {
+            throw new RuntimeException('Publish blocked: '.implode(' ', $guard['reasons']));
+        }
+
         $publishedPath = trim(config('feed_mediator.published_directory'), '/').'/'.$feedProfile->public_token.'.xml';
         $disk->copy($generation->file_path, $publishedPath);
         $publishedAt = now();
+        $meta = $generation->meta ?? [];
+        $meta['publish_guard'] = array_merge($guard, [
+            'forced' => $force,
+            'published_at' => $publishedAt->toIso8601String(),
+        ]);
 
         $generation->update([
             'status' => FeedGeneration::STATUS_PUBLISHED,
             'published_at' => $publishedAt,
             'published_path' => $publishedPath,
+            'meta' => $meta,
         ]);
 
         $feedProfile->update([
@@ -101,12 +114,14 @@ class FeedPublishService implements FeedPublishServiceInterface
             ]);
 
             $feedItem->update([
+                'status' => FeedItem::STATUS_PUBLISHED,
                 'last_exported_at' => $publishedAt,
             ]);
         }
 
         $this->log($feedProfile, $generation, 'info', 'feed.published', 'Feed XML published.', [
             'published_path' => $publishedPath,
+            'forced' => $force,
         ]);
 
         return $generation->refresh();

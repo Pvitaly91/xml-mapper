@@ -2,8 +2,6 @@
 
 namespace App\Services\Validation;
 
-use App\Contracts\Mappings\AttributeMappingServiceInterface;
-use App\Contracts\Mappings\CategoryMappingServiceInterface;
 use App\Contracts\Validation\ValidationServiceInterface;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
@@ -14,12 +12,6 @@ use App\Support\Canonicalizer;
 
 class ValidationService implements ValidationServiceInterface
 {
-    public function __construct(
-        private readonly CategoryMappingServiceInterface $categoryMappingService,
-        private readonly AttributeMappingServiceInterface $attributeMappingService,
-    ) {
-    }
-
     public function validate(
         FeedProfile $feedProfile,
         SourceProduct $product,
@@ -38,8 +30,15 @@ class ValidationService implements ValidationServiceInterface
             $product->primary_image_url,
         ]);
 
-        if ($images === []) {
-            $errors[] = $this->error(ValidationError::CODE_MISSING_PHOTO, 'Variant has no images.');
+        if (count($images) < $feedProfile->minimumPictures()) {
+            $errors[] = $this->error(
+                ValidationError::CODE_MISSING_PHOTO,
+                sprintf('Variant has fewer than %d image(s).', $feedProfile->minimumPictures()),
+                [
+                    'minimum_pictures' => $feedProfile->minimumPictures(),
+                    'current_pictures' => count($images),
+                ]
+            );
         }
 
         if (blank($product->vendor) && blank($product->brand)) {
@@ -48,39 +47,6 @@ class ValidationService implements ValidationServiceInterface
 
         if (blank($product->article)) {
             $errors[] = $this->error(ValidationError::CODE_MISSING_ARTICLE, 'Article is required for variant grouping.');
-        }
-
-        $categoryMapping = $this->categoryMappingService->resolve($feedProfile, $product->sourceCategory);
-
-        if ($categoryMapping === null || $categoryMapping->kastaCategory === null) {
-            $errors[] = $this->error(ValidationError::CODE_MISSING_CATEGORY_MAPPING, 'Category mapping is missing.');
-        } else {
-            $missingRequiredMappings = $this->attributeMappingService->missingRequiredMappings(
-                $feedProfile,
-                $product,
-                $categoryMapping->kastaCategory
-            );
-
-            if ($missingRequiredMappings !== []) {
-                $errors[] = $this->error(
-                    ValidationError::CODE_MISSING_REQUIRED_ATTRIBUTE_MAPPING,
-                    'Required Kasta attribute mappings are missing.',
-                    ['missing_attributes' => $missingRequiredMappings]
-                );
-            }
-        }
-
-        $duplicateStableOfferId = SourceVariant::query()
-            ->where('shop_id', $variant->shop_id)
-            ->where('stable_offer_id', $variant->stable_offer_id)
-            ->whereKeyNot($variant->id)
-            ->exists();
-
-        if ($duplicateStableOfferId || ($variant->published_export_key_hash !== null && $variant->published_export_key_hash !== $variant->export_key_hash)) {
-            $errors[] = $this->error(
-                ValidationError::CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID,
-                'Offer ID is duplicated or export keys changed after publication.'
-            );
         }
 
         return $errors;

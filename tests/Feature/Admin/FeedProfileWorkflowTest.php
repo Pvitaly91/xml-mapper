@@ -31,7 +31,12 @@ class FeedProfileWorkflowTest extends TestCase
                 'include_unavailable' => '1',
                 'auto_sync' => '1',
                 'auto_build' => '1',
+                'publish_guard_enabled' => '1',
+                'block_publish_on_critical_conformance' => '1',
                 'build_interval_minutes' => 30,
+                'minimum_ready_items' => 10,
+                'maximum_invalid_ratio' => 0.15,
+                'minimum_pictures' => 2,
                 'settings_json' => json_encode(['channel' => 'main'], JSON_THROW_ON_ERROR),
             ])
             ->assertRedirect();
@@ -47,6 +52,10 @@ class FeedProfileWorkflowTest extends TestCase
                 'currency' => 'UAH',
                 'language' => 'uk',
                 'build_interval_minutes' => 45,
+                'publish_guard_enabled' => '1',
+                'minimum_ready_items' => 5,
+                'maximum_invalid_ratio' => 0.25,
+                'minimum_pictures' => 3,
                 'settings_json' => json_encode(['channel' => 'secondary'], JSON_THROW_ON_ERROR),
             ])
             ->assertRedirect(route('admin.feed-profiles.show', $feedProfile));
@@ -57,6 +66,14 @@ class FeedProfileWorkflowTest extends TestCase
             'status' => FeedProfile::STATUS_INACTIVE,
             'build_interval_minutes' => 45,
         ]);
+        $this->assertSame([
+            'channel' => 'secondary',
+            'publish_guard_enabled' => true,
+            'minimum_ready_items' => 5,
+            'maximum_invalid_ratio' => 0.25,
+            'block_publish_on_critical_conformance' => false,
+            'minimum_pictures' => 3,
+        ], $feedProfile->fresh()->settings);
     }
 
     public function test_admin_can_build_and_publish_feed_profile_manually(): void

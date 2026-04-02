@@ -20,7 +20,7 @@ class FeedPublishController extends AdminController
                 ? FeedGeneration::query()->where('feed_profile_id', $feedProfile->id)->findOrFail($request->integer('generation_id'))
                 : null;
 
-            $published = $action->handle($feedProfile, $generation);
+            $published = $action->handle($feedProfile, $generation, $request->boolean('force_publish'));
         } catch (Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }

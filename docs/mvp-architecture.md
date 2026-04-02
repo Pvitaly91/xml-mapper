@@ -13,7 +13,7 @@
 
 ## Runtime Flow
 
-`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `FeedBuildService` -> `FeedGeneration` build file -> `FeedPublishService` -> stable `/feeds/{token}.xml`
+`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `KastaExportConformanceService` -> `FeedItemDiagnosticsService` -> `FeedBuildService` -> `FeedGeneration` build file + diff/guard meta -> `FeedPublishService` -> stable `/feeds/{token}.xml`
 
 Driver paths:
 
@@ -32,6 +32,16 @@ Prom API connection lifecycle:
 - `source:test` or admin `Test connection` updates last check status/message
 - sync updates last sync status/message/summary
 - broken active Prom API auth is surfaced in dashboard and `/health`
+
+Feed-item export lifecycle:
+
+- `ValidationService` handles source-level completeness
+- `KastaExportConformanceService` handles Kasta category requirements, value mapping completeness, field normalization, image validity and export-key stability
+- `FeedItemDiagnosticsService` resolves the final item status and operator-facing diagnostics payload
+- `KastaExportXmlService` renders the offer fragment used by both generation build and item preview
+- `FeedGenerationDiffService` compares the built generation with the latest published generation
+- `FeedPublishGuardService` blocks publish when profile thresholds or critical conformance rules fail
+- `FeedPilotReadinessService` summarizes whether the operator can safely run the first pilot publish
 
 ## Background Orchestration
 
@@ -98,6 +108,14 @@ Prom API assumptions:
 - documented read payload does not expose arbitrary custom attributes, so normalized source attributes are derived from documented product fields
 - if vendor/brand is absent, `options.default_vendor` or the shop name is used as the fallback brand source
 
+Kasta export assumptions:
+
+- stable offer IDs remain authoritative; export conformance does not replace the existing offer ID pipeline
+- required attributes come from imported Kasta dictionaries
+- missing attribute mapping, missing value mapping and missing source value are tracked separately for operators
+- color and size normalization is centralized and reused in diagnostics plus XML preview
+- publish readiness depends on generation summary, diff and guard metadata stored on `feed_generations.meta`
+
 ## Dictionary Import Architecture
 
 The dictionary subsystem is file-driven and split into parsing and persistence:
@@ -140,6 +158,13 @@ app/
     Importers/
     Readers/
   Services/Feeds/
+    FeedGenerationDiffService.php
+    FeedItemDiagnosticsService.php
+    FeedPilotReadinessService.php
+    FeedPublishGuardService.php
+    KastaExportConformanceService.php
+    KastaExportFieldNormalizer.php
+    KastaExportXmlService.php
   Services/Ops/
   Services/Source/
     Drivers/

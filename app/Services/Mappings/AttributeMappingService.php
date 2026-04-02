@@ -27,21 +27,10 @@ class AttributeMappingService implements AttributeMappingServiceInterface
         SourceVariant $variant,
         ?KastaCategory $kastaCategory = null
     ): array {
-        $mappings = $this->resolveMappings($feedProfile, $product, $kastaCategory);
-        $resolved = [];
-
-        foreach ($mappings as $mapping) {
-            $sourceValue = $this->extractSourceValue($mapping->sourceAttribute, $product, $variant, $mapping->use_variant_value);
-            $targetValue = $this->valueMappingService->mapValue($mapping, $sourceValue);
-
-            if ($targetValue === null || $mapping->kastaAttribute === null) {
-                continue;
-            }
-
-            $resolved[$mapping->kastaAttribute->code] = $targetValue;
-        }
-
-        return $resolved;
+        return $this->resolveMappingRows($feedProfile, $product, $variant, $kastaCategory)
+            ->filter(fn (array $row) => $row['mapped_value'] !== null)
+            ->mapWithKeys(fn (array $row) => [$row['kasta_attribute_code'] => $row['mapped_value']])
+            ->all();
     }
 
     public function missingRequiredMappings(
@@ -67,6 +56,44 @@ class AttributeMappingService implements AttributeMappingServiceInterface
             ->reject(fn (string $code, int $id) => in_array($id, $mappedAttributeIds, true))
             ->values()
             ->all();
+    }
+
+    public function resolveMappingRows(
+        FeedProfile $feedProfile,
+        SourceProduct $product,
+        SourceVariant $variant,
+        ?KastaCategory $kastaCategory = null
+    ): Collection {
+        return $this->resolveMappings($feedProfile, $product, $kastaCategory)
+            ->map(function (AttributeMapping $mapping) use ($product, $variant): ?array {
+                if ($mapping->sourceAttribute === null || $mapping->kastaAttribute === null) {
+                    return null;
+                }
+
+                $sourceValue = $this->extractSourceValue($mapping->sourceAttribute, $product, $variant, $mapping->use_variant_value);
+                $resolution = $this->valueMappingService->resolveValue($mapping, $sourceValue);
+
+                return [
+                    'mapping' => $mapping,
+                    'source_attribute_name' => $mapping->sourceAttribute->name,
+                    'source_attribute_code' => $mapping->sourceAttribute->code,
+                    'source_value' => $resolution['source_value'],
+                    'kasta_attribute_name' => $mapping->kastaAttribute->name,
+                    'kasta_attribute_code' => $mapping->kastaAttribute->code,
+                    'kasta_attribute_id' => $mapping->kastaAttribute->id,
+                    'mapped_value' => $resolution['mapped_value'],
+                    'resolution' => $resolution['resolution'],
+                    'allows_custom_value' => (bool) $mapping->kastaAttribute->allows_custom_value,
+                    'default_value' => $mapping->default_value,
+                    'use_variant_value' => (bool) $mapping->use_variant_value,
+                    'has_value_mapping' => $mapping->valueMappings->isNotEmpty(),
+                    'used_value_mapping' => $resolution['used_value_mapping'],
+                    'used_default' => $resolution['used_default'],
+                    'used_custom_value' => $resolution['used_custom_value'],
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     /**

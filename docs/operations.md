@@ -128,6 +128,19 @@ The endpoint becomes degraded when:
 
 The endpoint returns `setup_required` when the database connection is available but required application tables are still missing.
 
+## Pilot Publish Checklist
+
+Before the first real Kasta publish for a feed profile:
+
+1. Run `php artisan source:test {sourceConnectionId}` if the source uses Prom API.
+2. Run `php artisan source:sync {sourceConnectionId}` and confirm the latest import is `normalized`.
+3. Import or refresh Kasta dictionaries.
+4. Open the feed profile and check `Pilot Readiness`.
+5. Build the generation.
+6. Review the generation diff, ready/invalid/excluded counts, and publish-guard reasons.
+7. Open several feed-item diagnostics pages and confirm required attributes, XML preview, images, vendor code, color and size.
+8. Publish normally. Use force publish only after confirming the blocked reasons are understood and accepted.
+
 ## Failed Jobs
 
 Inspect:
@@ -143,6 +156,14 @@ Prom API troubleshooting:
 3. If status is `rate_limited` or `remote_error`, inspect Laravel logs for `prom_api.request` metadata.
 4. If sync fails with `invalid_payload`, inspect the cached raw snapshot in `storage/app/imports/prom/...` and compare it with [Prom public API docs](https://public-api.docs.prom.ua/).
 5. In admin and `/health`, watch `broken_prom_api_connections_count` and the latest connection-check message.
+
+Export troubleshooting:
+
+1. If build completes with too many invalid items, open `/admin/feed-profiles/{profile}` and review `Pilot Readiness`.
+2. Use feed-item filters for missing category mapping, missing attribute mapping, missing value mapping, missing images, or invalid color/size.
+3. On an item details page, read `Operator Summary`, `Required Attribute Diagnostics`, `Normalized Export Snapshot` and `XML Preview`.
+4. If publish is blocked, compare `minimum_ready_items`, `maximum_invalid_ratio` and `block_publish_on_critical_conformance` with the current generation summary.
+5. Force publish only when the operator intentionally accepts the remaining risks.
 
 Retry selected jobs:
 

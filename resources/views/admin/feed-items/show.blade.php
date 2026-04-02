@@ -1,6 +1,6 @@
 @extends('layouts.admin', ['title' => 'Feed Item #'.$feedItem->id])
 
-@section('subtitle', 'Snapshots, mapped data, active validation errors and manual override controls.')
+@section('subtitle', 'Source snapshots, export diagnostics, XML preview, active validation errors, and manual override controls.')
 
 @section('content')
     <section class="panel">
@@ -23,7 +23,8 @@
             <div class="detail-row"><strong>Enabled</strong><div>{{ $feedItem->is_enabled ? 'Yes' : 'No' }}</div></div>
             <div class="detail-row"><strong>Manual override</strong><div>{{ $feedItem->is_manual_override ? 'Yes' : 'No' }}</div></div>
             <div class="detail-row"><strong>Excluded reason</strong><div>{{ $feedItem->excluded_reason ?: 'n/a' }}</div></div>
-            <div class="detail-row"><strong>Mapped category</strong><div>{{ $mappedCategory?->full_path ?: $mappedCategory?->name ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Mapped category</strong><div>{{ $mappedCategory['full_path'] ?? $mappedCategory['name'] ?? 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Last exported at</strong><div>{{ optional($feedItem->last_exported_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
         </div>
     </section>
 
@@ -48,6 +49,24 @@
         </section>
 
         <section class="panel">
+            <h2>Operator Summary</h2>
+            @if($diagnostics)
+                <p>{{ $diagnostics['diagnostics_summary']['operator_summary']['headline'] ?? 'n/a' }}</p>
+                @if(! empty($diagnostics['diagnostics_summary']['operator_summary']['missing_required_attributes']))
+                    <ul>
+                        @foreach($diagnostics['diagnostics_summary']['operator_summary']['missing_required_attributes'] as $issue)
+                            <li>{{ $issue['attribute_name'] }}: {{ $issue['message'] }}</li>
+                        @endforeach
+                    </ul>
+                @endif
+            @else
+                <p class="muted">Diagnostics are not available.</p>
+            @endif
+        </section>
+    </div>
+
+    <div class="grid cols-2">
+        <section class="panel">
             <h2>Validation Errors</h2>
             @if($feedItem->activeValidationErrors->isEmpty())
                 <p class="muted">No active validation errors.</p>
@@ -59,13 +78,37 @@
                 </ul>
             @endif
         </section>
+
+        <section class="panel">
+            <h2>Required Attribute Diagnostics</h2>
+            @if($diagnostics && ! empty($diagnostics['required_attribute_diagnostics']))
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Attribute</th><th>Status</th><th>Failure type</th><th>Source value</th><th>Mapped value</th></tr></thead>
+                        <tbody>
+                        @foreach($diagnostics['required_attribute_diagnostics'] as $required)
+                            <tr>
+                                <td>{{ $required['attribute_name'] }}</td>
+                                <td>{{ $required['status'] }}</td>
+                                <td>{{ $required['failure_type'] ?: 'ok' }}</td>
+                                <td>{{ $required['source_value'] ?: 'n/a' }}</td>
+                                <td>{{ $required['mapped_value'] ?: 'n/a' }}</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <p class="muted">No required attribute diagnostics.</p>
+            @endif
+        </section>
     </div>
 
     <section class="panel">
         <h2>Mapped Attributes / Values</h2>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Source attribute</th><th>Source value</th><th>Kasta attribute</th><th>Mapped value</th></tr></thead>
+                <thead><tr><th>Source attribute</th><th>Source value</th><th>Kasta attribute</th><th>Mapped value</th><th>Resolution</th></tr></thead>
                 <tbody>
                 @forelse($attributeRows as $row)
                     <tr>
@@ -73,14 +116,30 @@
                         <td>{{ $row['source_value'] ?: 'n/a' }}</td>
                         <td>{{ $row['kasta_attribute'] }}</td>
                         <td>{{ $row['target_value'] ?: 'n/a' }}</td>
+                        <td>{{ $row['resolution'] }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="muted">No resolved attribute mappings.</td></tr>
+                    <tr><td colspan="5" class="muted">No resolved attribute mappings.</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
     </section>
+
+    <div class="grid cols-2">
+        <section class="panel">
+            <h2>Normalized Export Snapshot</h2>
+            <pre>{{ json_encode($diagnostics['normalized_export_snapshot'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+        </section>
+        <section class="panel">
+            <h2>XML Preview</h2>
+            @if($xmlPreview)
+                <pre>{{ $xmlPreview }}</pre>
+            @else
+                <p class="muted">Preview is unavailable until category mapping and export snapshot are complete.</p>
+            @endif
+        </section>
+    </div>
 
     <div class="grid cols-2">
         <section class="panel">

@@ -42,6 +42,11 @@ class FeedProfileRequest extends FormRequest
             'auto_sync' => ['nullable', 'boolean'],
             'auto_build' => ['nullable', 'boolean'],
             'build_interval_minutes' => ['required', 'integer', 'min:1', 'max:10080'],
+            'publish_guard_enabled' => ['nullable', 'boolean'],
+            'minimum_ready_items' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'maximum_invalid_ratio' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'block_publish_on_critical_conformance' => ['nullable', 'boolean'],
+            'minimum_pictures' => ['nullable', 'integer', 'min:1', 'max:50'],
             'settings_json' => ['nullable', 'json'],
         ];
     }

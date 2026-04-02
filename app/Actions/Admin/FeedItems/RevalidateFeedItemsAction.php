@@ -2,18 +2,15 @@
 
 namespace App\Actions\Admin\FeedItems;
 
-use App\Contracts\Mappings\CategoryMappingServiceInterface;
-use App\Contracts\Validation\ValidationServiceInterface;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
-use App\Support\Canonicalizer;
+use App\Services\Feeds\FeedItemDiagnosticsService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 class RevalidateFeedItemsAction
 {
     public function __construct(
-        private readonly ValidationServiceInterface $validationService,
-        private readonly CategoryMappingServiceInterface $categoryMappingService,
+        private readonly FeedItemDiagnosticsService $diagnosticsService,
     ) {
     }
 
@@ -38,26 +35,8 @@ class RevalidateFeedItemsAction
                 return;
             }
 
-            $errors = $this->validationService->validate($feedProfile, $product, $variant, $feedItem);
-            $this->validationService->syncValidationState($feedProfile, $feedItem, $product, $variant, $errors);
-
-            $feedItem->last_validation_hash = Canonicalizer::fingerprint($errors);
-
-            if (! $variant->is_enabled || ! $feedItem->is_enabled) {
-                $feedItem->status = FeedItem::STATUS_EXCLUDED;
-                $feedItem->excluded_reason = $feedItem->excluded_reason ?: 'Feed item is manually excluded.';
-            } elseif ($errors !== []) {
-                $feedItem->status = FeedItem::STATUS_INVALID;
-                $feedItem->excluded_reason = null;
-            } elseif ($this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory) === null) {
-                $feedItem->status = FeedItem::STATUS_INVALID;
-                $feedItem->excluded_reason = null;
-            } else {
-                $feedItem->status = FeedItem::STATUS_READY;
-                $feedItem->excluded_reason = null;
-            }
-
-            $feedItem->save();
+            $analysis = $this->diagnosticsService->analyze($feedProfile, $product, $variant, $feedItem);
+            $this->diagnosticsService->syncState($feedProfile, $feedItem, $product, $variant, $analysis);
             $count++;
         });
 

@@ -1,6 +1,6 @@
 @extends('layouts.admin', ['title' => 'Feed Items'])
 
-@section('subtitle', 'Inspect validation state, manually include/exclude items and trigger revalidation.')
+@section('subtitle', 'Inspect diagnostics, filter pilot blockers, manage include/exclude overrides, and trigger revalidation.')
 
 @section('content')
     <section class="panel">
@@ -17,10 +17,9 @@
                 <label for="status">Status</label>
                 <select id="status" name="status">
                     <option value="">Any</option>
-                    <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>Pending</option>
-                    <option value="ready" @selected(($filters['status'] ?? '') === 'ready')>Ready</option>
-                    <option value="invalid" @selected(($filters['status'] ?? '') === 'invalid')>Invalid</option>
-                    <option value="excluded" @selected(($filters['status'] ?? '') === 'excluded')>Excluded</option>
+                    @foreach(\App\Models\FeedItem::allStatuses() as $status)
+                        <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ ucfirst(str_replace('_', ' ', $status)) }}</option>
+                    @endforeach
                 </select>
             </div>
             <div class="field">
@@ -54,6 +53,15 @@
             <div class="field"><label for="vendor">Vendor</label><input id="vendor" name="vendor" value="{{ $filters['vendor'] ?? '' }}"></div>
             <div class="field"><label for="article">Article</label><input id="article" name="article" value="{{ $filters['article'] ?? '' }}"></div>
             <div class="field">
+                <label for="diagnostic">Diagnostic</label>
+                <select id="diagnostic" name="diagnostic">
+                    <option value="">Any</option>
+                    @foreach($diagnosticOptions as $value => $label)
+                        <option value="{{ $value }}" @selected(($filters['diagnostic'] ?? '') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="field">
                 <label for="validation_code">Validation code</label>
                 <select id="validation_code" name="validation_code">
                     <option value="">Any</option>
@@ -84,15 +92,20 @@
 
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th></th><th>Status</th><th>Product</th><th>Variant</th><th>Categories</th><th>Validation</th><th></th></tr></thead>
+                    <thead><tr><th></th><th>Status</th><th>Product</th><th>Variant</th><th>Categories</th><th>Diagnostics</th><th></th></tr></thead>
                     <tbody>
                     @forelse($items as $item)
                         @php($sourceCategory = $item->sourceProduct?->sourceCategory)
                         @php($mapping = $mappingMap->get($sourceCategory?->id))
+                        @php($badgeClass = match($item->status) {
+                            'ready', 'published' => 'ok',
+                            'excluded' => 'warn',
+                            default => 'err',
+                        })
                         <tr>
                             <td><input type="checkbox" name="feed_item_ids[]" value="{{ $item->id }}"></td>
                             <td>
-                                <span class="badge {{ $item->status === 'ready' ? 'ok' : ($item->status === 'invalid' ? 'err' : 'warn') }}">{{ $item->status }}</span><br>
+                                <span class="badge {{ $badgeClass }}">{{ $item->status }}</span><br>
                                 <span class="muted">{{ $item->is_enabled ? 'enabled' : 'disabled' }}</span>
                             </td>
                             <td>

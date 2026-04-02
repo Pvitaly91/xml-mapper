@@ -89,6 +89,35 @@ class PromApiImportWorkflowTest extends TestCase
             ->value('stable_offer_id'));
         $this->assertDatabaseCount('source_imports', 2);
 
+        SourceProduct::query()
+            ->where('source_connection_id', $connection->id)
+            ->update([
+                'vendor' => 'Prom Brand',
+                'brand' => 'Prom Brand',
+                'article' => 'PROM-ART-001',
+            ]);
+        SourceVariant::query()
+            ->where('source_connection_id', $connection->id)
+            ->where('external_offer_id', '5002')
+            ->update([
+                'color' => 'Red',
+                'size' => 'M',
+            ]);
+        SourceVariant::query()
+            ->where('source_connection_id', $connection->id)
+            ->where('external_offer_id', '5001')
+            ->update([
+                'color' => 'Black',
+                'size' => 'S',
+            ]);
+        SourceVariant::query()
+            ->where('source_connection_id', $connection->id)
+            ->where('external_offer_id', '5003')
+            ->update([
+                'color' => 'White',
+                'size' => '42',
+            ]);
+
         $feedProfile = $this->createFeedProfile($connection, $admin, [
             'code' => 'prom-api-feed',
             'status' => FeedProfile::STATUS_ACTIVE,

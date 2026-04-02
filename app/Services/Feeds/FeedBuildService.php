@@ -3,17 +3,12 @@
 namespace App\Services\Feeds;
 
 use App\Contracts\Feeds\FeedBuildServiceInterface;
-use App\Contracts\Mappings\AttributeMappingServiceInterface;
-use App\Contracts\Mappings\CategoryMappingServiceInterface;
-use App\Contracts\Validation\ValidationServiceInterface;
 use App\Models\FeedGeneration;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
-use App\Models\SourceProduct;
 use App\Models\SourceVariant;
 use App\Models\SyncLog;
 use App\Services\Ops\ProcessLockService;
-use App\Support\Canonicalizer;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -22,9 +17,10 @@ use XMLWriter;
 class FeedBuildService implements FeedBuildServiceInterface
 {
     public function __construct(
-        private readonly CategoryMappingServiceInterface $categoryMappingService,
-        private readonly AttributeMappingServiceInterface $attributeMappingService,
-        private readonly ValidationServiceInterface $validationService,
+        private readonly FeedItemDiagnosticsService $diagnosticsService,
+        private readonly KastaExportXmlService $xmlService,
+        private readonly FeedGenerationDiffService $diffService,
+        private readonly FeedPublishGuardService $publishGuardService,
         private readonly ProcessLockService $lockService,
     ) {
     }
@@ -36,7 +32,7 @@ class FeedBuildService implements FeedBuildServiceInterface
             (int) config('feed_mediator.locks.feed_build_ttl_seconds'),
             'Feed build is already in progress for this profile.',
             function () use ($feedProfile, $sourceImportId): FeedGeneration {
-                $feedProfile->loadMissing(['shop', 'sourceConnection']);
+                $feedProfile = $feedProfile->fresh(['shop', 'sourceConnection', 'publishedGeneration']) ?? $feedProfile->loadMissing(['shop', 'sourceConnection', 'publishedGeneration']);
 
                 if ($sourceImportId !== null) {
                     $existingGeneration = $feedProfile->generations()
@@ -63,6 +59,12 @@ class FeedBuildService implements FeedBuildServiceInterface
                     $itemsTotal = 0;
                     $validItems = 0;
                     $invalidItems = 0;
+                    $excludedItems = 0;
+                    $statusCounters = [
+                        FeedItem::STATUS_INVALID_SOURCE => 0,
+                        FeedItem::STATUS_INVALID_MAPPING => 0,
+                        FeedItem::STATUS_INVALID_CONFORMANCE => 0,
+                    ];
 
                     SourceVariant::query()
                         ->with(['product.sourceCategory'])
@@ -77,18 +79,14 @@ class FeedBuildService implements FeedBuildServiceInterface
                             &$usedCategories,
                             &$itemsTotal,
                             &$validItems,
-                            &$invalidItems
+                            &$invalidItems,
+                            &$excludedItems,
+                            &$statusCounters
                         ): void {
                             foreach ($variants as $variant) {
                                 $product = $variant->product;
 
                                 if ($product === null || ! $product->is_active) {
-                                    continue;
-                                }
-
-                                if (! $feedProfile->include_unavailable && ! $variant->is_available) {
-                                    $this->upsertExcludedFeedItem($feedProfile, $generation, $product->id, $variant->id, 'Variant is unavailable.');
-
                                     continue;
                                 }
 
@@ -114,49 +112,61 @@ class FeedBuildService implements FeedBuildServiceInterface
                                     'last_built_generation_id' => $generation->id,
                                 ]);
 
-                                $errors = $this->validationService->validate($feedProfile, $product, $variant, $feedItem);
-                                $this->validationService->syncValidationState($feedProfile, $feedItem, $product, $variant, $errors);
-                                $feedItem->last_validation_hash = Canonicalizer::fingerprint($errors);
+                                $analysis = $this->diagnosticsService->analyze($feedProfile, $product, $variant, $feedItem);
+                                $feedItem = $this->diagnosticsService->syncState(
+                                    $feedProfile,
+                                    $feedItem,
+                                    $product,
+                                    $variant,
+                                    $analysis,
+                                    $generation->id
+                                );
 
-                                if (! $feedItem->is_enabled) {
-                                    $feedItem->status = FeedItem::STATUS_EXCLUDED;
-                                    $feedItem->excluded_reason = $feedItem->excluded_reason ?: 'Feed item is manually disabled.';
-                                    $feedItem->save();
+                                if ($feedItem->status === FeedItem::STATUS_EXCLUDED) {
+                                    $excludedItems++;
 
                                     continue;
                                 }
 
-                                if ($errors !== []) {
-                                    $feedItem->status = FeedItem::STATUS_INVALID;
-                                    $feedItem->excluded_reason = null;
-                                    $feedItem->save();
+                                if (in_array($feedItem->status, FeedItem::invalidStatuses(), true)) {
                                     $invalidItems++;
+                                    $statusCounters[$feedItem->status]++;
 
                                     continue;
                                 }
-
-                                $mappedCategory = $this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory);
-
-                                if ($mappedCategory === null) {
-                                    $feedItem->status = FeedItem::STATUS_INVALID;
-                                    $feedItem->save();
-                                    $invalidItems++;
-
-                                    continue;
-                                }
-
-                                $feedItem->status = FeedItem::STATUS_READY;
-                                $feedItem->excluded_reason = null;
-                                $feedItem->save();
 
                                 $validFeedItemIds[] = $feedItem->id;
-                                $usedCategories[$mappedCategory->external_id] = $mappedCategory->name;
+                                $usedCategories[$analysis['normalized_export_snapshot']['category_id']] = $analysis['normalized_export_snapshot']['category_name'];
                                 $validItems++;
                             }
                         });
 
                     $path = $this->buildXmlFile($feedProfile, $generation, $validFeedItemIds, $usedCategories);
                     $builtAt = now();
+                    $checksum = hash_file('sha256', Storage::disk(config('feed_mediator.storage_disk'))->path($path)) ?: null;
+
+                    $generation->forceFill([
+                        'items_total' => $itemsTotal,
+                        'valid_items_total' => $validItems,
+                        'invalid_items_total' => $invalidItems,
+                        'file_path' => $path,
+                        'checksum' => $checksum,
+                    ]);
+
+                    $summary = [
+                        'total' => $itemsTotal,
+                        'ready' => $validItems,
+                        'published' => 0,
+                        'excluded' => $excludedItems,
+                        'invalid_total' => $invalidItems,
+                        'invalid_source' => $statusCounters[FeedItem::STATUS_INVALID_SOURCE],
+                        'invalid_mapping' => $statusCounters[FeedItem::STATUS_INVALID_MAPPING],
+                        'invalid_conformance' => $statusCounters[FeedItem::STATUS_INVALID_CONFORMANCE],
+                    ];
+
+                    $generation->meta = ['summary' => $summary];
+                    $diff = $this->diffService->summarize($feedProfile->publishedGeneration, $generation);
+                    $guard = $this->publishGuardService->evaluate($feedProfile, $generation);
 
                     $generation->update([
                         'status' => FeedGeneration::STATUS_BUILT,
@@ -164,9 +174,14 @@ class FeedBuildService implements FeedBuildServiceInterface
                         'valid_items_total' => $validItems,
                         'invalid_items_total' => $invalidItems,
                         'file_path' => $path,
-                        'checksum' => hash_file('sha256', Storage::disk(config('feed_mediator.storage_disk'))->path($path)) ?: null,
+                        'checksum' => $checksum,
                         'built_at' => $builtAt,
                         'error_message' => null,
+                        'meta' => [
+                            'summary' => $summary,
+                            'diff' => $diff,
+                            'publish_guard' => $guard,
+                        ],
                     ]);
 
                     $feedProfile->update([
@@ -178,6 +193,7 @@ class FeedBuildService implements FeedBuildServiceInterface
                         'file_path' => $path,
                         'valid_items' => $validItems,
                         'invalid_items' => $invalidItems,
+                        'excluded_items' => $excludedItems,
                     ]);
 
                     return $generation->refresh();
@@ -233,9 +249,13 @@ class FeedBuildService implements FeedBuildServiceInterface
         $writer->startElement('categories');
 
         foreach ($usedCategories as $categoryId => $categoryName) {
+            if (blank($categoryId)) {
+                continue;
+            }
+
             $writer->startElement('category');
             $writer->writeAttribute('id', (string) $categoryId);
-            $writer->text($categoryName);
+            $writer->text((string) $categoryName);
             $writer->endElement();
         }
 
@@ -256,14 +276,19 @@ class FeedBuildService implements FeedBuildServiceInterface
                             continue;
                         }
 
-                        $mappedCategory = $this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory);
+                        $analysis = $this->diagnosticsService->analyze($feedProfile, $product, $variant, $feedItem);
 
-                        if ($mappedCategory === null) {
+                        if ($analysis['status'] !== FeedItem::STATUS_READY) {
                             continue;
                         }
 
-                        $mappedAttributes = $this->attributeMappingService->resolveMappedAttributes($feedProfile, $product, $variant, $mappedCategory);
-                        $this->writeOffer($writer, $variant, $product, $mappedCategory->external_id, $mappedAttributes);
+                        $snapshot = $analysis['normalized_export_snapshot'];
+
+                        if (blank($snapshot['category_id'] ?? null)) {
+                            continue;
+                        }
+
+                        $this->xmlService->writeOffer($writer, $snapshot);
                     }
                 });
         }
@@ -275,66 +300,6 @@ class FeedBuildService implements FeedBuildServiceInterface
         $writer->flush();
 
         return $relativePath;
-    }
-
-    /**
-     * @param  array<string, string>  $mappedAttributes
-     */
-    private function writeOffer(XMLWriter $writer, SourceVariant $variant, SourceProduct $product, string $categoryExternalId, array $mappedAttributes): void
-    {
-        $writer->startElement('offer');
-        $writer->writeAttribute('id', $variant->stable_offer_id);
-        $writer->writeAttribute('available', $variant->is_available ? 'true' : 'false');
-        $writer->writeElement('name', $variant->title ?: $product->name);
-        $writer->writeElement('price', number_format((float) $variant->price, 2, '.', ''));
-        $writer->writeElement('currencyId', $variant->currency ?: 'UAH');
-        $writer->writeElement('categoryId', $categoryExternalId);
-
-        if (! blank($product->vendor)) {
-            $writer->writeElement('vendor', $product->vendor);
-        }
-
-        if (! blank($product->article)) {
-            $writer->writeElement('vendorCode', $product->article);
-        }
-
-        foreach (Canonicalizer::uniqueNonEmpty([
-            ...($variant->images_json ?? []),
-            ...($product->images_json ?? []),
-            $product->primary_image_url,
-        ]) as $image) {
-            $writer->writeElement('picture', $image);
-        }
-
-        if (! blank($product->description)) {
-            $writer->writeElement('description', $product->description);
-        }
-
-        foreach ($mappedAttributes as $attributeCode => $value) {
-            $writer->startElement('param');
-            $writer->writeAttribute('name', $attributeCode);
-            $writer->text($value);
-            $writer->endElement();
-        }
-
-        $writer->endElement();
-    }
-
-    private function upsertExcludedFeedItem(FeedProfile $feedProfile, FeedGeneration $generation, int $productId, int $variantId, string $reason): void
-    {
-        FeedItem::updateOrCreate(
-            [
-                'feed_profile_id' => $feedProfile->id,
-                'source_variant_id' => $variantId,
-            ],
-            [
-                'shop_id' => $feedProfile->shop_id,
-                'source_product_id' => $productId,
-                'last_built_generation_id' => $generation->id,
-                'status' => FeedItem::STATUS_EXCLUDED,
-                'excluded_reason' => $reason,
-            ]
-        );
     }
 
     private function log(FeedProfile $feedProfile, FeedGeneration $generation, string $level, string $event, string $message, array $context = []): void

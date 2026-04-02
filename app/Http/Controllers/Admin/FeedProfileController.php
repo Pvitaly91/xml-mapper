@@ -8,6 +8,7 @@ use App\Models\FeedItem;
 use App\Models\FeedProfile;
 use App\Models\SourceConnection;
 use App\Models\ValidationError;
+use App\Services\Feeds\FeedPilotReadinessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -60,10 +61,11 @@ class FeedProfileController extends AdminController
             ->with('status', 'Feed profile created.');
     }
 
-    public function show(Request $request, FeedProfile $feedProfile): View
+    public function show(Request $request, FeedProfile $feedProfile, FeedPilotReadinessService $pilotReadinessService): View
     {
         $this->ensureShopOwned($request, $feedProfile);
         $feedProfile->load(['sourceConnection', 'publishedGeneration', 'latestGeneration']);
+        $pilotReadiness = $pilotReadinessService->summarize($feedProfile);
 
         return view('admin.feed-profiles.show', [
             'feedProfile' => $feedProfile,
@@ -71,7 +73,8 @@ class FeedProfileController extends AdminController
             'feedItemStats' => [
                 'total' => FeedItem::query()->where('feed_profile_id', $feedProfile->id)->count(),
                 'ready' => FeedItem::query()->where('feed_profile_id', $feedProfile->id)->where('status', FeedItem::STATUS_READY)->count(),
-                'invalid' => FeedItem::query()->where('feed_profile_id', $feedProfile->id)->where('status', FeedItem::STATUS_INVALID)->count(),
+                'published' => FeedItem::query()->where('feed_profile_id', $feedProfile->id)->where('status', FeedItem::STATUS_PUBLISHED)->count(),
+                'invalid' => FeedItem::query()->where('feed_profile_id', $feedProfile->id)->whereIn('status', FeedItem::invalidStatuses())->count(),
                 'excluded' => FeedItem::query()->where('feed_profile_id', $feedProfile->id)->where('status', FeedItem::STATUS_EXCLUDED)->count(),
             ],
             'activeValidationErrors' => ValidationError::query()
@@ -79,6 +82,7 @@ class FeedProfileController extends AdminController
                 ->where('is_active', true)
                 ->count(),
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
+            'pilotReadiness' => $pilotReadiness,
         ]);
     }
 

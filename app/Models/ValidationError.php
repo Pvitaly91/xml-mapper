@@ -16,6 +16,13 @@ class ValidationError extends Model
     public const CODE_MISSING_ARTICLE = 'missing_article';
     public const CODE_MISSING_CATEGORY_MAPPING = 'missing_category_mapping';
     public const CODE_MISSING_REQUIRED_ATTRIBUTE_MAPPING = 'missing_required_attribute_mapping';
+    public const CODE_MISSING_REQUIRED_ATTRIBUTE_VALUE = 'missing_required_attribute_value';
+    public const CODE_MISSING_VALUE_MAPPING = 'missing_value_mapping';
+    public const CODE_INVALID_VENDOR = 'invalid_vendor';
+    public const CODE_INVALID_ARTICLE = 'invalid_article';
+    public const CODE_INVALID_COLOR = 'invalid_color';
+    public const CODE_INVALID_SIZE = 'invalid_size';
+    public const CODE_INVALID_IMAGE_URL = 'invalid_image_url';
     public const CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID = 'duplicated_or_unstable_offer_id';
 
     protected $fillable = [
@@ -66,5 +73,73 @@ class ValidationError extends Model
     public function feedItem(): BelongsTo
     {
         return $this->belongsTo(FeedItem::class);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function sourceCodes(): array
+    {
+        return [
+            self::CODE_MISSING_PRICE,
+            self::CODE_MISSING_PHOTO,
+            self::CODE_MISSING_VENDOR,
+            self::CODE_MISSING_ARTICLE,
+            self::CODE_MISSING_REQUIRED_ATTRIBUTE_VALUE,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function mappingCodes(): array
+    {
+        return [
+            self::CODE_MISSING_CATEGORY_MAPPING,
+            self::CODE_MISSING_REQUIRED_ATTRIBUTE_MAPPING,
+            self::CODE_MISSING_VALUE_MAPPING,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function conformanceCodes(): array
+    {
+        return [
+            self::CODE_INVALID_VENDOR,
+            self::CODE_INVALID_ARTICLE,
+            self::CODE_INVALID_COLOR,
+            self::CODE_INVALID_SIZE,
+            self::CODE_INVALID_IMAGE_URL,
+            self::CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function criticalConformanceCodes(): array
+    {
+        return [
+            self::CODE_INVALID_VENDOR,
+            self::CODE_INVALID_ARTICLE,
+            self::CODE_INVALID_COLOR,
+            self::CODE_INVALID_SIZE,
+            self::CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID,
+        ];
+    }
+
+    public static function scopeForCode(string $code): string
+    {
+        if (in_array($code, self::mappingCodes(), true)) {
+            return 'mapping';
+        }
+
+        if (in_array($code, self::conformanceCodes(), true)) {
+            return 'conformance';
+        }
+
+        return 'source';
     }
 }

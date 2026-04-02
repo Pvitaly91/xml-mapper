@@ -13,8 +13,8 @@ class PublishFeedProfileAction
     ) {
     }
 
-    public function handle(FeedProfile $feedProfile, ?FeedGeneration $generation = null): FeedGeneration
+    public function handle(FeedProfile $feedProfile, ?FeedGeneration $generation = null, bool $force = false): FeedGeneration
     {
-        return $this->feedPublishService->publish($feedProfile, $generation);
+        return $this->feedPublishService->publish($feedProfile, $generation, $force);
     }
 }

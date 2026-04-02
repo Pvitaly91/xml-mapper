@@ -4,17 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Admin\FeedItems\ManageFeedItemsAction;
 use App\Actions\Admin\FeedItems\OverrideFeedItemAction;
-use App\Contracts\Mappings\AttributeMappingServiceInterface;
-use App\Contracts\Mappings\CategoryMappingServiceInterface;
 use App\Http\Requests\Admin\FeedItems\FeedItemBulkActionRequest;
 use App\Http\Requests\Admin\FeedItems\FeedItemOverrideRequest;
-use App\Models\AttributeMapping;
 use App\Models\CategoryMapping;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
 use App\Models\SourceCategory;
 use App\Models\ValidationError;
-use App\Support\Canonicalizer;
+use App\Services\Feeds\FeedItemDiagnosticsService;
+use App\Services\Feeds\KastaExportXmlService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -25,6 +23,7 @@ class FeedItemController extends AdminController
     {
         $this->ensureShopOwned($request, $feedProfile);
 
+        $diagnosticCodes = $this->diagnosticFilterCodes($request->string('diagnostic')->toString());
         $query = FeedItem::query()
             ->with(['sourceProduct.sourceCategory', 'sourceVariant', 'activeValidationErrors'])
             ->where('feed_profile_id', $feedProfile->id)
@@ -41,6 +40,7 @@ class FeedItemController extends AdminController
             ->when($request->string('vendor')->toString(), fn ($builder, $vendor) => $builder->whereHas('sourceProduct', fn ($innerQuery) => $innerQuery->where('vendor', 'like', '%'.$vendor.'%')))
             ->when($request->string('article')->toString(), fn ($builder, $article) => $builder->whereHas('sourceProduct', fn ($innerQuery) => $innerQuery->where('article', 'like', '%'.$article.'%')))
             ->when($request->string('validation_code')->toString(), fn ($builder, $code) => $builder->whereHas('activeValidationErrors', fn ($innerQuery) => $innerQuery->where('code', $code)))
+            ->when($diagnosticCodes !== [], fn ($builder) => $builder->whereHas('activeValidationErrors', fn ($innerQuery) => $innerQuery->whereIn('code', $diagnosticCodes)))
             ->when($request->string('search')->toString(), function ($builder, $search): void {
                 $builder->where(function ($innerQuery) use ($search): void {
                     $innerQuery->whereHas('sourceProduct', fn ($productQuery) => $productQuery
@@ -69,7 +69,8 @@ class FeedItemController extends AdminController
             'sourceCategories' => SourceCategory::query()->where('source_connection_id', $feedProfile->source_connection_id)->orderBy('full_path')->get(),
             'mappedCategories' => CategoryMapping::query()->with('kastaCategory')->where('feed_profile_id', $feedProfile->id)->where('is_active', true)->get(),
             'validationCodes' => ValidationError::query()->where('feed_profile_id', $feedProfile->id)->distinct()->pluck('code'),
-            'filters' => $request->only(['status', 'enabled', 'source_category_id', 'mapped_category_id', 'vendor', 'article', 'validation_code', 'search']),
+            'diagnosticOptions' => $this->diagnosticOptions(),
+            'filters' => $request->only(['status', 'enabled', 'source_category_id', 'mapped_category_id', 'vendor', 'article', 'validation_code', 'diagnostic', 'search']),
         ]);
     }
 
@@ -77,25 +78,29 @@ class FeedItemController extends AdminController
         Request $request,
         FeedProfile $feedProfile,
         FeedItem $feedItem,
-        CategoryMappingServiceInterface $categoryMappingService,
-        AttributeMappingServiceInterface $attributeMappingService
+        FeedItemDiagnosticsService $diagnosticsService,
+        KastaExportXmlService $xmlService
     ): View {
         $this->ensureShopOwned($request, $feedProfile);
         abort_unless($feedItem->feed_profile_id === $feedProfile->id, 404);
 
         $feedItem->loadMissing(['sourceProduct.sourceCategory', 'sourceVariant', 'activeValidationErrors']);
 
-        $mappedCategory = $categoryMappingService->getMappedCategory($feedProfile, $feedItem->sourceProduct?->sourceCategory);
-        $resolvedAttributes = ($feedItem->sourceProduct !== null && $feedItem->sourceVariant !== null)
-            ? $attributeMappingService->resolveMappedAttributes($feedProfile, $feedItem->sourceProduct, $feedItem->sourceVariant, $mappedCategory)
-            : [];
+        $diagnostics = ($feedItem->sourceProduct !== null && $feedItem->sourceVariant !== null)
+            ? $diagnosticsService->analyze($feedProfile, $feedItem->sourceProduct, $feedItem->sourceVariant, $feedItem)
+            : null;
+        $xmlPreview = ($diagnostics !== null && ! blank($diagnostics['normalized_export_snapshot']['category_id'] ?? null))
+            ? $xmlService->renderOfferFragment($diagnostics['normalized_export_snapshot'])
+            : null;
 
         return view('admin.feed-items.show', [
             'feedProfile' => $feedProfile,
             'feedItem' => $feedItem,
-            'mappedCategory' => $mappedCategory,
-            'resolvedAttributes' => $resolvedAttributes,
-            'attributeRows' => $this->attributeRows($feedProfile, $feedItem),
+            'diagnostics' => $diagnostics,
+            'mappedCategory' => $diagnostics['mapped_category'] ?? null,
+            'resolvedAttributes' => $diagnostics['mapped_attributes'] ?? [],
+            'attributeRows' => $diagnostics['attribute_rows'] ?? [],
+            'xmlPreview' => $xmlPreview,
         ]);
     }
 
@@ -130,53 +135,33 @@ class FeedItemController extends AdminController
     }
 
     /**
-     * @return array<int, array{source_attribute:string,source_value:?string,kasta_attribute:string,target_value:?string}>
+     * @return array<string, string>
      */
-    private function attributeRows(FeedProfile $feedProfile, FeedItem $feedItem): array
+    private function diagnosticOptions(): array
     {
-        if ($feedItem->sourceProduct === null || $feedItem->sourceVariant === null) {
-            return [];
-        }
+        return [
+            'missing_category_mapping' => 'Missing category mapping',
+            'missing_attribute_mapping' => 'Missing attribute mapping',
+            'missing_value_mapping' => 'Missing value mapping',
+            'missing_required_attribute' => 'Missing required source value',
+            'invalid_color_size' => 'Invalid color or size',
+            'missing_images' => 'Missing images',
+        ];
+    }
 
-        $mappings = AttributeMapping::query()
-            ->with(['sourceAttribute', 'kastaAttribute', 'valueMappings.kastaAttributeValue'])
-            ->where('feed_profile_id', $feedProfile->id)
-            ->where(function ($query) use ($feedItem): void {
-                $query->whereNull('source_category_id')
-                    ->orWhere('source_category_id', $feedItem->sourceProduct->source_category_id);
-            })
-            ->orderBy('source_category_id')
-            ->orderBy('id')
-            ->get();
-
-        $rows = [];
-
-        foreach ($mappings as $mapping) {
-            if ($mapping->sourceAttribute === null || $mapping->kastaAttribute === null) {
-                continue;
-            }
-
-            $variantSnapshot = collect($feedItem->sourceVariant->attributes_snapshot ?? [])
-                ->mapWithKeys(fn ($value, $key) => [Canonicalizer::normalizeKey((string) $key) => is_array($value) ? implode(', ', $value) : (string) $value]);
-            $productSnapshot = collect($feedItem->sourceProduct->attributes_snapshot ?? [])
-                ->mapWithKeys(fn ($value, $key) => [Canonicalizer::normalizeKey((string) $key) => is_array($value) ? implode(', ', $value) : (string) $value]);
-
-            $sourceValue = $variantSnapshot->get(Canonicalizer::normalizeKey($mapping->sourceAttribute->code))
-                ?? $variantSnapshot->get(Canonicalizer::normalizeKey($mapping->sourceAttribute->name))
-                ?? $productSnapshot->get(Canonicalizer::normalizeKey($mapping->sourceAttribute->code))
-                ?? $productSnapshot->get(Canonicalizer::normalizeKey($mapping->sourceAttribute->name));
-
-            $normalized = Canonicalizer::normalizeText(mb_strtolower((string) $sourceValue));
-            $valueMapping = $mapping->valueMappings->first(fn ($candidate) => $candidate->normalized_source_value === $normalized);
-
-            $rows[] = [
-                'source_attribute' => $mapping->sourceAttribute->name,
-                'source_value' => Canonicalizer::normalizeText($sourceValue),
-                'kasta_attribute' => $mapping->kastaAttribute->name,
-                'target_value' => $valueMapping?->kastaAttributeValue?->value ?? $valueMapping?->target_value ?? $mapping->default_value,
-            ];
-        }
-
-        return $rows;
+    /**
+     * @return list<string>
+     */
+    private function diagnosticFilterCodes(?string $diagnostic): array
+    {
+        return match ($diagnostic) {
+            'missing_category_mapping' => [ValidationError::CODE_MISSING_CATEGORY_MAPPING],
+            'missing_attribute_mapping' => [ValidationError::CODE_MISSING_REQUIRED_ATTRIBUTE_MAPPING],
+            'missing_value_mapping' => [ValidationError::CODE_MISSING_VALUE_MAPPING],
+            'missing_required_attribute' => [ValidationError::CODE_MISSING_REQUIRED_ATTRIBUTE_VALUE],
+            'invalid_color_size' => [ValidationError::CODE_INVALID_COLOR, ValidationError::CODE_INVALID_SIZE],
+            'missing_images' => [ValidationError::CODE_MISSING_PHOTO],
+            default => [],
+        };
     }
 }

@@ -12,9 +12,12 @@ class FeedItem extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+    public const STATUS_INVALID_SOURCE = 'invalid_source';
+    public const STATUS_INVALID_MAPPING = 'invalid_mapping';
+    public const STATUS_INVALID_CONFORMANCE = 'invalid_conformance';
     public const STATUS_READY = 'ready';
-    public const STATUS_INVALID = 'invalid';
     public const STATUS_EXCLUDED = 'excluded';
+    public const STATUS_PUBLISHED = 'published';
 
     protected $attributes = [
         'status' => self::STATUS_PENDING,
@@ -78,5 +81,44 @@ class FeedItem extends Model
     public function activeValidationErrors(): HasMany
     {
         return $this->validationErrors()->where('is_active', true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function invalidStatuses(): array
+    {
+        return [
+            self::STATUS_INVALID_SOURCE,
+            self::STATUS_INVALID_MAPPING,
+            self::STATUS_INVALID_CONFORMANCE,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function exportableStatuses(): array
+    {
+        return [
+            self::STATUS_READY,
+            self::STATUS_PUBLISHED,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function allStatuses(): array
+    {
+        return [
+            self::STATUS_PENDING,
+            self::STATUS_INVALID_SOURCE,
+            self::STATUS_INVALID_MAPPING,
+            self::STATUS_INVALID_CONFORMANCE,
+            self::STATUS_READY,
+            self::STATUS_EXCLUDED,
+            self::STATUS_PUBLISHED,
+        ];
     }
 }

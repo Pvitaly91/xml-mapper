@@ -12,6 +12,16 @@ class UpsertFeedProfileAction
      */
     public function handle(User $user, array $payload, ?FeedProfile $feedProfile = null): FeedProfile
     {
+        $settings = array_merge($this->decodeJson($payload['settings_json'] ?? null) ?? [], [
+            'publish_guard_enabled' => (bool) ($payload['publish_guard_enabled'] ?? false),
+            'minimum_ready_items' => (int) ($payload['minimum_ready_items'] ?? 0),
+            'maximum_invalid_ratio' => array_key_exists('maximum_invalid_ratio', $payload) && $payload['maximum_invalid_ratio'] !== null && $payload['maximum_invalid_ratio'] !== ''
+                ? (float) $payload['maximum_invalid_ratio']
+                : 1,
+            'block_publish_on_critical_conformance' => (bool) ($payload['block_publish_on_critical_conformance'] ?? false),
+            'minimum_pictures' => max(1, (int) ($payload['minimum_pictures'] ?? 1)),
+        ]);
+
         $attributes = [
             'shop_id' => $user->shop_id,
             'user_id' => $user->id,
@@ -25,7 +35,7 @@ class UpsertFeedProfileAction
             'auto_sync' => (bool) ($payload['auto_sync'] ?? false),
             'auto_build' => (bool) ($payload['auto_build'] ?? false),
             'build_interval_minutes' => (int) $payload['build_interval_minutes'],
-            'settings' => $this->decodeJson($payload['settings_json'] ?? null),
+            'settings' => $settings,
         ];
 
         $feedProfile ??= new FeedProfile();

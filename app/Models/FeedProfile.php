@@ -123,4 +123,43 @@ class FeedProfile extends Model
     {
         return $this->hasOne(FeedGeneration::class)->latestOfMany();
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function exportSettings(): array
+    {
+        return array_merge([
+            'publish_guard_enabled' => false,
+            'minimum_ready_items' => 0,
+            'maximum_invalid_ratio' => 1,
+            'block_publish_on_critical_conformance' => true,
+            'minimum_pictures' => 1,
+        ], $this->settings ?? []);
+    }
+
+    public function publishGuardEnabled(): bool
+    {
+        return (bool) ($this->exportSettings()['publish_guard_enabled'] ?? false);
+    }
+
+    public function minimumReadyItems(): int
+    {
+        return max(0, (int) ($this->exportSettings()['minimum_ready_items'] ?? 0));
+    }
+
+    public function maximumInvalidRatio(): float
+    {
+        return min(1, max(0, (float) ($this->exportSettings()['maximum_invalid_ratio'] ?? 1)));
+    }
+
+    public function blockPublishOnCriticalConformance(): bool
+    {
+        return (bool) ($this->exportSettings()['block_publish_on_critical_conformance'] ?? true);
+    }
+
+    public function minimumPictures(): int
+    {
+        return max(1, (int) ($this->exportSettings()['minimum_pictures'] ?? 1));
+    }
 }
