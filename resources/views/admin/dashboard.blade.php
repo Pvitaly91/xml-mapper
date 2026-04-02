@@ -61,10 +61,21 @@
                 <div class="detail-row"><strong>Scheduler heartbeat</strong><div><span class="badge {{ $badgeClass($metrics['ops']['scheduler_heartbeat']['status']) }}">{{ $metrics['ops']['scheduler_heartbeat']['status'] }}</span> {{ optional($metrics['ops']['scheduler_heartbeat']['last_seen_at'])->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
                 <div class="detail-row"><strong>Worker heartbeat</strong><div><span class="badge {{ $badgeClass($metrics['ops']['worker_heartbeat']['status']) }}">{{ $metrics['ops']['worker_heartbeat']['status'] }}</span> {{ optional($metrics['ops']['worker_heartbeat']['last_seen_at'])->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
                 <div class="detail-row"><strong>Failed jobs</strong><div>{{ $metrics['ops']['failed_jobs']['count'] }}</div></div>
+                <div class="detail-row"><strong>Broken Prom API auth</strong><div>{{ $metrics['ops']['broken_prom_api_connections_count'] ?? 0 }}</div></div>
                 <div class="detail-row"><strong>Due source connections</strong><div>{{ $metrics['ops']['due_source_connections_count'] }}</div></div>
                 <div class="detail-row"><strong>Due feed builds</strong><div>{{ $metrics['ops']['due_feed_builds_count'] }}</div></div>
                 <div class="detail-row"><strong>Due feed publishes</strong><div>{{ $metrics['ops']['due_feed_publishes_count'] }}</div></div>
             </div>
+            @if(($metrics['ops']['broken_prom_api_connections_count'] ?? 0) > 0)
+                <div class="detail-list" style="margin-top: 16px;">
+                    @foreach($metrics['ops']['broken_prom_api_connections'] as $brokenConnection)
+                        <div class="detail-row">
+                            <strong>{{ $brokenConnection->name }}</strong>
+                            <div>{{ $brokenConnection->last_sync_message ?: $brokenConnection->last_connection_check_message ?: 'Authentication failed.' }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </section>
         <section class="panel">
             <h2>Last Sync</h2>

@@ -7,6 +7,7 @@ use App\Actions\Ops\ResolveDueFeedPublishesAction;
 use App\Actions\Ops\ResolveDueSourceConnectionsAction;
 use App\Models\FeedGeneration;
 use App\Models\Shop;
+use App\Models\SourceConnection;
 use App\Models\SourceImport;
 use App\Services\Setup\DatabaseSetupInspector;
 use Carbon\CarbonImmutable;
@@ -47,6 +48,14 @@ class OpsStatusService
                 'status' => $failedJobsStatus,
                 'count' => $failedJobsCount,
             ],
+            'broken_prom_api_connections_count' => $this->databaseSetupInspector->canResolveDueSourceConnections()
+                ? $this->safeCount(fn () => $this->brokenPromApiConnectionsQuery($shop)->count())
+                : 0,
+            'broken_prom_api_connections' => $this->databaseSetupInspector->canResolveDueSourceConnections()
+                ? $this->safeCollection(fn () => $this->brokenPromApiConnectionsQuery($shop)
+                    ->limit(5)
+                    ->get(['id', 'name', 'code', 'last_connection_check_status', 'last_sync_status', 'last_sync_message', 'last_connection_check_message']))
+                : collect(),
             'due_source_connections_count' => $this->databaseSetupInspector->canResolveDueSourceConnections()
                 ? $this->safeCount(fn () => $this->resolveDueSourceConnections->handle($shop)->count())
                 : 0,
@@ -90,6 +99,10 @@ class OpsStatusService
             if (in_array($status, ['failed', 'degraded'], true)) {
                 return 'degraded';
             }
+        }
+
+        if (($snapshot['broken_prom_api_connections_count'] ?? 0) > 0) {
+            return 'degraded';
         }
 
         return 'ok';
@@ -154,5 +167,27 @@ class OpsStatusService
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private function safeCollection(callable $callback)
+    {
+        try {
+            return $callback();
+        } catch (Throwable) {
+            return collect();
+        }
+    }
+
+    private function brokenPromApiConnectionsQuery(?Shop $shop = null)
+    {
+        return SourceConnection::query()
+            ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
+            ->where('status', SourceConnection::STATUS_ACTIVE)
+            ->where('driver', SourceConnection::DRIVER_PROM_API)
+            ->where(function ($query): void {
+                $query->where('last_connection_check_status', SourceConnection::CHECK_STATUS_AUTH_FAILED)
+                    ->orWhere('last_sync_status', SourceConnection::CHECK_STATUS_AUTH_FAILED);
+            })
+            ->orderBy('id');
     }
 }

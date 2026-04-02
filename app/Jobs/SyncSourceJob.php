@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\Ops\ResolveDueSourceConnectionsAction;
-use App\Contracts\Source\SourceImportServiceInterface;
+use App\Contracts\Source\SourceSyncWorkflowServiceInterface;
 use App\Models\SourceConnection;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Bus\Queueable;
@@ -39,7 +39,7 @@ class SyncSourceJob implements ShouldQueue
     }
 
     public function handle(
-        SourceImportServiceInterface $sourceImportService,
+        SourceSyncWorkflowServiceInterface $workflow,
         ResolveDueSourceConnectionsAction $resolveDueSourceConnections,
         ProcessLockService $lockService,
     ): void
@@ -51,7 +51,7 @@ class SyncSourceJob implements ShouldQueue
                 return;
             }
 
-            $import = $sourceImportService->sync($connection);
+            $import = $workflow->prepare($connection);
 
             NormalizeProductsJob::dispatch($import->id);
         } finally {

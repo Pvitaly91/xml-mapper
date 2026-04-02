@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\FeedProfileController;
 use App\Http\Controllers\Admin\FeedProfileStatusController;
 use App\Http\Controllers\Admin\FeedPublishController;
 use App\Http\Controllers\Admin\SourceConnectionController;
+use App\Http\Controllers\Admin\SourceConnectionTestController;
 use App\Http\Controllers\Admin\SourceSyncController;
 use App\Http\Controllers\Admin\ValueMappingController;
 use App\Http\Controllers\FeedController;
@@ -34,6 +35,7 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
         Route::resource('source-connections', SourceConnectionController::class)->except(['destroy']);
+        Route::post('/source-connections/{source_connection}/test', [SourceConnectionTestController::class, 'store'])->name('source-connections.test');
         Route::post('/source-connections/{source_connection}/sync', [SourceSyncController::class, 'store'])->name('source-connections.sync');
 
         Route::resource('feed-profiles', FeedProfileController::class)->except(['destroy']);

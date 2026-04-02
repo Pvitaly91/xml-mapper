@@ -11,6 +11,8 @@ readonly class ParsedSourceOfferData
      */
     public function __construct(
         public ?string $externalOfferId,
+        public ?string $externalGroupId,
+        public ?string $externalSku,
         public string $title,
         public ?string $categoryExternalId,
         public ?string $vendor,

@@ -20,6 +20,15 @@ Important env variables:
 - `FEED_MEDIATOR_QUEUE_DICTIONARIES=dictionaries`
 - `FEED_MEDIATOR_HEARTBEAT_STALE_AFTER_SECONDS=180`
 - `FEED_MEDIATOR_FAILED_JOBS_DEGRADED_THRESHOLD=1`
+- `PROM_API_BASE_URL=https://my.prom.ua`
+- `PROM_API_VERSION=v1`
+- `PROM_API_TIMEOUT_SECONDS=30`
+- `PROM_API_CONNECT_TIMEOUT_SECONDS=10`
+- `PROM_API_RETRY_TIMES=3`
+- `PROM_API_RETRY_BACKOFF_MS=250`
+- `PROM_API_PAGE_LIMIT=100`
+- `PROM_API_MAX_PAGES=500`
+- `PROM_API_LOCALE=uk`
 
 ## Scheduler
 
@@ -43,6 +52,14 @@ Recommended worker command:
 
 ```bash
 php artisan queue:work redis --queue=imports,normalization,feeds,dictionaries --sleep=3 --tries=3 --timeout=1800 --max-time=3600
+```
+
+Relevant source commands:
+
+```bash
+php artisan source:test {sourceConnectionId}
+php artisan source:sync {sourceConnectionId}
+php artisan source:sync --due --queue
 ```
 
 Supervisor config:
@@ -97,6 +114,7 @@ sudo systemctl restart xml-mapper-schedule-work.service
 - scheduler heartbeat
 - worker heartbeat
 - failed jobs count
+- broken Prom API auth count
 - due source/build/publish counts
 - last successful sync/build/publish timestamps
 
@@ -106,6 +124,7 @@ The endpoint becomes degraded when:
 - scheduler heartbeat is stale
 - worker heartbeat is stale for async queue mode
 - failed jobs count reaches the configured threshold
+- an active Prom API source connection is in `auth_failed`
 
 The endpoint returns `setup_required` when the database connection is available but required application tables are still missing.
 
@@ -116,6 +135,14 @@ Inspect:
 ```bash
 php artisan queue:failed
 ```
+
+Prom API troubleshooting:
+
+1. Run `php artisan source:test {id}` to isolate auth/connectivity from normalization.
+2. If status is `auth_failed`, rotate the token in Prom and confirm `Products` and `Groups` read access.
+3. If status is `rate_limited` or `remote_error`, inspect Laravel logs for `prom_api.request` metadata.
+4. If sync fails with `invalid_payload`, inspect the cached raw snapshot in `storage/app/imports/prom/...` and compare it with [Prom public API docs](https://public-api.docs.prom.ua/).
+5. In admin and `/health`, watch `broken_prom_api_connections_count` and the latest connection-check message.
 
 Retry selected jobs:
 

@@ -26,6 +26,7 @@ class HealthController extends Controller
             'scheduler' => $ops['scheduler_heartbeat']['status'],
             'worker' => $ops['worker_heartbeat']['status'],
             'failed_jobs' => $ops['failed_jobs']['status'],
+            'prom_api_auth' => ($ops['broken_prom_api_connections_count'] ?? 0) > 0 ? 'failed' : 'ok',
         ];
 
         $status = $this->overallStatus($checks, $schema);
@@ -42,6 +43,7 @@ class HealthController extends Controller
                 'scheduler_heartbeat' => $this->transformHeartbeat($ops['scheduler_heartbeat']),
                 'worker_heartbeat' => $this->transformHeartbeat($ops['worker_heartbeat']),
                 'failed_jobs_count' => $ops['failed_jobs']['count'],
+                'broken_prom_api_connections_count' => $ops['broken_prom_api_connections_count'] ?? 0,
                 'due_source_connections_count' => $ops['due_source_connections_count'],
                 'due_feed_builds_count' => $ops['due_feed_builds_count'],
                 'due_feed_publishes_count' => $ops['due_feed_publishes_count'],

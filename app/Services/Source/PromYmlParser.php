@@ -115,6 +115,8 @@ class PromYmlParser implements PromYmlParserInterface
 
         return new ParsedSourceOfferData(
             externalOfferId: Canonicalizer::normalizeText($element->getAttribute('id')),
+            externalGroupId: null,
+            externalSku: $vendorCode,
             title: $this->childText($element, 'name') ?? 'Unnamed Offer',
             categoryExternalId: $this->childText($element, 'categoryId'),
             vendor: $this->childText($element, 'vendor'),
@@ -133,6 +135,7 @@ class PromYmlParser implements PromYmlParserInterface
                 'categoryId' => $this->childText($element, 'categoryId'),
                 'vendor' => $this->childText($element, 'vendor'),
                 'vendorCode' => $vendorCode,
+                'sku' => $vendorCode,
                 'currencyId' => $this->childText($element, 'currencyId'),
                 'available' => $element->getAttribute('available'),
             ],

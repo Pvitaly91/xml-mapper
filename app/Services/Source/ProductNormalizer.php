@@ -160,7 +160,7 @@ class ProductNormalizer implements ProductNormalizerInterface
             [
                 'source_import_id' => $import->id,
                 'source_category_id' => $category?->id,
-                'external_group_id' => $article,
+                'external_group_id' => $firstOffer->externalGroupId ?? $article,
                 'name' => $firstOffer->title,
                 'vendor' => $vendor,
                 'article' => $article,
@@ -214,7 +214,7 @@ class ProductNormalizer implements ProductNormalizerInterface
             [
                 'source_import_id' => $import->id,
                 'source_product_id' => $product->id,
-                'external_sku' => $offer->externalOfferId,
+                'external_sku' => $offer->externalSku ?? $offer->externalOfferId,
                 'stable_offer_id' => $existing?->stable_offer_id
                     ?? 'ofr_'.substr(sha1($connection->shop_id.'|'.$connection->id.'|'.$offerIdentityKey), 0, 24),
                 'offer_identity_key' => $offerIdentityKey,
@@ -311,6 +311,12 @@ class ProductNormalizer implements ProductNormalizerInterface
 
     private function makeGroupKey(ParsedSourceOfferData $offer): string
     {
+        if ($offer->externalGroupId !== null) {
+            return Canonicalizer::fingerprint([
+                'external_group_id' => $offer->externalGroupId,
+            ]);
+        }
+
         $vendor = Canonicalizer::normalizeText($offer->vendor);
         $article = Canonicalizer::normalizeText($offer->article)
             ?? Canonicalizer::firstMatchingValue($offer->params, config('feed_mediator.normalization.article_keys'));

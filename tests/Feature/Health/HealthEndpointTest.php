@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Health;
 
+use App\Models\SourceConnection;
+use App\Models\Shop;
 use App\Services\Ops\HeartbeatService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,5 +64,38 @@ class HealthEndpointTest extends TestCase
         $response->assertStatus(503);
         $response->assertJsonPath('ops.failed_jobs_count', 1);
         $response->assertJsonPath('checks.failed_jobs', 'degraded');
+    }
+
+    public function test_health_endpoint_reports_broken_prom_api_auth_in_ops_payload(): void
+    {
+        config()->set('queue.default', 'redis');
+
+        app(HeartbeatService::class)->recordSchedulerHeartbeat(CarbonImmutable::now());
+        app(HeartbeatService::class)->recordWorkerHeartbeat(CarbonImmutable::now());
+
+        $shop = Shop::create([
+            'name' => 'Demo Shop',
+            'slug' => 'demo-shop-health',
+        ]);
+
+        SourceConnection::create([
+            'shop_id' => $shop->id,
+            'name' => 'Broken Prom API',
+            'code' => 'broken-prom-api',
+            'driver' => SourceConnection::DRIVER_PROM_API,
+            'status' => SourceConnection::STATUS_ACTIVE,
+            'api_base_url' => 'https://my.prom.ua',
+            'api_token' => 'broken',
+            'api_version' => 'v1',
+            'last_sync_status' => SourceConnection::CHECK_STATUS_AUTH_FAILED,
+            'last_sync_message' => 'Prom API authorization failed.',
+            'sync_interval_minutes' => 60,
+        ]);
+
+        $response = $this->get('/health');
+
+        $response->assertStatus(503);
+        $response->assertJsonPath('checks.prom_api_auth', 'failed');
+        $response->assertJsonPath('ops.broken_prom_api_connections_count', 1);
     }
 }

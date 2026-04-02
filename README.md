@@ -17,11 +17,14 @@ The application stores normalized source data locally, validates exportability, 
 
 - session-based admin auth for `/admin/*`
 - Gate-protected admin area
-- source connection CRUD and manual sync
+- source connection CRUD, test connection and manual sync
 - feed profile CRUD, build, publish and public feed endpoint
 - category, attribute and value mappings
 - feed item workflow and revalidation
-- parser -> normalize -> build -> publish pipeline
+- dual source drivers via `source_connections.driver`:
+  - `prom_yml`
+  - `prom_api`
+- source import -> normalize -> build -> publish pipeline
 - production scheduler/queue orchestration with locks
 - `/health` ops visibility and admin dashboard ops block
 - file-driven Kasta dictionary imports with history, dry-run and reimport
@@ -87,6 +90,59 @@ If `/admin` opens in `setup_required` mode:
 
 The setup screen shows the exact missing tables when the schema is incomplete.
 
+## Source Drivers
+
+`source_connections.driver` resolves source imports through a dedicated driver layer:
+
+- `prom_yml`: existing XML/YML download + parse path
+- `prom_api`: Prom public API import through `GET /groups/list` and `GET /products/list`
+
+Existing YML connections continue to work after migration. Prom API connections store:
+
+- `api_base_url`
+- `api_token` (encrypted)
+- `api_version`
+- connection check metadata
+- last sync status / summary metadata
+
+## Prom API Source Connection
+
+Create a Prom API source connection in `/admin/source-connections/create`:
+
+1. Choose `Prom API` as the driver.
+2. Fill `API base URL` and `API token`.
+3. Keep `API version` as `v1` unless Prom provides a newer contract for your account.
+4. Optional JSON settings in `Settings / options JSON`:
+   - `locale`: response locale header, example `uk`
+   - `page_limit`: pagination batch size, example `100`
+   - `max_pages`: safety cap, example `500`
+   - `default_vendor`: fallback vendor/brand when Prom read API does not expose one
+5. Save and run `Test connection`.
+
+Prom references:
+
+- [support.prom.ua token management](https://support.prom.ua/hc/uk/articles/360020350478-%D0%A3%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D1%96%D0%BD%D0%BD%D1%8F-API-%D1%82%D0%BE%D0%BA%D0%B5%D0%BD%D0%B0%D0%BC%D0%B8-%D0%B2-%D0%BA%D0%B0%D0%B1%D1%96%D0%BD%D0%B5%D1%82%D1%96-%D0%BA%D0%BE%D0%BC%D0%BF%D0%B0%D0%BD%D1%96%D1%97)
+- [Prom public API docs](https://public-api.docs.prom.ua/)
+
+## Test Connection
+
+Admin:
+
+- open a source connection
+- click `Test connection`
+
+CLI:
+
+```bash
+php artisan source:test 1
+```
+
+For `prom_api`, the test verifies token-based access to both `Groups` and `Products` endpoints and stores:
+
+- `last_connection_check_at`
+- `last_connection_check_status`
+- `last_connection_check_message`
+
 ## Queue Worker
 
 The production queue split is:
@@ -103,6 +159,22 @@ php artisan queue:work redis --queue=imports,normalization,feeds,dictionaries --
 ```
 
 Worker heartbeat is recorded from the queue loop. If the worker is not running or the heartbeat goes stale, `/health` becomes degraded.
+
+## Prom API Environment
+
+Optional env/config overrides for the Prom API driver:
+
+```dotenv
+PROM_API_BASE_URL=https://my.prom.ua
+PROM_API_VERSION=v1
+PROM_API_TIMEOUT_SECONDS=30
+PROM_API_CONNECT_TIMEOUT_SECONDS=10
+PROM_API_RETRY_TIMES=3
+PROM_API_RETRY_BACKOFF_MS=250
+PROM_API_PAGE_LIMIT=100
+PROM_API_MAX_PAGES=500
+PROM_API_LOCALE=uk
+```
 
 ## Scheduler
 
@@ -125,6 +197,17 @@ All scheduled commands are protected with overlap guards. Due queue dispatch is 
 ### Due source sync
 
 `source:sync --due` resolves active source connections with `next_sync_at` missing or in the past.
+
+Manual driver-aware sync for one connection:
+
+```bash
+php artisan source:sync 1
+```
+
+The sync workflow is:
+
+- `prom_yml`: download XML -> parse -> normalize
+- `prom_api`: fetch paginated groups/products -> cache raw JSON snapshot -> normalize
 
 ### Due feed build
 
@@ -185,6 +268,7 @@ Detailed contract: [docs/kasta-dictionary-import.md](docs/kasta-dictionary-impor
 - worker heartbeat
 - failed jobs count
 - queue mode
+- broken Prom API auth count
 - due source connections count
 - due feed build count
 - due feed publish count
@@ -192,7 +276,37 @@ Detailed contract: [docs/kasta-dictionary-import.md](docs/kasta-dictionary-impor
 
 When required tables are missing, `/health` returns `setup_required` with `schema_ready`, `missing_tables` and `setup_required` instead of throwing an exception.
 
-The admin dashboard exposes the same ops signals for the current shop plus stale/degraded indicators. If the schema is incomplete, `/admin` remains available and renders a setup-required state with missing tables and next steps.
+The admin dashboard exposes the same ops signals for the current shop plus stale/degraded indicators. If an active Prom API connection is in `auth_failed`, the dashboard and `/health` surface it explicitly. If the schema is incomplete, `/admin` remains available and renders a setup-required state with missing tables and next steps.
+
+## Prom API Assumptions
+
+Prom API handling localizes uncertain contract details in the adapter/client layer:
+
+1. Pagination uses `last_id` with descending IDs, so the importer advances with `min(current_page_ids) - 1`.
+2. Read endpoints documented in Prom public API are `GET /groups/list` and `GET /products/list`.
+3. Product variations are grouped with `variation_group_id`, falling back to `variation_base_id` or the product ID.
+4. The documented read payload does not expose arbitrary custom product attributes. The importer maps documented product fields like presence, status, measure unit, category and SKU into normalized source attributes.
+5. If vendor/brand is missing in the read payload, the importer uses `options.default_vendor`; if it is not set, it falls back to the shop name so the feed validation pipeline can stay operational.
+
+## Troubleshooting Prom API
+
+Auth failures:
+
+- run `php artisan source:test {id}`
+- confirm the token has `Products` and `Groups` read access in Prom
+- rotate the token if Prom reports `401` or `403`
+
+Rate limit / remote errors:
+
+- inspect Laravel logs for `prom_api.request`
+- check `Retry-After`, `http_status`, `path` and retry metadata
+- lower `page_limit` or re-run later if Prom is throttling
+
+Import / payload errors:
+
+- inspect the latest `source_imports.meta`
+- inspect the cached raw snapshot in `storage/app/imports/prom/...`
+- compare payload shape against [Prom public API docs](https://public-api.docs.prom.ua/)
 
 ## Production Basics
 

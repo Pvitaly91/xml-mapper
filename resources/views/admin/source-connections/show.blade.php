@@ -6,6 +6,10 @@
     <section class="panel">
         <div class="toolbar">
             <a class="button link" href="{{ route('admin.source-connections.edit', $connection) }}">Edit</a>
+            <form method="POST" action="{{ route('admin.source-connections.test', $connection) }}">
+                @csrf
+                <button class="button secondary" type="submit">Test connection</button>
+            </form>
             <form method="POST" action="{{ route('admin.source-connections.sync', $connection) }}">
                 @csrf
                 <button class="button" type="submit">Sync now</button>
@@ -18,10 +22,25 @@
             <div class="detail-row"><strong>Driver</strong><div>{{ $connection->driver }}</div></div>
             <div class="detail-row"><strong>Status</strong><div>{{ $connection->status }}</div></div>
             <div class="detail-row"><strong>Source URL</strong><div>{{ $connection->source_url ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>API base URL</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiBaseUrl() : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>API version</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiVersion() : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>API token</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? ($connection->maskedApiToken() ?: 'not configured') : 'n/a' }}</div></div>
             <div class="detail-row"><strong>Sync interval</strong><div>{{ $connection->sync_interval_minutes }} minutes</div></div>
             <div class="detail-row"><strong>Last sync at</strong><div>{{ optional($connection->last_synced_at)->format('Y-m-d H:i:s') ?: 'Never' }}</div></div>
             <div class="detail-row"><strong>Next sync at</strong><div>{{ optional($connection->next_sync_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
-            <div class="detail-row"><strong>Last sync status</strong><div>{{ $connection->latestImport?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Last connection check</strong><div>{{ optional($connection->last_connection_check_at)->format('Y-m-d H:i:s') ?: 'Never' }} / {{ $connection->last_connection_check_status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Check message</strong><div>{{ $connection->last_connection_check_message ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Last sync status</strong><div>{{ $connection->last_sync_status ?: ($connection->latestImport?->status ?: 'n/a') }}</div></div>
+            <div class="detail-row"><strong>Last sync message</strong><div>{{ $connection->last_sync_message ?: ($connection->latestImport?->error_message ?: 'n/a') }}</div></div>
+            <div class="detail-row"><strong>Import summary</strong><div>
+                @if($connection->last_sync_summary)
+                    {{ $connection->last_sync_summary['categories'] ?? 0 }} categories /
+                    {{ $connection->last_sync_summary['products'] ?? 0 }} products /
+                    {{ $connection->last_sync_summary['variants'] ?? 0 }} variants
+                @else
+                    n/a
+                @endif
+            </div></div>
         </div>
     </section>
 
@@ -50,7 +69,7 @@
         <h2>Recent Imports</h2>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>ID</th><th>Status</th><th>Started</th><th>Finished</th><th>Offers</th><th>Error</th></tr></thead>
+                <thead><tr><th>ID</th><th>Status</th><th>Started</th><th>Finished</th><th>Categories / offers</th><th>Error</th></tr></thead>
                 <tbody>
                 @forelse($imports as $import)
                     <tr>
@@ -58,7 +77,7 @@
                         <td>{{ $import->status }}</td>
                         <td>{{ optional($import->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</td>
                         <td>{{ optional($import->finished_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</td>
-                        <td>{{ $import->offers_total ?? 0 }}</td>
+                        <td>{{ $import->categories_total ?? 0 }} / {{ $import->offers_total ?? 0 }}</td>
                         <td>{{ $import->error_message ?: 'n/a' }}</td>
                     </tr>
                 @empty

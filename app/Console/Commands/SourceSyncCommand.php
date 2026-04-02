@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Actions\Ops\ResolveDueSourceConnectionsAction;
+use App\Contracts\Source\SourceSyncWorkflowServiceInterface;
 use App\Jobs\SyncSourceJob;
 use App\Models\SourceConnection;
 use App\Services\Ops\ProcessLockService;
@@ -12,9 +13,13 @@ class SourceSyncCommand extends Command
 {
     protected $signature = 'source:sync {sourceConnectionId? : Source connection ID} {--due : Sync all due source connections} {--queue : Dispatch to queue instead of sync execution}';
 
-    protected $description = 'Sync source feed XML from Prom.';
+    protected $description = 'Sync source catalog data from the configured driver.';
 
-    public function handle(ResolveDueSourceConnectionsAction $resolveDueSourceConnections, ProcessLockService $lockService): int
+    public function handle(
+        ResolveDueSourceConnectionsAction $resolveDueSourceConnections,
+        ProcessLockService $lockService,
+        SourceSyncWorkflowServiceInterface $workflow
+    ): int
     {
         $connections = $this->resolveConnections($resolveDueSourceConnections);
 
@@ -40,8 +45,8 @@ class SourceSyncCommand extends Command
                 SyncSourceJob::dispatch($connection->id, (bool) $this->option('due'), $dispatchOwner);
                 $this->line("Queued source sync for connection #{$connection->id}.");
             } else {
-                SyncSourceJob::dispatchSync($connection->id, (bool) $this->option('due'));
-                $this->line("Synced source connection #{$connection->id}.");
+                $import = $workflow->run($connection);
+                $this->line("Synced source connection #{$connection->id}. Import #{$import->id} status: {$import->status}.");
             }
         }
 

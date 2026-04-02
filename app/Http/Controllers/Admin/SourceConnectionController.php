@@ -24,7 +24,8 @@ class SourceConnectionController extends AdminController
                 $query->where(function ($innerQuery) use ($search): void {
                     $innerQuery->where('name', 'like', '%'.$search.'%')
                         ->orWhere('code', 'like', '%'.$search.'%')
-                        ->orWhere('source_url', 'like', '%'.$search.'%');
+                        ->orWhere('source_url', 'like', '%'.$search.'%')
+                        ->orWhere('api_base_url', 'like', '%'.$search.'%');
                 });
             })
             ->orderByDesc('id')
@@ -42,6 +43,7 @@ class SourceConnectionController extends AdminController
         return view('admin.source-connections.form', [
             'connection' => new SourceConnection(),
             'pageTitle' => 'Create Source Connection',
+            'driverOptions' => SourceConnection::driverOptions(),
         ]);
     }
 
@@ -72,6 +74,7 @@ class SourceConnectionController extends AdminController
         return view('admin.source-connections.form', [
             'connection' => $sourceConnection,
             'pageTitle' => 'Edit Source Connection',
+            'driverOptions' => SourceConnection::driverOptions(),
         ]);
     }
 

@@ -8,10 +8,30 @@
 4. Public XML is never rendered on the fly. The system builds and publishes cached files.
 5. Admin remains server-rendered with Blade, session auth and `Gate::define('access-admin')`.
 6. Controllers stay thin. Runtime logic lives in actions, services and jobs.
+7. Source imports are driver-based and resolved from `source_connections.driver`.
+8. Prom API contract uncertainty stays isolated inside the Prom API client/driver layer.
 
 ## Runtime Flow
 
-`SourceConnection` -> `SourceImportService` -> cached source XML -> `PromYmlParser` -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `FeedBuildService` -> `FeedGeneration` build file -> `FeedPublishService` -> stable `/feeds/{token}.xml`
+`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `FeedBuildService` -> `FeedGeneration` build file -> `FeedPublishService` -> stable `/feeds/{token}.xml`
+
+Driver paths:
+
+- `prom_yml`:
+  - download XML/YML
+  - parse via `PromYmlParser`
+- `prom_api`:
+  - fetch paginated `groups/list`
+  - fetch paginated `products/list`
+  - cache raw JSON snapshot
+  - map Prom payload into the shared parsed feed contract
+
+Prom API connection lifecycle:
+
+- encrypted token stored on `source_connections.api_token`
+- `source:test` or admin `Test connection` updates last check status/message
+- sync updates last sync status/message/summary
+- broken active Prom API auth is surfaced in dashboard and `/health`
 
 ## Background Orchestration
 
@@ -66,9 +86,17 @@ Exposed in `/health` and the admin dashboard:
 - scheduler heartbeat
 - worker heartbeat
 - failed jobs count
+- broken Prom API auth count
 - due source/build/publish counts
 - last successful sync/build/publish timestamps
 - queue mode
+
+Prom API assumptions:
+
+- `last_id` pagination is treated as descending and inclusive
+- `variation_group_id` is the primary grouping key for variants
+- documented read payload does not expose arbitrary custom attributes, so normalized source attributes are derived from documented product fields
+- if vendor/brand is absent, `options.default_vendor` or the shop name is used as the fallback brand source
 
 ## Dictionary Import Architecture
 
@@ -114,6 +142,7 @@ app/
   Services/Feeds/
   Services/Ops/
   Services/Source/
+    Drivers/
 database/
   data/kasta/                    # legacy local-dev sample bundle
   samples/kasta-dictionaries/    # file-driven sample fixtures

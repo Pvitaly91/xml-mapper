@@ -34,4 +34,15 @@ return [
         'size_keys' => ['size', 'розмір', 'размер'],
         'color_keys' => ['color', 'колір', 'цвет'],
     ],
+    'prom_api' => [
+        'default_base_url' => env('PROM_API_BASE_URL', 'https://my.prom.ua'),
+        'default_version' => env('PROM_API_VERSION', 'v1'),
+        'timeout_seconds' => (int) env('PROM_API_TIMEOUT_SECONDS', 30),
+        'connect_timeout_seconds' => (int) env('PROM_API_CONNECT_TIMEOUT_SECONDS', 10),
+        'retry_times' => (int) env('PROM_API_RETRY_TIMES', 3),
+        'retry_backoff_ms' => (int) env('PROM_API_RETRY_BACKOFF_MS', 250),
+        'page_limit' => (int) env('PROM_API_PAGE_LIMIT', 100),
+        'max_pages' => (int) env('PROM_API_MAX_PAGES', 500),
+        'locale' => env('PROM_API_LOCALE', 'uk'),
+    ],
 ];

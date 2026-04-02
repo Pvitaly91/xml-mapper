@@ -20,6 +20,6 @@ class SourceSyncController extends AdminController
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('status', 'Source synced. Latest import status: '.$import->status.'.');
+        return back()->with('status', 'Source synced. Latest import #'.$import->id.' status: '.$import->status.'.');
     }
 }
