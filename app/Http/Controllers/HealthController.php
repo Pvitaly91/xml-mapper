@@ -3,29 +3,38 @@
 namespace App\Http\Controllers;
 
 use App\Services\Ops\OpsStatusService;
+use App\Services\Setup\DatabaseSetupInspector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class HealthController extends Controller
 {
-    public function __invoke(OpsStatusService $opsStatusService): JsonResponse
-    {
+    public function __invoke(
+        OpsStatusService $opsStatusService,
+        DatabaseSetupInspector $databaseSetupInspector
+    ): JsonResponse {
         $ops = $opsStatusService->snapshot();
+        $schema = $databaseSetupInspector->healthReport();
         $checks = [
             'app' => 'ok',
-            'database' => $this->checkDatabase(),
+            'database' => $schema['database_connected'] ? 'ok' : 'failed',
+            'schema' => ! $schema['database_connected']
+                ? 'unknown'
+                : ($schema['schema_ready'] ? 'ok' : 'setup_required'),
             'cache' => $this->checkCache(),
             'scheduler' => $ops['scheduler_heartbeat']['status'],
             'worker' => $ops['worker_heartbeat']['status'],
             'failed_jobs' => $ops['failed_jobs']['status'],
         ];
 
-        $healthy = ! collect($checks)->contains(fn (string $status) => in_array($status, ['failed', 'degraded'], true));
+        $status = $this->overallStatus($checks, $schema);
 
         return response()->json([
-            'status' => $healthy ? 'ok' : 'degraded',
+            'status' => $status,
+            'schema_ready' => $schema['schema_ready'],
+            'missing_tables' => $schema['missing_tables'],
+            'setup_required' => $schema['setup_required'],
             'checks' => $checks,
             'ops' => [
                 'queue_mode' => $ops['queue_mode'],
@@ -40,18 +49,7 @@ class HealthController extends Controller
                 'last_successful_build_at' => optional($ops['last_successful_build']?->built_at)->toIso8601String(),
                 'last_successful_publish_at' => optional($ops['last_successful_publish']?->published_at)->toIso8601String(),
             ],
-        ], $healthy ? 200 : 503);
-    }
-
-    private function checkDatabase(): string
-    {
-        try {
-            DB::connection()->getPdo();
-
-            return 'ok';
-        } catch (Throwable) {
-            return 'failed';
-        }
+        ], $status === 'ok' ? 200 : 503);
     }
 
     private function checkCache(): string
@@ -64,6 +62,25 @@ class HealthController extends Controller
         } catch (Throwable) {
             return 'failed';
         }
+    }
+
+    /**
+     * @param  array<string, string>  $checks
+     * @param  array{database_connected:bool,schema_ready:bool,setup_required:bool,required_tables:array<int,string>,missing_tables:array<int,string>}  $schema
+     */
+    private function overallStatus(array $checks, array $schema): string
+    {
+        if (! $schema['database_connected']) {
+            return 'degraded';
+        }
+
+        if ($schema['setup_required']) {
+            return 'setup_required';
+        }
+
+        return collect($checks)->contains(fn (string $status) => in_array($status, ['failed', 'degraded'], true))
+            ? 'degraded'
+            : 'ok';
     }
 
     /**

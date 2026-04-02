@@ -92,6 +92,7 @@ sudo systemctl restart xml-mapper-schedule-work.service
 `/health` returns:
 
 - database status
+- schema readiness and missing tables
 - cache status
 - scheduler heartbeat
 - worker heartbeat
@@ -105,6 +106,8 @@ The endpoint becomes degraded when:
 - scheduler heartbeat is stale
 - worker heartbeat is stale for async queue mode
 - failed jobs count reaches the configured threshold
+
+The endpoint returns `setup_required` when the database connection is available but required application tables are still missing.
 
 ## Failed Jobs
 
@@ -130,8 +133,18 @@ php artisan queue:flush
 
 1. Deploy code.
 2. Run `php artisan migrate --force`.
-3. Refresh caches.
-4. Restart queue workers.
-5. Confirm scheduler is active.
-6. Check `/health`.
-7. Open `/admin` and confirm ops status is healthy.
+3. Run `php artisan app:doctor`.
+4. Refresh caches.
+5. Restart queue workers.
+6. Confirm scheduler is active.
+7. Check `/health`.
+8. Open `/admin` and confirm ops status is healthy.
+
+## Local Setup Recovery
+
+If `/admin` shows `setup_required`:
+
+1. Run `php artisan migrate`
+2. Run `php artisan app:doctor`
+3. Review the missing tables reported by the command
+4. Reload `/admin`

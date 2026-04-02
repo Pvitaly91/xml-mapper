@@ -49,6 +49,8 @@ php artisan key:generate
 php artisan migrate
 ```
 
+After every pull or deploy that includes schema changes, run `php artisan migrate` before opening `/admin`.
+
 5. Load sample Kasta dictionaries:
 
 ```bash
@@ -68,6 +70,22 @@ php artisan serve
 ```
 
 Admin login is available at `/admin/login`.
+
+## Environment Readiness
+
+Check the local environment before opening the admin area:
+
+```bash
+php artisan app:doctor
+```
+
+If `/admin` opens in `setup_required` mode:
+
+1. Run `php artisan migrate`
+2. Run `php artisan app:doctor`
+3. Refresh `/admin`
+
+The setup screen shows the exact missing tables when the schema is incomplete.
 
 ## Queue Worker
 
@@ -161,6 +179,7 @@ Detailed contract: [docs/kasta-dictionary-import.md](docs/kasta-dictionary-impor
 `/health` exposes:
 
 - database check
+- schema readiness
 - cache check
 - scheduler heartbeat
 - worker heartbeat
@@ -171,7 +190,9 @@ Detailed contract: [docs/kasta-dictionary-import.md](docs/kasta-dictionary-impor
 - due feed publish count
 - last successful sync / build / publish timestamps
 
-The admin dashboard exposes the same ops signals for the current shop plus stale/degraded indicators.
+When required tables are missing, `/health` returns `setup_required` with `schema_ready`, `missing_tables` and `setup_required` instead of throwing an exception.
+
+The admin dashboard exposes the same ops signals for the current shop plus stale/degraded indicators. If the schema is incomplete, `/admin` remains available and renders a setup-required state with missing tables and next steps.
 
 ## Production Basics
 

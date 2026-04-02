@@ -6,20 +6,49 @@
     @php
         $badgeClass = fn (string $status) => match ($status) {
             'ok' => 'ok',
+            'setup_required' => 'warn',
             'not_applicable' => '',
             default => 'err',
         };
     @endphp
-    <div class="stats">
-        <div class="stat"><span class="muted">Source products</span><strong>{{ $metrics['total_source_products'] }}</strong></div>
-        <div class="stat"><span class="muted">Source variants</span><strong>{{ $metrics['total_source_variants'] }}</strong></div>
-        <div class="stat"><span class="muted">Feed items</span><strong>{{ $metrics['total_feed_items'] }}</strong></div>
-        <div class="stat"><span class="muted">Ready</span><strong>{{ $metrics['ready_feed_items'] }}</strong></div>
-        <div class="stat"><span class="muted">Invalid</span><strong>{{ $metrics['invalid_feed_items'] }}</strong></div>
-        <div class="stat"><span class="muted">Excluded</span><strong>{{ $metrics['excluded_feed_items'] }}</strong></div>
-        <div class="stat"><span class="muted">Active feed profiles</span><strong>{{ $metrics['active_feed_profiles'] }}</strong></div>
-        <div class="stat"><span class="muted">Active validation errors</span><strong>{{ $metrics['active_validation_errors'] }}</strong></div>
-    </div>
+    @if($metrics['setup_required'])
+        <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Database Setup Required</h2>
+                <span class="badge warn">setup_required</span>
+            </div>
+            <p class="muted">
+                The database schema is not fully initialized yet, so dashboard metrics are paused until the missing tables are created.
+            </p>
+            @if($metrics['missing_tables'])
+                <div class="detail-list" style="margin-top: 14px;">
+                    <div class="detail-row">
+                        <strong>Missing tables</strong>
+                        <div>{{ implode(', ', $metrics['missing_tables']) }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <strong>Next steps</strong>
+                        <div>
+                            <code>php artisan migrate</code><br>
+                            <code>php artisan app:doctor</code><br>
+                            Refresh this page after the schema is ready.
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </section>
+    @else
+        <div class="stats">
+            <div class="stat"><span class="muted">Source products</span><strong>{{ $metrics['total_source_products'] }}</strong></div>
+            <div class="stat"><span class="muted">Source variants</span><strong>{{ $metrics['total_source_variants'] }}</strong></div>
+            <div class="stat"><span class="muted">Feed items</span><strong>{{ $metrics['total_feed_items'] }}</strong></div>
+            <div class="stat"><span class="muted">Ready</span><strong>{{ $metrics['ready_feed_items'] }}</strong></div>
+            <div class="stat"><span class="muted">Invalid</span><strong>{{ $metrics['invalid_feed_items'] }}</strong></div>
+            <div class="stat"><span class="muted">Excluded</span><strong>{{ $metrics['excluded_feed_items'] }}</strong></div>
+            <div class="stat"><span class="muted">Active feed profiles</span><strong>{{ $metrics['active_feed_profiles'] }}</strong></div>
+            <div class="stat"><span class="muted">Active validation errors</span><strong>{{ $metrics['active_validation_errors'] }}</strong></div>
+        </div>
+    @endif
 
     <div class="grid cols-2">
         <section class="panel">
@@ -83,7 +112,13 @@
                 <a class="button secondary" href="{{ route('admin.feed-profiles.index') }}">Manage feed profiles</a>
                 <a class="button secondary" href="{{ route('admin.dictionaries.index') }}">Import dictionaries</a>
             </div>
-            <p class="muted">Shop: {{ $shop->name }} ({{ $shop->slug }})</p>
+            <p class="muted">
+                @if($shop)
+                    Shop: {{ $shop->name }} ({{ $shop->slug }})
+                @else
+                    Shop context will appear after the schema is ready.
+                @endif
+            </p>
         </section>
     </div>
 @endsection

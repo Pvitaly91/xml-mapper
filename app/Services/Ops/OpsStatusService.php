@@ -8,6 +8,7 @@ use App\Actions\Ops\ResolveDueSourceConnectionsAction;
 use App\Models\FeedGeneration;
 use App\Models\Shop;
 use App\Models\SourceImport;
+use App\Services\Setup\DatabaseSetupInspector;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -19,6 +20,7 @@ class OpsStatusService
         private readonly ResolveDueSourceConnectionsAction $resolveDueSourceConnections,
         private readonly ResolveDueFeedBuildsAction $resolveDueFeedBuilds,
         private readonly ResolveDueFeedPublishesAction $resolveDueFeedPublishes,
+        private readonly DatabaseSetupInspector $databaseSetupInspector,
     ) {
     }
 
@@ -45,24 +47,36 @@ class OpsStatusService
                 'status' => $failedJobsStatus,
                 'count' => $failedJobsCount,
             ],
-            'due_source_connections_count' => $this->safeCount(fn () => $this->resolveDueSourceConnections->handle($shop)->count()),
-            'due_feed_builds_count' => $this->safeCount(fn () => $this->resolveDueFeedBuilds->handle($shop)->count()),
-            'due_feed_publishes_count' => $this->safeCount(fn () => $this->resolveDueFeedPublishes->handle($shop)->count()),
-            'last_successful_sync' => $this->safeFirst(fn () => SourceImport::query()
-                ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
-                ->where('status', SourceImport::STATUS_NORMALIZED)
-                ->latest('finished_at')
-                ->first()),
-            'last_successful_build' => $this->safeFirst(fn () => FeedGeneration::query()
-                ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
-                ->whereNotNull('built_at')
-                ->latest('built_at')
-                ->first()),
-            'last_successful_publish' => $this->safeFirst(fn () => FeedGeneration::query()
-                ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
-                ->whereNotNull('published_at')
-                ->latest('published_at')
-                ->first()),
+            'due_source_connections_count' => $this->databaseSetupInspector->canResolveDueSourceConnections()
+                ? $this->safeCount(fn () => $this->resolveDueSourceConnections->handle($shop)->count())
+                : 0,
+            'due_feed_builds_count' => $this->databaseSetupInspector->canResolveDueFeedBuilds()
+                ? $this->safeCount(fn () => $this->resolveDueFeedBuilds->handle($shop)->count())
+                : 0,
+            'due_feed_publishes_count' => $this->databaseSetupInspector->canResolveDueFeedPublishes()
+                ? $this->safeCount(fn () => $this->resolveDueFeedPublishes->handle($shop)->count())
+                : 0,
+            'last_successful_sync' => $this->databaseSetupInspector->canReadLastSuccessfulSync()
+                ? $this->safeFirst(fn () => SourceImport::query()
+                    ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
+                    ->where('status', SourceImport::STATUS_NORMALIZED)
+                    ->latest('finished_at')
+                    ->first())
+                : null,
+            'last_successful_build' => $this->databaseSetupInspector->canReadLastSuccessfulBuild()
+                ? $this->safeFirst(fn () => FeedGeneration::query()
+                    ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
+                    ->whereNotNull('built_at')
+                    ->latest('built_at')
+                    ->first())
+                : null,
+            'last_successful_publish' => $this->databaseSetupInspector->canReadLastSuccessfulPublish()
+                ? $this->safeFirst(fn () => FeedGeneration::query()
+                    ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
+                    ->whereNotNull('published_at')
+                    ->latest('published_at')
+                    ->first())
+                : null,
         ];
     }
 
