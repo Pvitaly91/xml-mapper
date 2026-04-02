@@ -99,6 +99,11 @@ class FeedProfile extends Model
         return $this->hasMany(FeedGeneration::class);
     }
 
+    public function releaseEvents(): HasMany
+    {
+        return $this->hasMany(FeedReleaseEvent::class);
+    }
+
     public function categoryMappings(): HasMany
     {
         return $this->hasMany(CategoryMapping::class);

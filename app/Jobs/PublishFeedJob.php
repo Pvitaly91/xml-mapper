@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Actions\Ops\ResolveDueFeedPublishesAction;
-use App\Contracts\Feeds\FeedPublishServiceInterface;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Services\Ops\ProcessLockService;
@@ -27,6 +26,8 @@ class PublishFeedJob implements ShouldQueue
         public readonly int $feedProfileId,
         public readonly ?int $feedGenerationId = null,
         public readonly bool $onlyIfDue = false,
+        public readonly bool $force = false,
+        public readonly ?string $reason = null,
         public readonly ?string $dispatchLockOwner = null,
     ) {
         $this->onQueue((string) config('feed_mediator.queues.feeds'));
@@ -41,7 +42,7 @@ class PublishFeedJob implements ShouldQueue
     }
 
     public function handle(
-        FeedPublishServiceInterface $feedPublishService,
+        \App\Services\Feeds\FeedReleaseService $feedReleaseService,
         ResolveDueFeedPublishesAction $resolveDueFeedPublishes,
         ProcessLockService $lockService,
     ): void
@@ -49,6 +50,7 @@ class PublishFeedJob implements ShouldQueue
         try {
             $feedProfile = FeedProfile::findOrFail($this->feedProfileId);
             $generation = $this->feedGenerationId ? FeedGeneration::findOrFail($this->feedGenerationId) : null;
+            $reason = $this->reason;
 
             if ($this->onlyIfDue) {
                 $candidate = $resolveDueFeedPublishes->candidateForProfile($feedProfile);
@@ -58,9 +60,10 @@ class PublishFeedJob implements ShouldQueue
                 }
 
                 $generation = $candidate->generation;
+                $reason ??= 'Due publish: '.$candidate->reason;
             }
 
-            $feedPublishService->publish($feedProfile, $generation);
+            $feedReleaseService->publish($feedProfile, $generation, $this->force, $reason);
         } finally {
             $lockService->releaseDispatchLock($lockService->feedPublishProfileKey($this->feedProfileId), $this->dispatchLockOwner);
         }

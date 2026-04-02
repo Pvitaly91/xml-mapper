@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
+use App\Services\Feeds\FeedReleaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\CreatesAdminContext;
@@ -90,6 +91,10 @@ class FeedProfileWorkflowTest extends TestCase
 
         $this->assertSame(FeedGeneration::STATUS_BUILT, $generation->status);
         Storage::disk(config('feed_mediator.storage_disk'))->assertExists($generation->file_path);
+
+        $releaseService = app(FeedReleaseService::class);
+        $releaseService->markCandidate($generation);
+        $releaseService->approve($generation->fresh());
 
         $this->actingAs($admin)
             ->post(route('admin.feed-profiles.publish', $feedProfile))

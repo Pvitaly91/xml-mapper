@@ -45,7 +45,7 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
                     ->where('status', FeedProfile::STATUS_ACTIVE)
                     ->where('auto_build', true)
                     ->pluck('id')
-                    ->each(fn (int $feedProfileId) => BuildFeedJob::dispatch($feedProfileId, true, $import->id));
+                    ->each(fn (int $feedProfileId) => BuildFeedJob::dispatch($feedProfileId, false, $import->id));
             }
 
             return $import->refresh();

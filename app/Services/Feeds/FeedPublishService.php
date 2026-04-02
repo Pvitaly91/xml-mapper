@@ -48,6 +48,7 @@ class FeedPublishService implements FeedPublishServiceInterface
     private function publishGeneration(FeedProfile $feedProfile, FeedGeneration $generation, bool $force): FeedGeneration
     {
         $disk = Storage::disk(config('feed_mediator.storage_disk'));
+        $currentPublished = $feedProfile->publishedGeneration;
 
         if (
             $feedProfile->published_generation_id === $generation->id
@@ -82,10 +83,17 @@ class FeedPublishService implements FeedPublishServiceInterface
 
         $generation->update([
             'status' => FeedGeneration::STATUS_PUBLISHED,
+            'release_status' => FeedGeneration::RELEASE_STATUS_PUBLISHED,
             'published_at' => $publishedAt,
             'published_path' => $publishedPath,
             'meta' => $meta,
         ]);
+
+        if ($currentPublished !== null && $currentPublished->id !== $generation->id) {
+            $currentPublished->update([
+                'release_status' => FeedGeneration::RELEASE_STATUS_SUPERSEDED,
+            ]);
+        }
 
         $feedProfile->update([
             'published_generation_id' => $generation->id,

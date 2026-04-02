@@ -13,7 +13,7 @@
 
 ## Runtime Flow
 
-`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `KastaExportConformanceService` -> `FeedItemDiagnosticsService` -> `FeedBuildService` -> `FeedGeneration` build file + diff/guard meta -> `FeedPublishService` -> stable `/feeds/{token}.xml`
+`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `KastaExportConformanceService` -> `FeedItemDiagnosticsService` -> `FeedBuildService` -> `FeedGeneration` build file + diff/guard meta -> `FeedReleaseService` -> `FeedPublishService` -> stable `/feeds/{token}.xml` -> `FeedSmokeCheckService`
 
 Driver paths:
 
@@ -42,13 +42,18 @@ Feed-item export lifecycle:
 - `FeedGenerationDiffService` compares the built generation with the latest published generation
 - `FeedPublishGuardService` blocks publish when profile thresholds or critical conformance rules fail
 - `FeedPilotReadinessService` summarizes whether the operator can safely run the first pilot publish
+- `FeedReleaseReadinessService` aggregates go-live blockers and warnings before publish
+- `FeedReleaseService` owns candidate/approve/publish/force-publish/rollback transitions
+- `FeedSmokeCheckService` verifies the published URL after publish or manual rerun
+- `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
+- `FeedReleaseReportService` exports invalid-item, diff and readiness reports for operators
 
 ## Background Orchestration
 
 Scheduled commands:
 
 - `source:sync --due --queue`
-- `feed:build --due --publish --queue`
+- `feed:build --due --queue`
 - `feed:publish --due --queue`
 
 Queue split:
@@ -80,9 +85,9 @@ Active feed profiles where `auto_build=true` and `next_build_at` is null or expi
 
 Active feed profiles where a publishable generation exists and one of these applies:
 
-- a newer built generation exists than the published one
+- a newer approved generation exists than the published one
 - the published file is missing
-- the feed has never been published
+- the feed has never been published but an approved candidate exists
 
 ## Ops Visibility
 
@@ -115,6 +120,7 @@ Kasta export assumptions:
 - missing attribute mapping, missing value mapping and missing source value are tracked separately for operators
 - color and size normalization is centralized and reused in diagnostics plus XML preview
 - publish readiness depends on generation summary, diff and guard metadata stored on `feed_generations.meta`
+- release approval, smoke-check history and audit trail are persisted in dedicated tables to keep operator actions queryable
 
 ## Dictionary Import Architecture
 
@@ -162,6 +168,11 @@ app/
     FeedItemDiagnosticsService.php
     FeedPilotReadinessService.php
     FeedPublishGuardService.php
+    FeedReleaseAuditService.php
+    FeedReleaseReadinessService.php
+    FeedReleaseReportService.php
+    FeedReleaseService.php
+    FeedSmokeCheckService.php
     KastaExportConformanceService.php
     KastaExportFieldNormalizer.php
     KastaExportXmlService.php

@@ -13,18 +13,7 @@
                 @csrf
                 <button class="button" type="submit">Build now</button>
             </form>
-            <form method="POST" action="{{ route('admin.feed-profiles.publish', $feedProfile) }}">
-                @csrf
-                <button class="button secondary" type="submit">Publish latest</button>
-            </form>
-            @if(($pilotReadiness['latest_generation'] ?? null) && ! $latestGuard['allowed'])
-                <form method="POST" action="{{ route('admin.feed-profiles.publish', $feedProfile) }}">
-                    @csrf
-                    <input type="hidden" name="generation_id" value="{{ $pilotReadiness['latest_generation']->id }}">
-                    <input type="hidden" name="force_publish" value="1">
-                    <button class="button warning" type="submit">Force publish latest</button>
-                </form>
-            @endif
+            <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <form method="POST" action="{{ route('admin.feed-profiles.status', $feedProfile) }}">
                 @csrf
                 <input type="hidden" name="status" value="{{ $feedProfile->status === 'active' ? 'inactive' : 'active' }}">
@@ -148,19 +137,7 @@
                             @endif
                         </td>
                         <td>
-                            <form method="POST" action="{{ route('admin.feed-profiles.publish', $feedProfile) }}">
-                                @csrf
-                                <input type="hidden" name="generation_id" value="{{ $generation->id }}">
-                                <button class="button link" type="submit">Publish this</button>
-                            </form>
-                            @if($guard && ! ($guard['allowed'] ?? false))
-                                <form method="POST" action="{{ route('admin.feed-profiles.publish', $feedProfile) }}">
-                                    @csrf
-                                    <input type="hidden" name="generation_id" value="{{ $generation->id }}">
-                                    <input type="hidden" name="force_publish" value="1">
-                                    <button class="button link" type="submit">Force publish</button>
-                                </form>
-                            @endif
+                            <a class="button link" href="{{ route('admin.feed-profiles.generations.show', [$feedProfile, $generation]) }}">Open release details</a>
                         </td>
                     </tr>
                 @empty

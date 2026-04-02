@@ -21,6 +21,7 @@ class FeedBuildService implements FeedBuildServiceInterface
         private readonly KastaExportXmlService $xmlService,
         private readonly FeedGenerationDiffService $diffService,
         private readonly FeedPublishGuardService $publishGuardService,
+        private readonly PilotNotificationService $notificationService,
         private readonly ProcessLockService $lockService,
     ) {
     }
@@ -51,6 +52,7 @@ class FeedBuildService implements FeedBuildServiceInterface
                     'feed_profile_id' => $feedProfile->id,
                     'source_import_id' => $sourceImportId,
                     'status' => FeedGeneration::STATUS_BUILDING,
+                    'release_status' => FeedGeneration::RELEASE_STATUS_BUILT,
                 ]);
 
                 try {
@@ -170,6 +172,7 @@ class FeedBuildService implements FeedBuildServiceInterface
 
                     $generation->update([
                         'status' => FeedGeneration::STATUS_BUILT,
+                        'release_status' => FeedGeneration::RELEASE_STATUS_BUILT,
                         'items_total' => $itemsTotal,
                         'valid_items_total' => $validItems,
                         'invalid_items_total' => $invalidItems,
@@ -196,10 +199,30 @@ class FeedBuildService implements FeedBuildServiceInterface
                         'excluded_items' => $excludedItems,
                     ]);
 
+                    if (
+                        (($summary['invalid_conformance'] ?? 0) > 0)
+                        || ($feedProfile->publishGuardEnabled() && ! $guard['allowed'])
+                    ) {
+                        $this->notificationService->notifyFeedProfileAdmins(
+                            $feedProfile,
+                            'feed.release_attention_required',
+                            'Feed generation needs operator attention',
+                            'The latest built generation has critical conformance issues or failed publish guardrails.',
+                            [
+                                'generation_id' => $generation->id,
+                                'summary' => $summary,
+                                'publish_guard' => $guard,
+                            ],
+                            'warning',
+                            $generation
+                        );
+                    }
+
                     return $generation->refresh();
                 } catch (Throwable $exception) {
                     $generation->update([
                         'status' => FeedGeneration::STATUS_FAILED,
+                        'release_status' => FeedGeneration::RELEASE_STATUS_BUILT,
                         'error_message' => $exception->getMessage(),
                     ]);
 

@@ -17,8 +17,17 @@ class FeedGeneration extends Model
     public const STATUS_PUBLISHED = 'published';
     public const STATUS_FAILED = 'failed';
 
+    public const RELEASE_STATUS_BUILT = 'built';
+    public const RELEASE_STATUS_CANDIDATE = 'candidate';
+    public const RELEASE_STATUS_APPROVED = 'approved';
+    public const RELEASE_STATUS_PUBLISHED = 'published';
+    public const RELEASE_STATUS_SUPERSEDED = 'superseded';
+    public const RELEASE_STATUS_ROLLED_BACK = 'rolled_back';
+    public const RELEASE_STATUS_PUBLISH_FAILED = 'publish_failed';
+
     protected $attributes = [
         'status' => self::STATUS_PENDING,
+        'release_status' => self::RELEASE_STATUS_BUILT,
         'items_total' => 0,
         'valid_items_total' => 0,
         'invalid_items_total' => 0,
@@ -29,6 +38,7 @@ class FeedGeneration extends Model
         'feed_profile_id',
         'source_import_id',
         'status',
+        'release_status',
         'items_total',
         'valid_items_total',
         'invalid_items_total',
@@ -37,6 +47,11 @@ class FeedGeneration extends Model
         'checksum',
         'built_at',
         'published_at',
+        'release_candidate_at',
+        'approved_at',
+        'approved_by_user_id',
+        'last_smoke_check_status',
+        'last_smoke_check_at',
         'error_message',
         'meta',
     ];
@@ -46,6 +61,9 @@ class FeedGeneration extends Model
         return [
             'built_at' => 'datetime',
             'published_at' => 'datetime',
+            'release_candidate_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'last_smoke_check_at' => 'datetime',
             'meta' => 'array',
         ];
     }
@@ -65,6 +83,11 @@ class FeedGeneration extends Model
         return $this->belongsTo(SourceImport::class);
     }
 
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by_user_id');
+    }
+
     public function feedItems(): HasMany
     {
         return $this->hasMany(FeedItem::class, 'last_built_generation_id');
@@ -73,5 +96,31 @@ class FeedGeneration extends Model
     public function syncLogs(): HasMany
     {
         return $this->hasMany(SyncLog::class);
+    }
+
+    public function smokeChecks(): HasMany
+    {
+        return $this->hasMany(FeedGenerationSmokeCheck::class);
+    }
+
+    public function releaseEvents(): HasMany
+    {
+        return $this->hasMany(FeedReleaseEvent::class);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function releaseStatuses(): array
+    {
+        return [
+            self::RELEASE_STATUS_BUILT,
+            self::RELEASE_STATUS_CANDIDATE,
+            self::RELEASE_STATUS_APPROVED,
+            self::RELEASE_STATUS_PUBLISHED,
+            self::RELEASE_STATUS_SUPERSEDED,
+            self::RELEASE_STATUS_ROLLED_BACK,
+            self::RELEASE_STATUS_PUBLISH_FAILED,
+        ];
     }
 }

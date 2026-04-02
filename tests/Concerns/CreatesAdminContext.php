@@ -50,6 +50,9 @@ trait CreatesAdminContext
             'driver' => SourceConnection::DRIVER_PROM_YML,
             'status' => SourceConnection::STATUS_ACTIVE,
             'source_url' => base_path('tests/Fixtures/prom_sample.yml'),
+            'last_connection_check_status' => SourceConnection::CHECK_STATUS_OK,
+            'last_sync_status' => SourceConnection::CHECK_STATUS_OK,
+            'last_synced_at' => now(),
             'sync_interval_minutes' => 60,
         ], $overrides));
     }
@@ -185,6 +188,8 @@ trait CreatesAdminContext
             'external_id' => 'KASTA-TSHIRTS',
             'rz_id' => '2001',
         ]);
+        $kastaAttribute = $this->createKastaAttribute($kastaCategory, 'Seed marker', 'seed_marker', false);
+        $this->createKastaAttributeValue($kastaAttribute, 'Seed value');
 
         CategoryMapping::create([
             'shop_id' => $shop->id,

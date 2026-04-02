@@ -23,6 +23,7 @@ The application stores normalized source data locally, validates exportability, 
 - feed item workflow and revalidation
 - Kasta export conformance layer with diagnostics, XML preview and generation diff
 - publish guardrails and pilot-readiness checks on feed profiles
+- release lifecycle with candidate/approve/publish/rollback, smoke checks, audit trail and operator reports
 - dual source drivers via `source_connections.driver`:
   - `prom_yml`
   - `prom_api`
@@ -189,7 +190,7 @@ php artisan schedule:run
 Scheduled orchestration is defined in [`routes/console.php`](routes/console.php):
 
 - `source:sync --due --queue`
-- `feed:build --due --publish --queue`
+- `feed:build --due --queue`
 - `feed:publish --due --queue`
 
 All scheduled commands are protected with overlap guards. Due queue dispatch is also protected with cache locks, so repeated `schedule:run` calls do not enqueue duplicate work for the same source connection or feed profile.
@@ -217,11 +218,11 @@ The sync workflow is:
 
 ### Due feed publish
 
-`feed:publish --due` resolves active feed profiles when a publishable generation exists and at least one of these is true:
+`feed:publish --due` resolves active feed profiles when an approved or already-published generation with a build file exists and at least one of these is true:
 
-- there is a newer built generation than `published_generation_id`
+- there is a newer approved generation than `published_generation_id`
 - `published_path` is empty or the published file is missing
-- the profile has never been published
+- the profile has never been published but an approved candidate exists
 
 Build, publish and sync execution are protected with distributed cache locks. Build is idempotent for the same `source_import_id`, and publish is idempotent for an already published generation with an existing public file.
 
@@ -286,7 +287,41 @@ Operator-facing diagnostics distinguish:
 
 These settings are stored in `feed_profiles.settings`.
 
-## Publish Guard And Diff
+## Release Workflow
+
+Release actions are centralized in the release service layer and exposed in the admin Release Center plus artisan commands.
+
+Generation lifecycle:
+
+- `built`
+- `candidate`
+- `approved`
+- `published`
+- `superseded`
+- `rolled_back`
+- `publish_failed`
+
+Manual commands:
+
+```bash
+php artisan feed:approve {generationId}
+php artisan feed:publish {feedProfileId?} {generationId?} --reason="..." --force
+php artisan feed:rollback {feedProfileId} --to-generation={generationId} --reason="..."
+php artisan feed:smoke-check {feedProfileId?} {generationId?} --latest-published
+```
+
+Admin workflow:
+
+1. Open `/admin/feed-profiles/{profile}/release-center`
+2. Mark the built generation as `candidate`
+3. Approve the generation
+4. Review readiness, guardrails, diff and invalid-item reports
+5. Publish normally or force publish with an explicit reason
+6. Re-run smoke check or roll back if needed
+
+Every manual action records an audit event with user, action, reason and context metadata.
+
+## Publish Guard, Diff And Smoke Checks
 
 Every built generation stores summary metadata and a diff against the latest published generation:
 
@@ -303,6 +338,36 @@ Publish guardrails can block publication when:
 
 Admin can still force publish manually when an operator intentionally overrides the guard.
 
+After publish, the system runs a smoke check against the public XML URL and stores:
+
+- status
+- checked timestamp
+- latency
+- HTTP status / content type
+- offers count
+- category count
+- response checksum vs generation checksum
+- warnings and errors
+
+Manual re-run is available in admin and via `feed:smoke-check`.
+
+## Release Center And Reports
+
+`/admin/feed-profiles/{profile}/release-center` provides:
+
+- generations list with build/release/smoke status
+- generation details page with readiness checks, publish guard result, diff and smoke-check result
+- approve / publish / force publish / rollback / rerun smoke check actions
+- publish-block reason visibility when readiness fails
+
+Downloadable operator reports:
+
+- invalid items CSV/JSON
+- generation diff JSON
+- release readiness JSON
+
+Invalid-item reports include item IDs, product/variant identifiers, source category, mapped category, status and exact blocking reasons.
+
 ## Pilot Workflow
 
 Recommended first pilot run:
@@ -310,11 +375,14 @@ Recommended first pilot run:
 1. Sync the source connection.
 2. Import Kasta dictionaries.
 3. Complete category, attribute and value mappings.
-4. Open the feed profile and review `Pilot Readiness`.
-5. Build the generation.
-6. Review generation summary, diff and blocked reasons.
-7. Inspect a few feed-item diagnostics and XML previews.
-8. Publish normally, or force publish only after confirming the risks.
+4. Build the generation.
+5. Open the feed profile `Release center`.
+6. Mark the new generation as candidate and approve it.
+7. Review readiness, generation diff, invalid-item report and a few feed-item diagnostics/XML previews.
+8. Publish normally.
+9. Review the automatic smoke-check result on the generation details page.
+10. If publish is blocked, fix the listed issues or use force publish only with an explicit operator reason.
+11. If the published URL fails smoke checks, use rollback intentionally and record the rollback reason.
 
 ## Dictionary Import
 
@@ -414,6 +482,14 @@ Export / conformance errors:
 - open the feed-item details page and review `Operator Summary`, `Required Attribute Diagnostics` and `Normalized Export Snapshot`
 - filter `/admin/feed-profiles/{profile}/feed-items` by missing mapping, missing value mapping, missing images, or invalid color/size
 - open the feed profile and review `Pilot Readiness`, generation diff, and publish-guard reasons before publishing
+- open the `Release center` and inspect invalid-item report, readiness report and generation details before approving
+
+Release troubleshooting:
+
+- if publish is blocked, review the `blocking_issues` list in generation readiness and compare it with the audit event `publish_blocked`
+- if force publish was used, confirm the override reason was recorded and review the follow-up smoke check immediately
+- if smoke check fails, compare `http_status`, `content_type`, `offers_total`, `categories_total` and checksum mismatch details on the generation page
+- if rollback is needed, use the admin rollback action or `feed:rollback` with an explicit reason; the system does not auto-rollback on its own
 
 ## Production Basics
 

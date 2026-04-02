@@ -29,6 +29,10 @@ return [
         'heartbeat_stale_after_seconds' => (int) env('FEED_MEDIATOR_HEARTBEAT_STALE_AFTER_SECONDS', 180),
         'failed_jobs_degraded_threshold' => (int) env('FEED_MEDIATOR_FAILED_JOBS_DEGRADED_THRESHOLD', 1),
     ],
+    'smoke_checks' => [
+        'timeout_seconds' => (int) env('FEED_MEDIATOR_SMOKE_TIMEOUT_SECONDS', 15),
+        'latency_warning_ms' => (int) env('FEED_MEDIATOR_SMOKE_LAT_WARN_MS', 3000),
+    ],
     'normalization' => [
         'article_keys' => ['article', 'vendorcode', 'vendor_code', 'артикул', 'sku'],
         'size_keys' => ['size', 'розмір', 'размер'],

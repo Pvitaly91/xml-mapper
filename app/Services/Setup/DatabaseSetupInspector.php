@@ -27,8 +27,11 @@ class DatabaseSetupInspector
         'attribute_mappings',
         'value_mappings',
         'feed_generations',
+        'feed_generation_smoke_checks',
+        'feed_release_events',
         'feed_items',
         'validation_errors',
+        'notifications',
         'sync_logs',
         'dictionary_imports',
     ];

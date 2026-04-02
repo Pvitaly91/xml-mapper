@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Actions\Ops\ResolveDueFeedBuildsAction;
 use App\Contracts\Feeds\FeedBuildServiceInterface;
 use App\Models\FeedProfile;
+use App\Services\Feeds\FeedReleaseService;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -43,6 +44,7 @@ class BuildFeedJob implements ShouldQueue
     public function handle(
         FeedBuildServiceInterface $feedBuildService,
         ResolveDueFeedBuildsAction $resolveDueFeedBuilds,
+        FeedReleaseService $feedReleaseService,
         ProcessLockService $lockService,
     ): void
     {
@@ -56,6 +58,9 @@ class BuildFeedJob implements ShouldQueue
             $generation = $feedBuildService->build($feedProfile, $this->sourceImportId);
 
             if ($this->publishAfterBuild) {
+                $generation = $feedReleaseService->markCandidate($generation, null, 'Immediate publish requested after build.');
+                $feedReleaseService->approve($generation, null, 'Immediate publish requested after build.');
+
                 PublishFeedJob::dispatch($feedProfile->id, $generation->id);
             }
         } finally {

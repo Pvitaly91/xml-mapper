@@ -16,6 +16,7 @@ use App\Models\SourceConnection;
 use App\Models\SourceImport;
 use App\Models\SourceProduct;
 use App\Models\SourceVariant;
+use App\Services\Feeds\FeedReleaseService;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -54,11 +55,11 @@ class SchedulerCommandTest extends TestCase
         $this->createFeedProfile($connection, null, ['code' => 'future-build', 'next_build_at' => now()->addHour(), 'auto_build' => true]);
         $this->createFeedProfile($connection, null, ['code' => 'manual-build', 'next_build_at' => now()->subMinute(), 'auto_build' => false]);
 
-        $this->artisan('feed:build --due --publish --queue')->assertSuccessful();
-        $this->artisan('feed:build --due --publish --queue')->assertSuccessful();
+        $this->artisan('feed:build --due --queue')->assertSuccessful();
+        $this->artisan('feed:build --due --queue')->assertSuccessful();
 
         Queue::assertPushed(BuildFeedJob::class, 1);
-        Queue::assertPushed(BuildFeedJob::class, fn (BuildFeedJob $job) => $job->feedProfileId === $dueProfile->id && $job->onlyIfDue && $job->publishAfterBuild && $job->queue === config('feed_mediator.queues.feeds'));
+        Queue::assertPushed(BuildFeedJob::class, fn (BuildFeedJob $job) => $job->feedProfileId === $dueProfile->id && $job->onlyIfDue && ! $job->publishAfterBuild && $job->queue === config('feed_mediator.queues.feeds'));
     }
 
     public function test_feed_publish_due_command_resolves_due_profiles_for_all_supported_scenarios(): void
@@ -142,10 +143,15 @@ class SchedulerCommandTest extends TestCase
 
         if ($publishLatest) {
             app(FeedPublishServiceInterface::class)->publish($feedProfile, $firstGeneration);
+        } else {
+            app(FeedReleaseService::class)->markCandidate($firstGeneration);
+            app(FeedReleaseService::class)->approve($firstGeneration->fresh());
         }
 
         if ($createNewerBuiltGeneration) {
-            app(FeedBuildServiceInterface::class)->build($feedProfile->fresh());
+            $newerGeneration = app(FeedBuildServiceInterface::class)->build($feedProfile->fresh());
+            app(FeedReleaseService::class)->markCandidate($newerGeneration);
+            app(FeedReleaseService::class)->approve($newerGeneration->fresh());
         }
 
         $feedProfile = $feedProfile->fresh(['latestGeneration', 'publishedGeneration']);

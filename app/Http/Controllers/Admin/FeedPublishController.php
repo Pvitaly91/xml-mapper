@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\Admin\FeedProfiles\PublishFeedProfileAction;
+use App\Http\Requests\Admin\FeedReleases\FeedPublishRequest;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Throwable;
 
 class FeedPublishController extends AdminController
 {
-    public function store(Request $request, FeedProfile $feedProfile, PublishFeedProfileAction $action): RedirectResponse
+    public function store(FeedPublishRequest $request, FeedProfile $feedProfile, PublishFeedProfileAction $action): RedirectResponse
     {
         $this->ensureShopOwned($request, $feedProfile);
 
@@ -20,7 +20,13 @@ class FeedPublishController extends AdminController
                 ? FeedGeneration::query()->where('feed_profile_id', $feedProfile->id)->findOrFail($request->integer('generation_id'))
                 : null;
 
-            $published = $action->handle($feedProfile, $generation, $request->boolean('force_publish'));
+            $published = $action->handle(
+                $feedProfile,
+                $generation,
+                $request->boolean('force_publish'),
+                $request->validated('reason'),
+                $request->user()
+            );
         } catch (Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }

@@ -60,6 +60,10 @@ Relevant source commands:
 php artisan source:test {sourceConnectionId}
 php artisan source:sync {sourceConnectionId}
 php artisan source:sync --due --queue
+php artisan feed:approve {generationId}
+php artisan feed:publish {feedProfileId?} {generationId?}
+php artisan feed:rollback {feedProfileId} --to-generation={generationId} --reason="..."
+php artisan feed:smoke-check {feedProfileId?} {generationId?} --latest-published
 ```
 
 Supervisor config:
@@ -135,11 +139,79 @@ Before the first real Kasta publish for a feed profile:
 1. Run `php artisan source:test {sourceConnectionId}` if the source uses Prom API.
 2. Run `php artisan source:sync {sourceConnectionId}` and confirm the latest import is `normalized`.
 3. Import or refresh Kasta dictionaries.
-4. Open the feed profile and check `Pilot Readiness`.
-5. Build the generation.
-6. Review the generation diff, ready/invalid/excluded counts, and publish-guard reasons.
-7. Open several feed-item diagnostics pages and confirm required attributes, XML preview, images, vendor code, color and size.
-8. Publish normally. Use force publish only after confirming the blocked reasons are understood and accepted.
+4. Build the generation.
+5. Open `/admin/feed-profiles/{profile}/release-center`.
+6. Mark the generation as candidate and approve it.
+7. Review readiness blockers/warnings, diff, invalid-item report and publish-guard reasons.
+8. Open several feed-item diagnostics pages and confirm required attributes, XML preview, images, vendor code, color and size.
+9. Publish normally. Use force publish only after confirming the blocked reasons are understood and accepted, and always record the reason.
+10. Review the automatic smoke check on the generation details page.
+11. If the smoke check fails, inspect the failure details first. Roll back only by explicit operator decision.
+
+## Release Center
+
+The release center is the operator entry point for real pilot publishes:
+
+- page: `/admin/feed-profiles/{profile}/release-center`
+- generation details: `/admin/feed-profiles/{profile}/generations/{generation}`
+
+Use it to:
+
+- review generation counts and release status
+- approve the release candidate
+- publish or force publish with a reason
+- rerun smoke check
+- roll back to a previous generation
+- download invalid-item, diff and readiness reports
+
+Blocked publish is expected to be visible there with explicit reasons. Do not bypass it blindly.
+
+## Smoke Checks
+
+Smoke checks run automatically after publish and rollback, and can also be started manually from admin or CLI.
+
+They verify:
+
+- public URL is reachable
+- HTTP status is `200`
+- content type looks like XML
+- XML is well formed
+- feed is not empty
+- offers and categories are present
+- counts and checksum still match the published generation
+- latency stays within warning thresholds
+
+Persisted smoke-check data includes status, latency, counts, checksum summary, warnings and errors.
+
+Interpretation:
+
+- `ok`: published URL matches the generation and basic XML checks pass
+- `warning`: XML is valid but response time crossed the warning threshold
+- `failed`: URL/content/count/checksum validation failed and needs operator action
+
+## Blocked Publish / Force Publish / Rollback
+
+Normal publish is blocked when readiness detects issues such as:
+
+- source sync is stale
+- dictionaries are missing
+- mappings or critical conformance are incomplete
+- generation is not approved
+- publish guard thresholds fail
+
+Force publish is allowed only with an explicit reason. The override is stored in the audit trail and should be followed by an immediate smoke-check review.
+
+Rollback is always manual. The system records the operator, reason and from/to generation IDs.
+
+## Reports
+
+Operator reports available from admin:
+
+- invalid items CSV/JSON
+- generation diff JSON
+- release readiness JSON
+
+Use them to hand off actionable issues to merchandising or integration operators.
 
 ## Failed Jobs
 
@@ -162,8 +234,9 @@ Export troubleshooting:
 1. If build completes with too many invalid items, open `/admin/feed-profiles/{profile}` and review `Pilot Readiness`.
 2. Use feed-item filters for missing category mapping, missing attribute mapping, missing value mapping, missing images, or invalid color/size.
 3. On an item details page, read `Operator Summary`, `Required Attribute Diagnostics`, `Normalized Export Snapshot` and `XML Preview`.
-4. If publish is blocked, compare `minimum_ready_items`, `maximum_invalid_ratio` and `block_publish_on_critical_conformance` with the current generation summary.
-5. Force publish only when the operator intentionally accepts the remaining risks.
+4. If publish is blocked, compare `minimum_ready_items`, `maximum_invalid_ratio` and `block_publish_on_critical_conformance` with the current generation summary and readiness report.
+5. If smoke check fails, inspect HTTP status, XML parse errors, offers/categories counts and checksum mismatch before deciding whether to republish or roll back.
+6. Force publish only when the operator intentionally accepts the remaining risks.
 
 Retry selected jobs:
 

@@ -20,7 +20,7 @@ class ResolveDueFeedPublishesAction
             ->with(['publishedGeneration', 'latestGeneration', 'generations' => fn ($query) => $query
                 ->whereIn('status', [FeedGeneration::STATUS_BUILT, FeedGeneration::STATUS_PUBLISHED])
                 ->orderByDesc('id')
-                ->limit(3),
+                ->limit(6),
             ])
             ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
             ->when($feedProfileId !== null, fn ($query) => $query->whereKey($feedProfileId))
@@ -32,7 +32,10 @@ class ResolveDueFeedPublishesAction
 
         return $profiles->map(function (FeedProfile $profile) use ($disk): ?DueFeedPublishCandidate {
             $publishableGeneration = $profile->generations
-                ->first(fn (FeedGeneration $generation) => ! blank($generation->file_path) && $disk->exists($generation->file_path));
+                ->first(fn (FeedGeneration $generation) => in_array($generation->release_status, [
+                    FeedGeneration::RELEASE_STATUS_APPROVED,
+                    FeedGeneration::RELEASE_STATUS_PUBLISHED,
+                ], true) && ! blank($generation->file_path) && $disk->exists($generation->file_path));
 
             if (! $publishableGeneration instanceof FeedGeneration) {
                 return null;
@@ -43,15 +46,19 @@ class ResolveDueFeedPublishesAction
                 || ! $disk->exists((string) $profile->published_path);
 
             if ($publishedGeneration === null) {
-                return new DueFeedPublishCandidate($profile, $publishableGeneration, 'not_published');
+                return new DueFeedPublishCandidate($profile, $publishableGeneration, 'approved_not_published');
             }
 
-            if ($publishableGeneration->id !== $publishedGeneration->id) {
-                return new DueFeedPublishCandidate($profile, $publishableGeneration, 'newer_generation');
+            if ($publishableGeneration->id !== $publishedGeneration->id && $publishableGeneration->release_status === FeedGeneration::RELEASE_STATUS_APPROVED) {
+                return new DueFeedPublishCandidate($profile, $publishableGeneration, 'approved_newer_generation');
             }
 
             if ($publishedFileMissing) {
-                return new DueFeedPublishCandidate($profile, $publishableGeneration, 'published_file_missing');
+                $fallbackGeneration = ! blank($publishedGeneration->file_path) && $disk->exists((string) $publishedGeneration->file_path)
+                    ? $publishedGeneration
+                    : $publishableGeneration;
+
+                return new DueFeedPublishCandidate($profile, $fallbackGeneration, 'published_file_missing');
             }
 
             return null;

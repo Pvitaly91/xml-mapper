@@ -17,7 +17,7 @@ Schedule::command('source:sync --due --queue')
     ->onOneServer()
     ->withoutOverlapping();
 
-Schedule::command('feed:build --due --publish --queue')
+Schedule::command('feed:build --due --queue')
     ->name('feed:build-due')
     ->everyFifteenMinutes()
     ->onOneServer()
