@@ -24,10 +24,9 @@ class CategoryMappingService implements CategoryMappingServiceInterface
             ->with('kastaCategory')
             ->where('feed_profile_id', $feedProfile->id)
             ->where('source_category_id', $category->id)
-            ->where('is_active', true)
             ->first();
 
-        if ($mapping !== null) {
+        if ($mapping !== null && $mapping->is_active) {
             return $mapping;
         }
 
@@ -42,6 +41,17 @@ class CategoryMappingService implements CategoryMappingServiceInterface
 
         if ($kastaCategory === null) {
             return null;
+        }
+
+        if ($mapping !== null) {
+            $mapping->update([
+                'kasta_category_id' => $kastaCategory->id,
+                'rz_id' => $category->rz_id,
+                'mapping_strategy' => CategoryMapping::STRATEGY_RZ_ID,
+                'is_active' => true,
+            ]);
+
+            return $mapping->refresh()->load('kastaCategory');
         }
 
         return CategoryMapping::create([

@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Jobs\SyncSourceJob;
+use App\Actions\Admin\SourceConnections\RunSourceConnectionSyncAction;
 use App\Models\SourceConnection;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Throwable;
 
-class SourceSyncController extends Controller
+class SourceSyncController extends AdminController
 {
-    public function store(int $id): JsonResponse
+    public function store(Request $request, SourceConnection $sourceConnection, RunSourceConnectionSyncAction $action): RedirectResponse
     {
-        $connection = SourceConnection::findOrFail($id);
+        $this->ensureShopOwned($request, $sourceConnection);
 
-        SyncSourceJob::dispatch($connection->id);
+        try {
+            $import = $action->handle($sourceConnection);
+        } catch (Throwable $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
-        return response()->json([
-            'status' => 'queued',
-            'source_connection_id' => $connection->id,
-        ], 202);
+        return back()->with('status', 'Source synced. Latest import status: '.$import->status.'.');
     }
 }

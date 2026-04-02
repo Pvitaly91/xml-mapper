@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SourceConnection extends Model
 {
@@ -14,6 +15,7 @@ class SourceConnection extends Model
     public const DRIVER_PROM_YML = 'prom_yml';
 
     public const STATUS_ACTIVE = 'active';
+    public const STATUS_PAUSED = 'paused';
 
     protected $fillable = [
         'shop_id',
@@ -72,5 +74,10 @@ class SourceConnection extends Model
     public function feedProfiles(): HasMany
     {
         return $this->hasMany(FeedProfile::class);
+    }
+
+    public function latestImport(): HasOne
+    {
+        return $this->hasOne(SourceImport::class)->latestOfMany();
     }
 }

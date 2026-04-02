@@ -1,59 +1,239 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# XML Mapper
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 service that mediates between Prom source feeds and Kasta output feeds.
 
-## About Laravel
+The service keeps Prom as the source of truth, normalizes source data into local tables, validates exportability, builds cached XML generations, and publishes a stable public feed URL.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Current Scope
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Laravel 12, PHP 8.2+
+- MySQL-ready schema
+- Redis/queue-friendly jobs and commands
+- server-rendered admin UI with Blade
+- multi-shop data model
+- cached build/publish pipeline
+- Kasta dictionary import stubs and commands
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Implemented Modules
 
-## Learning Laravel
+- source import, parsing and normalization
+- category, attribute and value mapping services
+- validation service
+- feed build and publish services
+- jobs and artisan commands
+- admin auth and protected `/admin/*` workflow
+- admin CRUD for source connections and feed profiles
+- admin workflow for category mappings, attribute mappings, value mappings, feed items
+- admin dashboard and dictionary browser
+- Kasta dictionary import/reimport workflow
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Local Setup
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+1. Install dependencies:
 
-## Laravel Sponsors
+```bash
+composer install
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+2. Prepare environment:
 
-### Premium Partners
+```bash
+copy .env.example .env
+php artisan key:generate
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+3. Configure database and queue/cache in `.env`.
 
-## Contributing
+4. Run migrations:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan migrate
+```
 
-## Code of Conduct
+5. Import Kasta dictionary stubs:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan kasta:import-dictionaries
+```
 
-## Security Vulnerabilities
+6. Create a local admin user and shop:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan admin:bootstrap
+```
 
-## License
+The command prints the email and password for the admin login.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+7. Start the app:
+
+```bash
+php artisan serve
+```
+
+Admin login is available at `/admin/login`.
+
+## Admin Workflow
+
+### Dashboard
+
+Shows:
+
+- total source products
+- total source variants
+- total feed items
+- ready / invalid / excluded counts
+- last sync
+- last build
+- last publish
+- active validation errors
+
+### Source Connections
+
+Available workflow:
+
+- index/create/edit/show
+- driver, source URL/path, sync interval, status, credentials JSON, settings JSON
+- manual `Sync now`
+- last sync status, `last_synced_at`, `next_sync_at`
+
+Manual sync runs the same import + parse + normalize pipeline used by the backend services.
+
+### Feed Profiles
+
+Available workflow:
+
+- index/create/edit/show
+- activate / deactivate
+- manual build
+- manual publish latest generation
+- public feed URL visibility
+- `include_unavailable`, `auto_sync`, `auto_build`, `build_interval_minutes`
+
+### Category Mappings
+
+Available workflow:
+
+- filter by unmapped / mapped
+- filter by strategy (`rz_id`, `manual`)
+- filter by active / inactive
+- search by source category
+- search by Kasta category
+- manual create / update / delete / deactivate
+- bulk automap by `rz_id`
+- full `Run automap`
+
+### Attribute Mappings
+
+Available workflow:
+
+- scoped by feed profile and source category
+- manual create / update / delete
+- visibility of required Kasta attributes
+- separate list of unmapped required attributes
+- exact normalized-name suggestion workflow
+
+### Value Mappings
+
+Available workflow:
+
+- scoped by attribute mapping
+- manual create / update / delete
+- exact normalized-value suggestions
+- approve selected suggestions
+
+### Feed Items
+
+Available workflow:
+
+- filter by status
+- filter by enabled / disabled
+- filter by source category / mapped category
+- filter by vendor / article / validation code
+- free-text search by product name / offer id / article
+- detail page with source snapshots, mapped data and active validation errors
+- bulk enable / disable / include / exclude / revalidate
+- manual override per item
+- rebuild feed from the same profile screen
+
+## CLI Operations
+
+### Source Sync
+
+```bash
+php artisan source:sync {sourceConnectionId}
+php artisan source:sync --due
+php artisan source:sync --queue
+```
+
+### Feed Build
+
+```bash
+php artisan feed:build {feedProfileId}
+php artisan feed:build --due
+php artisan feed:build --publish
+php artisan feed:build --queue
+```
+
+### Feed Publish
+
+```bash
+php artisan feed:publish {feedProfileId}
+php artisan feed:publish {feedProfileId} --generation=123
+php artisan feed:publish {feedProfileId} --queue
+```
+
+### Kasta Dictionaries
+
+```bash
+php artisan kasta:import-dictionaries
+php artisan kasta:reimport-dictionaries
+php artisan db:seed --class=Database\\Seeders\\KastaDictionarySeeder
+```
+
+Detailed import contract: [docs/kasta-dictionary-import.md](docs/kasta-dictionary-import.md)
+
+## Kasta Dictionary Import Contract
+
+Default import path:
+
+```text
+database/data/kasta
+```
+
+Expected files:
+
+- `categories.json`
+- `attributes.json`
+- `attribute_values.json`
+- `size_grids.json`
+
+The JSON contract is documented in [docs/kasta-dictionary-import.md](docs/kasta-dictionary-import.md).
+
+## Public Feed
+
+Published feeds are served from:
+
+```text
+/feeds/{public_token}.xml
+```
+
+The controller serves only already-built and already-published cached XML files. No on-the-fly rendering is used.
+
+## Tests
+
+Run the full suite:
+
+```bash
+php artisan test
+```
+
+The suite covers:
+
+- admin auth protection
+- source connection CRUD and manual sync
+- feed profile CRUD and manual build/publish
+- category automap workflow
+- attribute/value mapping CRUD and suggestions
+- feed item manual workflow
+- dictionary import/seed workflow
+- public feed endpoint regression coverage

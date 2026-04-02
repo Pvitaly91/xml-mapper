@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Jobs\BuildFeedJob;
+use App\Actions\Admin\FeedProfiles\BuildFeedProfileAction;
 use App\Models\FeedProfile;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Throwable;
 
-class FeedBuildController extends Controller
+class FeedBuildController extends AdminController
 {
-    public function store(int $id): JsonResponse
+    public function store(Request $request, FeedProfile $feedProfile, BuildFeedProfileAction $action): RedirectResponse
     {
-        $feedProfile = FeedProfile::findOrFail($id);
+        $this->ensureShopOwned($request, $feedProfile);
 
-        BuildFeedJob::dispatch($feedProfile->id, true);
+        try {
+            $generation = $action->handle($feedProfile);
+        } catch (Throwable $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
-        return response()->json([
-            'status' => 'queued',
-            'feed_profile_id' => $feedProfile->id,
-        ], 202);
+        return back()->with('status', 'Feed built. Generation #'.$generation->id.' is ready.');
     }
 }

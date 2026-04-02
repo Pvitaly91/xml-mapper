@@ -74,4 +74,9 @@ class FeedItem extends Model
     {
         return $this->hasMany(ValidationError::class);
     }
+
+    public function activeValidationErrors(): HasMany
+    {
+        return $this->validationErrors()->where('is_active', true);
+    }
 }

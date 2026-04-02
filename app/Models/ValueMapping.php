@@ -10,6 +10,9 @@ class ValueMapping extends Model
 {
     use HasFactory;
 
+    public const STRATEGY_MANUAL = 'manual';
+    public const STRATEGY_NORMALIZED_EXACT = 'normalized_exact';
+
     protected $fillable = [
         'shop_id',
         'feed_profile_id',

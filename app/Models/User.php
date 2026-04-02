@@ -15,6 +15,8 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    public const ROLE_ADMIN = 'admin';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -63,5 +65,10 @@ class User extends Authenticatable
     public function feedProfiles(): HasMany
     {
         return $this->hasMany(FeedProfile::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->is_active && $this->role === self::ROLE_ADMIN;
     }
 }

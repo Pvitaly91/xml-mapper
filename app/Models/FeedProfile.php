@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class FeedProfile extends Model
@@ -14,6 +15,7 @@ class FeedProfile extends Model
 
     public const STATUS_DRAFT = 'draft';
     public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
 
     protected $attributes = [
         'status' => self::STATUS_DRAFT,
@@ -115,5 +117,10 @@ class FeedProfile extends Model
     public function validationErrors(): HasMany
     {
         return $this->hasMany(ValidationError::class);
+    }
+
+    public function latestGeneration(): HasOne
+    {
+        return $this->hasOne(FeedGeneration::class)->latestOfMany();
     }
 }

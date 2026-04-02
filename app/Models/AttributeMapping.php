@@ -11,6 +11,9 @@ class AttributeMapping extends Model
 {
     use HasFactory;
 
+    public const STRATEGY_MANUAL = 'manual';
+    public const STRATEGY_EXACT_NAME = 'exact_name';
+
     protected $fillable = [
         'shop_id',
         'source_connection_id',
