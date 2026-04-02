@@ -21,10 +21,6 @@ class DashboardController extends AdminController
             $shop = $request->user()->shop;
         }
 
-        if ($databaseSetupInspector->dashboardReport()['schema_ready'] && $shop === null) {
-            abort(403, 'Admin user is not assigned to a shop. Run php artisan admin:bootstrap.');
-        }
-
         return view('admin.dashboard', [
             'shop' => $shop,
             'metrics' => $action->handle($shop),

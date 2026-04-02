@@ -10,10 +10,16 @@
 6. Controllers stay thin. Runtime logic lives in actions, services and jobs.
 7. Source imports are driver-based and resolved from `source_connections.driver`.
 8. Prom API contract uncertainty stays isolated inside the Prom API client/driver layer.
+9. Admin access is single-shop scoped per user; shop resolution is centralized and reused across admin actions.
+10. New-shop onboarding and go-live daily operations are separate operator flows built on top of the same domain services.
 
 ## Runtime Flow
 
 `SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `KastaExportConformanceService` -> `FeedItemDiagnosticsService` -> `FeedBuildService` -> `FeedGeneration` build file + diff/guard meta -> `FeedReleaseService` -> `FeedPublishService` -> stable `/feeds/{token}.xml` -> `FeedSmokeCheckService`
+
+Operator flow:
+
+`ShopOnboardingService` -> onboarding wizard -> `BootstrapShopForPilotAction` -> default feed profile + initial mapping suggestions + first candidate -> `ShopControlPanelService` -> unresolved workbench -> release center
 
 Driver paths:
 
@@ -47,6 +53,10 @@ Feed-item export lifecycle:
 - `FeedSmokeCheckService` verifies the published URL after publish or manual rerun
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
 - `FeedReleaseReportService` exports invalid-item, diff and readiness reports for operators
+- `ShopControlPanelService` aggregates daily go-live state for one shop
+- `UnresolvedMappingsWorkbenchService` groups blockers into operator queues
+- `MappingPresetService` exports/imports reusable mapping presets across similar shops
+- `CurrentAdminShopResolver` centralizes shop ownership checks for admin actions
 
 ## Background Orchestration
 
@@ -147,6 +157,10 @@ Admin surface:
 - `/admin/dictionaries`
 - `/admin/dictionaries/imports`
 - `/admin/dictionaries/imports/{id}`
+- `/admin/onboarding`
+- `/admin/shop/control-panel`
+- `/admin/feed-profiles/{profile}/workbench`
+- `/admin/feed-profiles/{profile}/mapping-presets/import`
 
 ## Module Map
 
@@ -177,6 +191,14 @@ app/
     KastaExportFieldNormalizer.php
     KastaExportXmlService.php
   Services/Ops/
+  Services/Admin/
+    CurrentAdminShopResolver.php
+  Services/Shops/
+    MappingPresetService.php
+    ShopControlPanelService.php
+    ShopOnboardingService.php
+    ShopOnboardingStateService.php
+    UnresolvedMappingsWorkbenchService.php
   Services/Source/
     Drivers/
 database/

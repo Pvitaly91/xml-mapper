@@ -29,17 +29,26 @@
 <body>
 <div class="app">
     <aside class="sidebar">
+        @php($currentShop = auth()->user()?->shop)
         <div class="brand">XML Mapper<small>Prom -> Kasta admin</small></div>
         <nav class="nav">
             <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
-            <a href="{{ route('admin.source-connections.index') }}" class="{{ request()->routeIs('admin.source-connections.*') ? 'active' : '' }}">Source Connections</a>
-            <a href="{{ route('admin.feed-profiles.index') }}" class="{{ request()->routeIs('admin.feed-profiles.*') ? 'active' : '' }}">Feed Profiles</a>
+            <a href="{{ route('admin.onboarding.show') }}" class="{{ request()->routeIs('admin.onboarding.*') ? 'active' : '' }}">Onboarding</a>
+            @if($currentShop)
+                <a href="{{ route('admin.shop-control.show') }}" class="{{ request()->routeIs('admin.shop-control.*') ? 'active' : '' }}">Go-Live Control</a>
+                <a href="{{ route('admin.source-connections.index') }}" class="{{ request()->routeIs('admin.source-connections.*') ? 'active' : '' }}">Source Connections</a>
+                <a href="{{ route('admin.feed-profiles.index') }}" class="{{ request()->routeIs('admin.feed-profiles.*') ? 'active' : '' }}">Feed Profiles</a>
+            @endif
             <a href="{{ route('admin.dictionaries.index') }}" class="{{ request()->routeIs('admin.dictionaries.*') || request()->routeIs('admin.dictionary-imports.*') ? 'active' : '' }}">Kasta Dictionaries</a>
         </nav>
         <div class="meta">
             @if(auth()->user())
                 <div>{{ auth()->user()->name }}</div>
                 <div>{{ auth()->user()->email }}</div>
+                @if($currentShop)
+                    <div style="margin-top: 8px;">{{ $currentShop->name }}</div>
+                    <div>{{ $currentShop->slug }}</div>
+                @endif
             @endif
             <form method="POST" action="{{ route('admin.logout') }}" style="margin-top: 14px;">
                 @csrf

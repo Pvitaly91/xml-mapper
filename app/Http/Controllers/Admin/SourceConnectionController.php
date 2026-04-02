@@ -38,18 +38,27 @@ class SourceConnectionController extends AdminController
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('admin.source-connections.form', [
-            'connection' => new SourceConnection(),
+            'connection' => new SourceConnection([
+                'driver' => $request->string('driver')->toString() ?: SourceConnection::DRIVER_PROM_YML,
+            ]),
             'pageTitle' => 'Create Source Connection',
             'driverOptions' => SourceConnection::driverOptions(),
+            'redirectToOnboarding' => $request->boolean('redirect_to_onboarding'),
         ]);
     }
 
     public function store(SourceConnectionRequest $request, UpsertSourceConnectionAction $action): RedirectResponse
     {
         $connection = $action->handle($request->user(), $request->validated());
+
+        if ($request->boolean('redirect_to_onboarding')) {
+            return redirect()
+                ->route('admin.onboarding.show')
+                ->with('status', 'Source connection created.');
+        }
 
         return redirect()
             ->route('admin.source-connections.show', $connection)
@@ -75,6 +84,7 @@ class SourceConnectionController extends AdminController
             'connection' => $sourceConnection,
             'pageTitle' => 'Edit Source Connection',
             'driverOptions' => SourceConnection::driverOptions(),
+            'redirectToOnboarding' => $request->boolean('redirect_to_onboarding'),
         ]);
     }
 
@@ -82,6 +92,12 @@ class SourceConnectionController extends AdminController
     {
         $this->ensureShopOwned($request, $sourceConnection);
         $connection = $action->handle($request->user(), $request->validated(), $sourceConnection);
+
+        if ($request->boolean('redirect_to_onboarding')) {
+            return redirect()
+                ->route('admin.onboarding.show')
+                ->with('status', 'Source connection updated.');
+        }
 
         return redirect()
             ->route('admin.source-connections.show', $connection)

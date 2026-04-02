@@ -13,6 +13,9 @@ use App\Http\Controllers\Admin\FeedGenerationApprovalController;
 use App\Http\Controllers\Admin\FeedGenerationCandidateController;
 use App\Http\Controllers\Admin\FeedGenerationController;
 use App\Http\Controllers\Admin\FeedItemController;
+use App\Http\Controllers\Admin\MappingPresetController;
+use App\Http\Controllers\Admin\ShopControlPanelController;
+use App\Http\Controllers\Admin\ShopOnboardingController;
 use App\Http\Controllers\Admin\FeedProfileController;
 use App\Http\Controllers\Admin\FeedProfileStatusController;
 use App\Http\Controllers\Admin\FeedPublishController;
@@ -23,6 +26,7 @@ use App\Http\Controllers\Admin\FeedSmokeCheckController;
 use App\Http\Controllers\Admin\SourceConnectionController;
 use App\Http\Controllers\Admin\SourceConnectionTestController;
 use App\Http\Controllers\Admin\SourceSyncController;
+use App\Http\Controllers\Admin\UnresolvedMappingsWorkbenchController;
 use App\Http\Controllers\Admin\ValueMappingController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\HealthController;
@@ -40,6 +44,14 @@ Route::prefix('admin')->group(function (): void {
     Route::middleware(['auth', 'can:access-admin'])->name('admin.')->group(function (): void {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+        Route::get('/onboarding', [ShopOnboardingController::class, 'show'])->name('onboarding.show');
+        Route::put('/onboarding/shop', [ShopOnboardingController::class, 'saveShop'])->name('onboarding.shop');
+        Route::post('/onboarding/source-driver', [ShopOnboardingController::class, 'selectDriver'])->name('onboarding.source-driver');
+        Route::post('/onboarding/default-feed-profile', [ShopOnboardingController::class, 'ensureFeedProfile'])->name('onboarding.feed-profile');
+        Route::post('/onboarding/mappings', [ShopOnboardingController::class, 'applyMappings'])->name('onboarding.mappings');
+        Route::post('/onboarding/candidate', [ShopOnboardingController::class, 'buildCandidate'])->name('onboarding.candidate');
+        Route::post('/onboarding/bootstrap', [ShopOnboardingController::class, 'bootstrap'])->name('onboarding.bootstrap');
+        Route::get('/shop/control-panel', [ShopControlPanelController::class, 'show'])->name('shop-control.show');
 
         Route::resource('source-connections', SourceConnectionController::class)->except(['destroy']);
         Route::post('/source-connections/{source_connection}/test', [SourceConnectionTestController::class, 'store'])->name('source-connections.test');
@@ -58,6 +70,15 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/smoke-check', [FeedSmokeCheckController::class, 'store'])->name('feed-profiles.generations.smoke-check');
         Route::get('/feed-profiles/{feed_profile}/generations/{feed_generation}/reports/diff', [FeedReleaseReportController::class, 'diff'])->name('feed-profiles.generations.reports.diff');
         Route::get('/feed-profiles/{feed_profile}/generations/{feed_generation}/reports/readiness', [FeedReleaseReportController::class, 'readiness'])->name('feed-profiles.generations.reports.readiness');
+        Route::get('/feed-profiles/{feed_profile}/workbench', [UnresolvedMappingsWorkbenchController::class, 'index'])->name('feed-profiles.workbench.index');
+        Route::post('/feed-profiles/{feed_profile}/workbench/suggestions', [UnresolvedMappingsWorkbenchController::class, 'applySuggestions'])->name('feed-profiles.workbench.suggestions');
+        Route::post('/feed-profiles/{feed_profile}/workbench/value-suggestions', [UnresolvedMappingsWorkbenchController::class, 'applyValueSuggestions'])->name('feed-profiles.workbench.value-suggestions');
+        Route::post('/feed-profiles/{feed_profile}/workbench/bulk/confirm', [UnresolvedMappingsWorkbenchController::class, 'confirmBulk'])->name('feed-profiles.workbench.bulk-confirm');
+        Route::post('/feed-profiles/{feed_profile}/workbench/bulk/execute', [UnresolvedMappingsWorkbenchController::class, 'executeBulk'])->name('feed-profiles.workbench.bulk-execute');
+        Route::get('/feed-profiles/{feed_profile}/mapping-presets/import', [MappingPresetController::class, 'importForm'])->name('feed-profiles.mapping-presets.import');
+        Route::get('/feed-profiles/{feed_profile}/mapping-presets/export', [MappingPresetController::class, 'export'])->name('feed-profiles.mapping-presets.export');
+        Route::post('/feed-profiles/{feed_profile}/mapping-presets/preview', [MappingPresetController::class, 'preview'])->name('feed-profiles.mapping-presets.preview');
+        Route::post('/feed-profiles/{feed_profile}/mapping-presets/import', [MappingPresetController::class, 'store'])->name('feed-profiles.mapping-presets.store');
 
         Route::get('/dictionaries', [DictionaryController::class, 'index'])->name('dictionaries.index');
         Route::post('/dictionaries/import', [DictionaryController::class, 'import'])->name('dictionaries.import');

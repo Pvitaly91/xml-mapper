@@ -17,7 +17,7 @@ class DictionaryController extends AdminController
 {
     public function index(Request $request): View
     {
-        $shop = $this->adminShop($request);
+        $shop = $this->currentShop($request);
 
         return view('admin.dictionaries.index', [
             'shop' => $shop,
@@ -25,7 +25,9 @@ class DictionaryController extends AdminController
                 'categories' => KastaCategory::query()->count(),
                 'attributes' => KastaAttribute::query()->count(),
                 'attribute_values' => KastaAttributeValue::query()->count(),
-                'size_grids' => SizeGrid::query()->where(fn ($query) => $query->whereNull('shop_id')->orWhere('shop_id', $shop->id))->count(),
+                'size_grids' => SizeGrid::query()
+                    ->where(fn ($query) => $query->whereNull('shop_id')->when($shop, fn ($innerQuery) => $innerQuery->orWhere('shop_id', $shop->id)))
+                    ->count(),
             ],
             'recentCategories' => KastaCategory::query()->orderByDesc('id')->limit(10)->get(),
             'recentImports' => DictionaryImport::query()->latest('id')->limit(10)->get(),
@@ -106,10 +108,10 @@ class DictionaryController extends AdminController
 
     public function sizeGrids(Request $request): View
     {
-        $shop = $this->adminShop($request);
+        $shop = $this->currentShop($request);
 
         $sizeGrids = SizeGrid::query()
-            ->where(fn ($query) => $query->whereNull('shop_id')->orWhere('shop_id', $shop->id))
+            ->where(fn ($query) => $query->whereNull('shop_id')->when($shop, fn ($innerQuery) => $innerQuery->orWhere('shop_id', $shop->id)))
             ->when($request->filled('is_active'), fn ($query) => $query->where('is_active', (bool) $request->boolean('is_active')))
             ->when($request->string('search')->toString(), function ($query, $search): void {
                 $query->where(function ($innerQuery) use ($search): void {

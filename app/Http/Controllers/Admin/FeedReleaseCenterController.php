@@ -5,14 +5,20 @@ namespace App\Http\Controllers\Admin;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Services\Feeds\FeedReleaseReadinessService;
+use App\Services\Shops\ShopOnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class FeedReleaseCenterController extends AdminController
 {
-    public function show(Request $request, FeedProfile $feedProfile, FeedReleaseReadinessService $readinessService): View
-    {
+    public function show(
+        Request $request,
+        FeedProfile $feedProfile,
+        FeedReleaseReadinessService $readinessService,
+        ShopOnboardingService $onboardingService
+    ): View {
         $this->ensureShopOwned($request, $feedProfile);
+        $onboardingService->markReleaseCenterOpened($request->user());
 
         $feedProfile->load(['sourceConnection.latestImport', 'publishedGeneration', 'latestGeneration']);
         $generations = $feedProfile->generations()

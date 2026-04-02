@@ -12,6 +12,7 @@ class UpsertFeedProfileAction
      */
     public function handle(User $user, array $payload, ?FeedProfile $feedProfile = null): FeedProfile
     {
+        $user = $user->fresh() ?? $user;
         $settings = array_merge($this->decodeJson($payload['settings_json'] ?? null) ?? [], [
             'publish_guard_enabled' => (bool) ($payload['publish_guard_enabled'] ?? false),
             'minimum_ready_items' => (int) ($payload['minimum_ready_items'] ?? 0),

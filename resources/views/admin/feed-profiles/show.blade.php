@@ -13,6 +13,7 @@
                 @csrf
                 <button class="button" type="submit">Build now</button>
             </form>
+            <a class="button secondary" href="{{ route('admin.shop-control.show') }}">Go-live control panel</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <form method="POST" action="{{ route('admin.feed-profiles.status', $feedProfile) }}">
                 @csrf
@@ -85,6 +86,8 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.attribute-mappings.index', $feedProfile) }}">Attribute mappings</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.value-mappings.index', $feedProfile) }}">Value mappings</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feed-items.index', $feedProfile) }}">Feed items</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.workbench.index', $feedProfile) }}">Unresolved workbench</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.mapping-presets.import', $feedProfile) }}">Mapping presets</a>
         </div>
     </section>
 

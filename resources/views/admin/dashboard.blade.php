@@ -37,6 +37,18 @@
                 </div>
             @endif
         </section>
+    @elseif($shop === null)
+        <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Shop Onboarding Required</h2>
+                <span class="badge warn">pending</span>
+            </div>
+            <p class="muted">This admin user is authenticated, but no shop is assigned yet. Start the onboarding wizard to create the shop, configure the source, and build the first release candidate.</p>
+            <div class="toolbar" style="margin-top: 16px;">
+                <a class="button" href="{{ route('admin.onboarding.show') }}">Open onboarding wizard</a>
+                <a class="button secondary" href="{{ route('admin.dictionaries.index') }}">Check dictionaries</a>
+            </div>
+        </section>
     @else
         <div class="stats">
             <div class="stat"><span class="muted">Source products</span><strong>{{ $metrics['total_source_products'] }}</strong></div>
@@ -119,8 +131,12 @@
         <section class="panel">
             <h2>Quick Actions</h2>
             <div class="toolbar">
-                <a class="button" href="{{ route('admin.source-connections.index') }}">Manage source connections</a>
-                <a class="button secondary" href="{{ route('admin.feed-profiles.index') }}">Manage feed profiles</a>
+                <a class="button" href="{{ route('admin.onboarding.show') }}">Onboarding wizard</a>
+                @if($shop)
+                    <a class="button secondary" href="{{ route('admin.shop-control.show') }}">Go-live control panel</a>
+                    <a class="button secondary" href="{{ route('admin.source-connections.index') }}">Manage source connections</a>
+                    <a class="button secondary" href="{{ route('admin.feed-profiles.index') }}">Manage feed profiles</a>
+                @endif
                 <a class="button secondary" href="{{ route('admin.dictionaries.index') }}">Import dictionaries</a>
             </div>
             <p class="muted">

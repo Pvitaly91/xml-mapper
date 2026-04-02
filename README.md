@@ -24,6 +24,9 @@ The application stores normalized source data locally, validates exportability, 
 - Kasta export conformance layer with diagnostics, XML preview and generation diff
 - publish guardrails and pilot-readiness checks on feed profiles
 - release lifecycle with candidate/approve/publish/rollback, smoke checks, audit trail and operator reports
+- guided shop onboarding wizard and per-shop go-live control panel
+- unresolved mappings workbench with bulk helpers and confirmation step
+- reusable mapping preset export/import with dry-run preview
 - dual source drivers via `source_connections.driver`:
   - `prom_yml`
   - `prom_api`
@@ -67,6 +70,12 @@ php artisan kasta:import-dictionaries
 
 ```bash
 php artisan admin:bootstrap
+```
+
+Alternative local demo bootstrap with source connection + default pilot profile:
+
+```bash
+php artisan shop:bootstrap --driver=prom_yml --source-url=tests/Fixtures/prom_sample.yml
 ```
 
 7. Start the HTTP server:
@@ -368,21 +377,101 @@ Downloadable operator reports:
 
 Invalid-item reports include item IDs, product/variant identifiers, source category, mapped category, status and exact blocking reasons.
 
+## Shop Onboarding And Go-Live Control
+
+New-shop onboarding lives at:
+
+- `/admin/onboarding`
+
+The wizard persists progress and guides the operator through:
+
+1. create or update the shop
+2. choose `prom_yml` or `prom_api`
+3. configure and test the source connection
+4. import Kasta dictionaries
+5. create the default feed profile
+6. run the first sync
+7. run automap and mapping suggestions
+8. build the first release candidate
+9. open the release center
+
+For day-to-day operations after setup, use:
+
+- `/admin/shop/control-panel`
+
+The go-live control panel summarizes:
+
+- source health and last sync
+- unresolved mapping counts
+- ready / invalid / excluded item counts
+- latest candidate / approved / published generations
+- latest smoke check state
+- publish blocked / allowed state
+
+## Unresolved Mappings Workbench
+
+The operator workbench lives at:
+
+- `/admin/feed-profiles/{profile}/workbench`
+
+It groups blockers into actionable queues instead of showing one long invalid-item list:
+
+- missing category mapping
+- missing attribute mapping
+- missing value mapping
+- missing required source values
+- invalid color / size
+- excluded items
+
+Bulk helpers available from the workbench:
+
+- bulk approve suggestions
+- bulk apply exact-match value mappings
+- bulk exclude selected items with confirmation
+- bulk revalidate selected items
+- rebuild the current candidate with confirmation
+
+## Mapping Presets
+
+Reusable mapping presets live at:
+
+- `/admin/feed-profiles/{profile}/mapping-presets/import`
+- `/admin/feed-profiles/{profile}/mapping-presets/export`
+
+Preset JSON includes:
+
+- category mappings
+- attribute mappings
+- value mappings
+- feed-profile export settings
+
+Import supports:
+
+- dry-run preview
+- `skip_existing`
+- `overwrite_existing`
+- `merge_if_safe`
+
 ## Pilot Workflow
 
 Recommended first pilot run:
 
-1. Sync the source connection.
-2. Import Kasta dictionaries.
-3. Complete category, attribute and value mappings.
-4. Build the generation.
-5. Open the feed profile `Release center`.
-6. Mark the new generation as candidate and approve it.
-7. Review readiness, generation diff, invalid-item report and a few feed-item diagnostics/XML previews.
-8. Publish normally.
-9. Review the automatic smoke-check result on the generation details page.
-10. If publish is blocked, fix the listed issues or use force publish only with an explicit operator reason.
-11. If the published URL fails smoke checks, use rollback intentionally and record the rollback reason.
+1. Open `/admin/onboarding` and create the shop.
+2. Choose the source driver and configure the source connection.
+3. Run `Test connection`.
+4. Import Kasta dictionaries.
+5. Create the default feed profile.
+6. Run the first sync.
+7. Open the unresolved workbench and close missing category / attribute / value blockers.
+8. Build the first release candidate.
+9. Open the go-live control panel and confirm unresolved counts are acceptable.
+10. Open the feed profile `Release center`.
+11. Mark the new generation as candidate and approve it.
+12. Review readiness, diff, invalid-item report and a few feed-item diagnostics/XML previews.
+13. Publish normally.
+14. Review the automatic smoke-check result on the generation details page.
+15. If publish is blocked, fix the listed issues or use force publish only with an explicit operator reason.
+16. If the published URL fails smoke checks, use rollback intentionally and record the rollback reason.
 
 ## Dictionary Import
 

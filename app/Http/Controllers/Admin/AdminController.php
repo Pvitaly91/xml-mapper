@@ -4,25 +4,24 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Shop;
+use App\Services\Admin\CurrentAdminShopResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 abstract class AdminController extends Controller
 {
     protected function adminShop(Request $request): Shop
     {
-        $shop = $request->user()?->shop;
-
-        if ($shop === null) {
-            throw new HttpException(403, 'Admin user is not assigned to a shop. Run php artisan admin:bootstrap.');
-        }
-
-        return $shop;
+        return app(CurrentAdminShopResolver::class)->require($request);
     }
 
     protected function ensureShopOwned(Request $request, Model $model): void
     {
-        abort_unless((int) $model->getAttribute('shop_id') === (int) $request->user()->shop_id, 404);
+        app(CurrentAdminShopResolver::class)->ensureOwns($request, $model);
+    }
+
+    protected function currentShop(Request $request): ?Shop
+    {
+        return app(CurrentAdminShopResolver::class)->resolve($request);
     }
 }

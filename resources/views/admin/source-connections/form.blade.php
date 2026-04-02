@@ -9,6 +9,9 @@
             @if($connection->exists)
                 @method('PUT')
             @endif
+            @if($redirectToOnboarding ?? false)
+                <input type="hidden" name="redirect_to_onboarding" value="1">
+            @endif
 
             <div class="form-grid">
                 <div class="field">
@@ -69,7 +72,7 @@
 
             <div class="toolbar" style="margin-top: 18px;">
                 <button type="submit" class="button">{{ $connection->exists ? 'Save changes' : 'Create connection' }}</button>
-                <a class="button secondary" href="{{ route('admin.source-connections.index') }}">Back</a>
+                <a class="button secondary" href="{{ ($redirectToOnboarding ?? false) ? route('admin.onboarding.show') : route('admin.source-connections.index') }}">Back</a>
             </div>
         </form>
     </section>

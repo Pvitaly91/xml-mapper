@@ -12,6 +12,7 @@ class UpsertSourceConnectionAction
      */
     public function handle(User $user, array $payload, ?SourceConnection $connection = null): SourceConnection
     {
+        $user = $user->fresh() ?? $user;
         $connection ??= new SourceConnection();
 
         $attributes = [
