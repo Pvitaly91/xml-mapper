@@ -14,6 +14,7 @@
                 <button class="button" type="submit">Build now</button>
             </form>
             <a class="button secondary" href="{{ route('admin.shop-control.show') }}">Go-live control panel</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <form method="POST" action="{{ route('admin.feed-profiles.status', $feedProfile) }}">
                 @csrf

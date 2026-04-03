@@ -36,6 +36,14 @@ class MultiShopIsolationTest extends TestCase
             ->assertNotFound();
 
         $this->actingAs($otherAdmin)
+            ->get(route('admin.feed-profiles.acceptance.show', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]))
+            ->assertNotFound();
+
+        $this->actingAs($otherAdmin)
+            ->get(route('admin.feed-profiles.generations.qa-bundle', [$feedProfile, $generation]))
+            ->assertNotFound();
+
+        $this->actingAs($otherAdmin)
             ->post(route('admin.feed-profiles.publish', $feedProfile), [
                 'generation_id' => $generation->id,
             ])

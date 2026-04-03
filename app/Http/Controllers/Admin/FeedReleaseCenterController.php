@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
+use App\Services\Feeds\FeedPublishWindowService;
 use App\Services\Feeds\FeedReleaseReadinessService;
 use App\Services\Shops\ShopOnboardingService;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class FeedReleaseCenterController extends AdminController
         Request $request,
         FeedProfile $feedProfile,
         FeedReleaseReadinessService $readinessService,
+        FeedPublishWindowService $publishWindowService,
         ShopOnboardingService $onboardingService
     ): View {
         $this->ensureShopOwned($request, $feedProfile);
@@ -22,7 +24,7 @@ class FeedReleaseCenterController extends AdminController
 
         $feedProfile->load(['sourceConnection.latestImport', 'publishedGeneration', 'latestGeneration']);
         $generations = $feedProfile->generations()
-            ->with(['approvedBy'])
+            ->with(['approvedBy', 'previewLinks', 'signoffs' => fn ($query) => $query->where('is_current', true)->latest('id')])
             ->latest('id')
             ->paginate(15)
             ->withQueryString();
@@ -41,6 +43,7 @@ class FeedReleaseCenterController extends AdminController
                 ->limit(12)
                 ->get(),
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
+            'publishWindow' => $publishWindowService->evaluate($feedProfile),
         ]);
     }
 }

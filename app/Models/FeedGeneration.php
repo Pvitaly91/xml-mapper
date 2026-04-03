@@ -108,6 +108,16 @@ class FeedGeneration extends Model
         return $this->hasMany(FeedReleaseEvent::class);
     }
 
+    public function previewLinks(): HasMany
+    {
+        return $this->hasMany(FeedGenerationPreviewLink::class);
+    }
+
+    public function signoffs(): HasMany
+    {
+        return $this->hasMany(FeedGenerationSignoff::class);
+    }
+
     /**
      * @return list<string>
      */

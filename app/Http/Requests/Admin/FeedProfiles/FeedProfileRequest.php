@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\FeedProfiles;
 
 use App\Models\FeedProfile;
+use App\Models\FeedGenerationSignoff;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,6 +48,15 @@ class FeedProfileRequest extends FormRequest
             'maximum_invalid_ratio' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'block_publish_on_critical_conformance' => ['nullable', 'boolean'],
             'minimum_pictures' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'signoff_required' => ['nullable', 'boolean'],
+            'required_signoff_status' => ['nullable', Rule::in(FeedGenerationSignoff::statuses())],
+            'publish_window_enabled' => ['nullable', 'boolean'],
+            'publish_window_days' => ['nullable', 'array'],
+            'publish_window_days.*' => ['string', Rule::in(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])],
+            'publish_window_start' => ['nullable', 'date_format:H:i'],
+            'publish_window_end' => ['nullable', 'date_format:H:i'],
+            'publish_window_timezone' => ['nullable', 'timezone'],
+            'freeze_mode' => ['nullable', 'boolean'],
             'settings_json' => ['nullable', 'json'],
         ];
     }

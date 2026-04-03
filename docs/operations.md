@@ -222,17 +222,89 @@ The release center is the operator entry point for real pilot publishes:
 
 - page: `/admin/feed-profiles/{profile}/release-center`
 - generation details: `/admin/feed-profiles/{profile}/generations/{generation}`
+- acceptance screen: `/admin/feed-profiles/{profile}/acceptance?generation_id={generation}`
 
 Use it to:
 
 - review generation counts and release status
 - approve the release candidate
+- generate and revoke candidate preview links
+- download the QA bundle ZIP
+- record sign-off and review notes
 - publish or force publish with a reason
 - rerun smoke check
 - roll back to a previous generation
 - download invalid-item, diff and readiness reports
 
 Blocked publish is expected to be visible there with explicit reasons. Do not bypass it blindly.
+
+## Candidate Preview And QA Bundle
+
+Candidate preview:
+
+- preview URLs are separate from the public feed token route
+- they are signed and expiring, and can be revoked from admin
+- they serve the selected generation XML file directly
+- operators can run manual smoke checks against preview links before publish
+
+Commands:
+
+- `php artisan feed:preview-link {generationId} --ttl=1440`
+- `php artisan feed:qa-bundle {generationId}`
+
+QA bundle contents:
+
+- candidate XML file
+- summary JSON
+- invalid-items report
+- generation diff report
+- readiness report
+- smoke-check summary
+- human-readable release notes
+
+Use the bundle when sharing the pilot candidate with the merchant or internal QA stakeholders.
+
+## Sign-Off Workflow
+
+Sign-off states:
+
+- `pending_review`
+- `internal_approved`
+- `client_review`
+- `client_approved`
+- `rejected`
+- `superseded`
+
+Rules:
+
+- sign-off is generation-specific
+- the current sign-off row is used by publish guard evaluation
+- if the feed profile requires sign-off, publish is blocked until the configured state is reached
+- force publish still requires a reason and is recorded in the audit journal
+
+Command:
+
+- `php artisan feed:signoff {generationId} {status} --note= --reviewer=`
+
+## Publish Windows And Freeze Mode
+
+Feed profile settings now support:
+
+- allowed weekdays
+- allowed start/end time
+- publish window timezone
+- freeze mode
+
+Behavior:
+
+- auto publish runs only when the profile is currently inside the allowed window
+- freeze mode blocks auto publish completely
+- manual publish is blocked while freeze is active or the window is closed unless force publish is used with a reason
+- the acceptance screen and release center show `allowed now`, `next allowed window` and freeze state
+
+Command:
+
+- `php artisan feed:freeze {feedProfileId} --on --reason="merchant freeze"`
 
 ## Smoke Checks
 
@@ -270,6 +342,21 @@ Normal publish is blocked when readiness detects issues such as:
 Force publish is allowed only with an explicit reason. The override is stored in the audit trail and should be followed by an immediate smoke-check review.
 
 Rollback is always manual. The system records the operator, reason and from/to generation IDs.
+
+## Incident Journal
+
+`feed_release_events` is the pilot incident journal. It records:
+
+- blocked publish
+- publish failed
+- preview link created or revoked
+- QA bundle generated
+- sign-off transitions
+- freeze enabled or disabled
+- smoke-check reruns and failures
+- rollback
+
+Use the release center audit table as the operator-friendly history for who did what and why.
 
 ## Reports
 
@@ -327,7 +414,8 @@ Export troubleshooting:
 3. On an item details page, read `Operator Summary`, `Required Attribute Diagnostics`, `Normalized Export Snapshot` and `XML Preview`.
 4. If publish is blocked, compare `minimum_ready_items`, `maximum_invalid_ratio` and `block_publish_on_critical_conformance` with the current generation summary and readiness report.
 5. If smoke check fails, inspect HTTP status, XML parse errors, offers/categories counts and checksum mismatch before deciding whether to republish or roll back.
-6. Force publish only when the operator intentionally accepts the remaining risks.
+6. If publish is blocked by sign-off, preview, freeze or publish window, resolve the blocker on the acceptance screen before retrying.
+7. Force publish only when the operator intentionally accepts the remaining risks.
 
 Retry selected jobs:
 

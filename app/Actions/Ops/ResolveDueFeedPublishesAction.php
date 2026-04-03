@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Storage;
 
 class ResolveDueFeedPublishesAction
 {
+    public function __construct(
+        private readonly \App\Services\Feeds\FeedPublishWindowService $publishWindowService,
+    ) {
+    }
+
     /**
      * @return Collection<int, DueFeedPublishCandidate>
      */
@@ -31,6 +36,10 @@ class ResolveDueFeedPublishesAction
         $disk = Storage::disk(config('feed_mediator.storage_disk'));
 
         return $profiles->map(function (FeedProfile $profile) use ($disk): ?DueFeedPublishCandidate {
+            if (! $this->publishWindowService->autoPublishAllowed($profile)) {
+                return null;
+            }
+
             $publishableGeneration = $profile->generations
                 ->first(fn (FeedGeneration $generation) => in_array($generation->release_status, [
                     FeedGeneration::RELEASE_STATUS_APPROVED,

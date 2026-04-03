@@ -131,6 +131,11 @@ Kasta export assumptions:
 - color and size normalization is centralized and reused in diagnostics plus XML preview
 - publish readiness depends on generation summary, diff and guard metadata stored on `feed_generations.meta`
 - release approval, smoke-check history and audit trail are persisted in dedicated tables to keep operator actions queryable
+- candidate preview links are isolated in `feed_generation_preview_links` and never reuse public feed tokens
+- release sign-off history is persisted in `feed_generation_signoffs`; publish guard evaluation reads only the current sign-off row
+- publish windows and freeze mode stay in `feed_profiles.settings`, so release timing rules remain profile-scoped without a second configuration model
+- operator notes reuse `feed_release_events` with `note_added` actions instead of a parallel comments subsystem
+- QA bundles are generated on demand from the built generation file plus report services; no extra export model is introduced
 
 ## Dictionary Import Architecture
 
@@ -178,14 +183,20 @@ app/
     Importers/
     Readers/
   Services/Feeds/
+    FeedAcceptanceService.php
     FeedGenerationDiffService.php
     FeedItemDiagnosticsService.php
     FeedPilotReadinessService.php
     FeedPublishGuardService.php
+    FeedPublishWindowService.php
+    FeedPreviewLinkService.php
+    FeedQaBundleService.php
     FeedReleaseAuditService.php
+    FeedReleaseNotesService.php
     FeedReleaseReadinessService.php
     FeedReleaseReportService.php
     FeedReleaseService.php
+    FeedSignoffService.php
     FeedSmokeCheckService.php
     KastaExportConformanceService.php
     KastaExportFieldNormalizer.php
@@ -208,3 +219,18 @@ docs/
 deploy/
 tests/
 ```
+
+## Pilot Acceptance Flow
+
+The merchant pilot acceptance path is:
+
+1. onboarding wizard prepares the shop, source and default feed profile
+2. build produces a candidate generation file plus summary/diff/guard metadata
+3. `FeedPreviewLinkService` issues a signed expiring preview URL for that generation
+4. `FeedQaBundleService` packages the XML file and operator reports into a ZIP
+5. `FeedSignoffService` records internal/client review state for the generation
+6. `FeedPublishWindowService` evaluates publish window and freeze mode
+7. `FeedReleaseReadinessService` aggregates source health, mappings, conformance, sign-off, window and ops state
+8. `FeedReleaseService` publishes or force-publishes with audit trail and post-publish smoke check
+
+This keeps the whole acceptance workflow generation-centric and reuses the existing build/publish pipeline instead of inventing a parallel release model.

@@ -3,12 +3,14 @@
 namespace App\Services\Feeds;
 
 use App\Models\FeedGeneration;
+use App\Models\FeedGenerationPreviewLink;
 use App\Models\FeedGenerationSmokeCheck;
 use App\Models\FeedProfile;
 use App\Models\User;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 class FeedSmokeCheckService
 {
@@ -17,6 +19,7 @@ class FeedSmokeCheckService
         private readonly Kernel $kernel,
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
+        private readonly FeedPreviewLinkService $previewLinkService,
     ) {
     }
 
@@ -28,6 +31,56 @@ class FeedSmokeCheckService
         ?string $reason = null
     ): FeedGenerationSmokeCheck {
         $url = route('feeds.public', $feedProfile->public_token);
+
+        return $this->runForUrl($feedProfile, $generation, $url, $trigger, $user, $reason, [
+            'target' => 'published',
+        ]);
+    }
+
+    public function runPreview(
+        FeedGenerationPreviewLink $previewLink,
+        string $trigger = FeedGenerationSmokeCheck::TRIGGER_MANUAL,
+        ?User $user = null,
+        ?string $reason = null
+    ): FeedGenerationSmokeCheck {
+        if (! $previewLink->isActive()) {
+            throw new RuntimeException('Preview link is expired or revoked.');
+        }
+
+        $url = $this->previewLinkService->urlFor($previewLink);
+        $smokeCheck = $this->runForUrl(
+            $previewLink->feedProfile,
+            $previewLink->feedGeneration,
+            $url,
+            $trigger,
+            $user,
+            $reason,
+            [
+                'target' => 'preview',
+                'preview_link_id' => $previewLink->id,
+            ]
+        );
+
+        $previewLink->forceFill([
+            'last_smoke_check_status' => $smokeCheck->status,
+            'last_smoke_check_at' => $smokeCheck->checked_at,
+        ])->save();
+
+        return $smokeCheck;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function runForUrl(
+        FeedProfile $feedProfile,
+        FeedGeneration $generation,
+        string $url,
+        string $trigger,
+        ?User $user,
+        ?string $reason,
+        array $meta = []
+    ): FeedGenerationSmokeCheck {
         $response = $this->fetch($url);
         $errors = [];
         $warnings = [];
@@ -109,10 +162,10 @@ class FeedSmokeCheckService
             'warnings' => $warnings,
             'errors' => $errors,
             'checked_at' => now(),
-            'meta' => [
+            'meta' => array_merge([
                 'url' => $url,
                 'reason' => $reason,
-            ],
+            ], $meta),
         ]);
 
         $generation->forceFill([
@@ -137,13 +190,14 @@ class FeedSmokeCheckService
             $this->auditService->record(
                 $feedProfile,
                 $generation,
-                'smoke_check_rerun',
+                ($meta['target'] ?? 'published') === 'preview' ? 'preview_smoke_check_rerun' : 'smoke_check_rerun',
                 $user,
                 $reason,
                 [
                     'status' => $status,
                     'smoke_check_id' => $smokeCheck->id,
                     'trigger_source' => $trigger,
+                    'target' => $meta['target'] ?? 'published',
                 ]
             );
         }
@@ -158,6 +212,7 @@ class FeedSmokeCheckService
                     'generation_id' => $generation->id,
                     'smoke_check_id' => $smokeCheck->id,
                     'errors' => $errors,
+                    'target' => $meta['target'] ?? 'published',
                 ],
                 'error',
                 $generation

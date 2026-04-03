@@ -22,6 +22,19 @@
             <div class="detail-row"><strong>Published generation</strong><div>{{ $feedProfile->publishedGeneration?->id ? '#'.$feedProfile->publishedGeneration->id : 'n/a' }}</div></div>
             <div class="detail-row"><strong>Latest generation</strong><div>{{ $latestGeneration?->id ? '#'.$latestGeneration->id : 'n/a' }}</div></div>
             <div class="detail-row"><strong>Public feed URL</strong><div>{{ $publicFeedUrl ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Freeze mode</strong><div>{{ $publishWindow['freeze_active'] ? 'active' : 'inactive' }}</div></div>
+            <div class="detail-row"><strong>Publish now</strong><div>{{ $publishWindow['allowed_now'] ? 'allowed' : 'blocked' }}</div></div>
+            <div class="detail-row"><strong>Next allowed window</strong><div>{{ $publishWindow['next_allowed_at'] ?: 'n/a' }}</div></div>
+        </div>
+
+        <div class="toolbar" style="margin-top: 14px;">
+            <form method="POST" action="{{ route('admin.feed-profiles.freeze', $feedProfile) }}">
+                @csrf
+                <input type="hidden" name="freeze" value="{{ $publishWindow['freeze_active'] ? '0' : '1' }}">
+                <input type="text" name="reason" placeholder="{{ $publishWindow['freeze_active'] ? 'Reason to unfreeze' : 'Reason to freeze' }}" required>
+                <button class="button warning" type="submit">{{ $publishWindow['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
+            </form>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
         </div>
     </section>
 
@@ -82,6 +95,7 @@
                 @forelse($generations as $generation)
                     @php($summary = $generation->meta['summary'] ?? [])
                     @php($guard = $generation->meta['publish_guard'] ?? ['allowed' => false, 'reasons' => []])
+                    @php($currentSignoff = $generation->signoffs->first())
                     <tr>
                         <td>
                             <strong>#{{ $generation->id }}</strong><br>
@@ -98,6 +112,7 @@
                                 {{ $generation->release_status }}
                             </span>
                             <div class="muted">{{ optional($generation->approved_at)->format('Y-m-d H:i:s') ?: 'not approved' }}</div>
+                            <div class="muted">sign-off: {{ $currentSignoff?->status ?: 'n/a' }}</div>
                         </td>
                         <td>
                             <span class="badge {{ $generation->last_smoke_check_status === 'ok' ? 'ok' : ($generation->last_smoke_check_status === 'failed' ? 'err' : 'warn') }}">
@@ -112,6 +127,7 @@
                             @endforeach
                         </td>
                         <td>
+                            <a class="button link" href="{{ route('admin.feed-profiles.acceptance.show', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]) }}">Acceptance</a>
                             <a class="button link" href="{{ route('admin.feed-profiles.generations.show', [$feedProfile, $generation]) }}">Details</a>
                         </td>
                     </tr>

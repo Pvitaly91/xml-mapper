@@ -580,6 +580,73 @@ Release troubleshooting:
 - if smoke check fails, compare `http_status`, `content_type`, `offers_total`, `categories_total` and checksum mismatch details on the generation page
 - if rollback is needed, use the admin rollback action or `feed:rollback` with an explicit reason; the system does not auto-rollback on its own
 
+## Merchant Pilot Acceptance Workflow
+
+Use this workflow for the first real merchant pilot:
+
+1. onboard the shop and finish unresolved mappings
+2. build the candidate generation
+3. open `/admin/feed-profiles/{profile}/acceptance`
+4. generate a signed preview link with TTL and share the candidate XML
+5. download the QA bundle ZIP and review summary, invalid items, diff, readiness and release notes
+6. record internal or client sign-off
+7. verify publish window and freeze mode status
+8. approve and publish in the allowed window
+9. confirm the post-publish smoke check
+10. if needed, roll back from the release center with an explicit reason
+
+Candidate preview workflow:
+
+- preview URLs are separate from `/feeds/{public_token}.xml`
+- they are signed, expiring and revocable
+- they always serve the selected generation file, never the currently published feed
+- operators can rerun smoke checks against preview links before publish
+
+QA bundle generation:
+
+- admin: generation details or acceptance screen -> `Download QA bundle`
+- CLI: `php artisan feed:qa-bundle {generationId}`
+- bundle contents:
+  - `candidate.xml`
+  - `summary.json`
+  - `invalid-items.csv`
+  - `generation-diff.json`
+  - `readiness.json`
+  - `smoke-check-summary.json`
+  - `release-notes.txt`
+
+Sign-off workflow:
+
+- admin: acceptance screen or generation details -> `Record sign-off`
+- CLI: `php artisan feed:signoff {generationId} {status} --note= --reviewer=`
+- statuses:
+  - `pending_review`
+  - `internal_approved`
+  - `client_review`
+  - `client_approved`
+  - `rejected`
+  - `superseded`
+- if `signoff_required=true` on the feed profile, publish is blocked until the configured status is reached unless force publish is used with a reason
+
+Publish windows and freeze mode:
+
+- feed profile settings now support:
+  - `publish_window_enabled`
+  - `publish_window_days`
+  - `publish_window_start`
+  - `publish_window_end`
+  - `publish_window_timezone`
+  - `freeze_mode`
+- freeze blocks auto publish and blocks manual publish unless force publish is used with a reason
+- CLI:
+  - `php artisan feed:preview-link {generationId} --ttl=1440`
+  - `php artisan feed:freeze {feedProfileId} --on --reason="pilot freeze"`
+
+Rollback journal:
+
+- preview link creation/revoke, sign-off transitions, QA bundle generation, blocked publish, publish failures, smoke-check reruns, rollback and freeze toggles are all stored in `feed_release_events`
+- use the release center audit trail as the operator incident journal for pilot go-live
+
 ## Production Basics
 
 - use Redis for `CACHE_STORE` and `QUEUE_CONNECTION`

@@ -140,6 +140,14 @@ class FeedProfile extends Model
             'maximum_invalid_ratio' => 1,
             'block_publish_on_critical_conformance' => true,
             'minimum_pictures' => 1,
+            'signoff_required' => false,
+            'required_signoff_status' => FeedGenerationSignoff::STATUS_INTERNAL_APPROVED,
+            'publish_window_enabled' => false,
+            'publish_window_days' => ['mon', 'tue', 'wed', 'thu', 'fri'],
+            'publish_window_start' => '09:00',
+            'publish_window_end' => '18:00',
+            'publish_window_timezone' => null,
+            'freeze_mode' => false,
         ], $this->settings ?? []);
     }
 
@@ -166,5 +174,54 @@ class FeedProfile extends Model
     public function minimumPictures(): int
     {
         return max(1, (int) ($this->exportSettings()['minimum_pictures'] ?? 1));
+    }
+
+    public function signoffRequired(): bool
+    {
+        return (bool) ($this->exportSettings()['signoff_required'] ?? false);
+    }
+
+    public function requiredSignoffStatus(): string
+    {
+        $status = (string) ($this->exportSettings()['required_signoff_status'] ?? FeedGenerationSignoff::STATUS_INTERNAL_APPROVED);
+
+        return in_array($status, FeedGenerationSignoff::statuses(), true)
+            ? $status
+            : FeedGenerationSignoff::STATUS_INTERNAL_APPROVED;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function publishWindowDays(): array
+    {
+        $days = $this->exportSettings()['publish_window_days'] ?? ['mon', 'tue', 'wed', 'thu', 'fri'];
+
+        return array_values(array_filter((array) $days, static fn ($day) => is_string($day) && $day !== ''));
+    }
+
+    public function publishWindowEnabled(): bool
+    {
+        return (bool) ($this->exportSettings()['publish_window_enabled'] ?? false);
+    }
+
+    public function publishWindowStart(): string
+    {
+        return (string) ($this->exportSettings()['publish_window_start'] ?? '09:00');
+    }
+
+    public function publishWindowEnd(): string
+    {
+        return (string) ($this->exportSettings()['publish_window_end'] ?? '18:00');
+    }
+
+    public function publishWindowTimezone(): string
+    {
+        return (string) ($this->exportSettings()['publish_window_timezone'] ?: ($this->shop?->timezone ?: config('app.timezone')));
+    }
+
+    public function freezeModeActive(): bool
+    {
+        return (bool) ($this->exportSettings()['freeze_mode'] ?? false);
     }
 }

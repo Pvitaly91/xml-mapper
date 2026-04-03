@@ -8,6 +8,12 @@ use App\Models\ValidationError;
 
 class FeedPublishGuardService
 {
+    public function __construct(
+        private readonly FeedSignoffService $signoffService,
+        private readonly FeedPublishWindowService $publishWindowService,
+    ) {
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -25,6 +31,8 @@ class FeedPublishGuardService
         $candidateTotal = max($readyItems + $invalidItems, 1);
         $invalidRatio = $invalidItems / $candidateTotal;
         $reasons = [];
+        $signoff = $this->signoffService->evaluate($feedProfile, $generation);
+        $window = $this->publishWindowService->evaluate($feedProfile);
 
         if ($feedProfile->publishGuardEnabled()) {
             if ($readyItems < $feedProfile->minimumReadyItems()) {
@@ -61,6 +69,14 @@ class FeedPublishGuardService
             }
         }
 
+        if (! $signoff['allowed']) {
+            array_push($reasons, ...$signoff['reasons']);
+        }
+
+        if (! $window['allowed_now']) {
+            array_push($reasons, ...$window['reasons']);
+        }
+
         return [
             'enabled' => $feedProfile->publishGuardEnabled(),
             'allowed' => $reasons === [],
@@ -74,6 +90,13 @@ class FeedPublishGuardService
                 'maximum_invalid_ratio' => $feedProfile->maximumInvalidRatio(),
                 'block_publish_on_critical_conformance' => $feedProfile->blockPublishOnCriticalConformance(),
             ],
+            'signoff' => [
+                'required' => $signoff['required'],
+                'required_status' => $signoff['required_status'],
+                'allowed' => $signoff['allowed'],
+                'current_status' => $signoff['current']?->status,
+            ],
+            'publish_window' => $window,
         ];
     }
 }

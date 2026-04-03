@@ -12,16 +12,22 @@ use App\Http\Controllers\Admin\FeedBuildController;
 use App\Http\Controllers\Admin\FeedGenerationApprovalController;
 use App\Http\Controllers\Admin\FeedGenerationCandidateController;
 use App\Http\Controllers\Admin\FeedGenerationController;
+use App\Http\Controllers\Admin\FeedGenerationPreviewLinkController;
 use App\Http\Controllers\Admin\FeedItemController;
+use App\Http\Controllers\Admin\FeedAcceptanceController;
+use App\Http\Controllers\Admin\FeedFreezeController;
 use App\Http\Controllers\Admin\MappingPresetController;
 use App\Http\Controllers\Admin\ShopControlPanelController;
 use App\Http\Controllers\Admin\ShopOnboardingController;
 use App\Http\Controllers\Admin\FeedProfileController;
 use App\Http\Controllers\Admin\FeedProfileStatusController;
 use App\Http\Controllers\Admin\FeedPublishController;
+use App\Http\Controllers\Admin\FeedQaBundleController;
 use App\Http\Controllers\Admin\FeedReleaseCenterController;
 use App\Http\Controllers\Admin\FeedReleaseReportController;
+use App\Http\Controllers\Admin\FeedReviewNoteController;
 use App\Http\Controllers\Admin\FeedRollbackController;
+use App\Http\Controllers\Admin\FeedGenerationSignoffController;
 use App\Http\Controllers\Admin\FeedSmokeCheckController;
 use App\Http\Controllers\Admin\SourceConnectionController;
 use App\Http\Controllers\Admin\SourceConnectionTestController;
@@ -29,11 +35,15 @@ use App\Http\Controllers\Admin\SourceSyncController;
 use App\Http\Controllers\Admin\UnresolvedMappingsWorkbenchController;
 use App\Http\Controllers\Admin\ValueMappingController;
 use App\Http\Controllers\FeedController;
+use App\Http\Controllers\FeedPreviewController;
 use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', HealthController::class);
 Route::get('/feeds/{token}.xml', [FeedController::class, 'show'])->name('feeds.public');
+Route::get('/feeds/previews/{preview_link}/{token}.xml', [FeedPreviewController::class, 'show'])
+    ->middleware('signed')
+    ->name('feeds.preview');
 
 Route::prefix('admin')->group(function (): void {
     Route::middleware('guest')->group(function (): void {
@@ -61,13 +71,21 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/feed-profiles/{feed_profile}/status', [FeedProfileStatusController::class, 'store'])->name('feed-profiles.status');
         Route::post('/feed-profiles/{feed_profile}/build', [FeedBuildController::class, 'store'])->name('feed-profiles.build');
         Route::post('/feed-profiles/{feed_profile}/publish', [FeedPublishController::class, 'store'])->name('feed-profiles.publish');
+        Route::post('/feed-profiles/{feed_profile}/freeze', [FeedFreezeController::class, 'store'])->name('feed-profiles.freeze');
         Route::get('/feed-profiles/{feed_profile}/release-center', [FeedReleaseCenterController::class, 'show'])->name('feed-profiles.release-center');
+        Route::get('/feed-profiles/{feed_profile}/acceptance', [FeedAcceptanceController::class, 'show'])->name('feed-profiles.acceptance.show');
         Route::post('/feed-profiles/{feed_profile}/rollback', [FeedRollbackController::class, 'store'])->name('feed-profiles.rollback');
         Route::get('/feed-profiles/{feed_profile}/reports/invalid-items', [FeedReleaseReportController::class, 'invalidItems'])->name('feed-profiles.reports.invalid-items');
         Route::get('/feed-profiles/{feed_profile}/generations/{feed_generation}', [FeedGenerationController::class, 'show'])->name('feed-profiles.generations.show');
         Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/candidate', [FeedGenerationCandidateController::class, 'store'])->name('feed-profiles.generations.candidate');
         Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/approve', [FeedGenerationApprovalController::class, 'store'])->name('feed-profiles.generations.approve');
+        Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/signoff', [FeedGenerationSignoffController::class, 'store'])->name('feed-profiles.generations.signoff');
+        Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/notes', [FeedReviewNoteController::class, 'store'])->name('feed-profiles.generations.notes');
+        Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/preview-links', [FeedGenerationPreviewLinkController::class, 'store'])->name('feed-profiles.generations.preview-links.store');
+        Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/preview-links/{feed_generation_preview_link}/revoke', [FeedGenerationPreviewLinkController::class, 'revoke'])->name('feed-profiles.generations.preview-links.revoke');
+        Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/preview-links/{feed_generation_preview_link}/smoke-check', [FeedGenerationPreviewLinkController::class, 'smokeCheck'])->name('feed-profiles.generations.preview-links.smoke-check');
         Route::post('/feed-profiles/{feed_profile}/generations/{feed_generation}/smoke-check', [FeedSmokeCheckController::class, 'store'])->name('feed-profiles.generations.smoke-check');
+        Route::get('/feed-profiles/{feed_profile}/generations/{feed_generation}/qa-bundle', [FeedQaBundleController::class, 'show'])->name('feed-profiles.generations.qa-bundle');
         Route::get('/feed-profiles/{feed_profile}/generations/{feed_generation}/reports/diff', [FeedReleaseReportController::class, 'diff'])->name('feed-profiles.generations.reports.diff');
         Route::get('/feed-profiles/{feed_profile}/generations/{feed_generation}/reports/readiness', [FeedReleaseReportController::class, 'readiness'])->name('feed-profiles.generations.reports.readiness');
         Route::get('/feed-profiles/{feed_profile}/workbench', [UnresolvedMappingsWorkbenchController::class, 'index'])->name('feed-profiles.workbench.index');

@@ -67,14 +67,17 @@ class FeedProfileWorkflowTest extends TestCase
             'status' => FeedProfile::STATUS_INACTIVE,
             'build_interval_minutes' => 45,
         ]);
-        $this->assertSame([
-            'channel' => 'secondary',
-            'publish_guard_enabled' => true,
-            'minimum_ready_items' => 5,
-            'maximum_invalid_ratio' => 0.25,
-            'block_publish_on_critical_conformance' => false,
-            'minimum_pictures' => 3,
-        ], $feedProfile->fresh()->settings);
+        $settings = $feedProfile->fresh()->settings;
+
+        $this->assertSame('secondary', $settings['channel']);
+        $this->assertTrue($settings['publish_guard_enabled']);
+        $this->assertSame(5, $settings['minimum_ready_items']);
+        $this->assertSame(0.25, $settings['maximum_invalid_ratio']);
+        $this->assertFalse($settings['block_publish_on_critical_conformance']);
+        $this->assertSame(3, $settings['minimum_pictures']);
+        $this->assertArrayHasKey('signoff_required', $settings);
+        $this->assertArrayHasKey('publish_window_enabled', $settings);
+        $this->assertArrayHasKey('freeze_mode', $settings);
     }
 
     public function test_admin_can_build_and_publish_feed_profile_manually(): void

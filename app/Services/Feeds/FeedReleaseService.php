@@ -18,6 +18,7 @@ class FeedReleaseService
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
         private readonly FeedSmokeCheckService $smokeCheckService,
+        private readonly FeedSignoffService $signoffService,
     ) {
     }
 
@@ -33,6 +34,15 @@ class FeedReleaseService
         ]);
 
         $this->auditService->record($generation->feedProfile, $generation, 'candidate_marked', $user, $reason);
+        $this->notificationService->notifyFeedProfileAdmins(
+            $generation->feedProfile,
+            'feed.candidate_ready',
+            'Candidate generation ready for review',
+            'A new generation was marked as a release candidate.',
+            ['generation_id' => $generation->id],
+            'info',
+            $generation
+        );
 
         return $generation->refresh();
     }
@@ -105,6 +115,8 @@ class FeedReleaseService
             ]);
         }
 
+        $previousPublished = $feedProfile->publishedGeneration;
+
         try {
             $published = $this->feedPublishService->publish($feedProfile, $generation, $force);
         } catch (Throwable $exception) {
@@ -134,6 +146,22 @@ class FeedReleaseService
             'force' => $force,
             'readiness_warnings' => $readiness['warnings'],
         ]);
+        $this->notificationService->notifyFeedProfileAdmins(
+            $feedProfile,
+            'feed.publish_succeeded',
+            'Feed published successfully',
+            'The selected generation has been published to the public feed URL.',
+            [
+                'generation_id' => $published->id,
+                'force' => $force,
+            ],
+            'info',
+            $published
+        );
+
+        if ($previousPublished && $previousPublished->id !== $published->id) {
+            $this->signoffService->supersedeCurrent($previousPublished, $user, 'Published generation was superseded.');
+        }
 
         $this->smokeCheckService->run($feedProfile->fresh(), $published->fresh(), FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC);
 
@@ -177,6 +205,7 @@ class FeedReleaseService
             $currentPublished->update([
                 'release_status' => FeedGeneration::RELEASE_STATUS_ROLLED_BACK,
             ]);
+            $this->signoffService->supersedeCurrent($currentPublished, $user, 'Generation rolled back.');
         }
 
         $rolledBack->update([

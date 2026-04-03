@@ -3,6 +3,7 @@
 namespace App\Services\Feeds;
 
 use App\Models\FeedGeneration;
+use App\Models\FeedGenerationSmokeCheck;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
 
@@ -137,5 +138,20 @@ class FeedReleaseReportService
             ],
             $this->readinessService->evaluate($feedProfile, $generation)
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function smokeCheckReport(FeedGeneration $generation): array
+    {
+        $latestSmokeCheck = $generation->smokeChecks()->latest('checked_at')->first();
+
+        return [
+            'generation_id' => $generation->id,
+            'generated_at' => now()->toIso8601String(),
+            'status' => $latestSmokeCheck?->status ?? FeedGenerationSmokeCheck::STATUS_WARNING,
+            'latest' => $latestSmokeCheck?->toArray(),
+        ];
     }
 }

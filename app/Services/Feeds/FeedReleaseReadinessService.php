@@ -18,6 +18,8 @@ class FeedReleaseReadinessService
     public function __construct(
         private readonly FeedPilotReadinessService $pilotReadinessService,
         private readonly FeedPublishGuardService $publishGuardService,
+        private readonly FeedSignoffService $signoffService,
+        private readonly FeedPublishWindowService $publishWindowService,
         private readonly OpsStatusService $opsStatusService,
         private readonly DatabaseSetupInspector $databaseSetupInspector,
     ) {
@@ -37,6 +39,8 @@ class FeedReleaseReadinessService
         $checks = [];
         $pilot = $this->pilotReadinessService->summarize($feedProfile);
         $guard = $this->publishGuardService->evaluate($feedProfile, $generation);
+        $signoff = $this->signoffService->evaluate($feedProfile, $generation);
+        $publishWindow = $this->publishWindowService->evaluate($feedProfile);
         $connection = $feedProfile->sourceConnection;
         $schema = $this->databaseSetupInspector->dashboardReport();
         $opsStatus = $this->opsStatusService->overallStatus($feedProfile->shop);
@@ -117,6 +121,29 @@ class FeedReleaseReadinessService
             array_push($blocking, ...$guard['reasons']);
         }
 
+        $checks['signoff'] = [
+            'ok' => $signoff['allowed'],
+            'label' => 'Sign-off requirements are satisfied.',
+            'required' => $signoff['required'],
+            'required_status' => $signoff['required_status'],
+            'current_status' => $signoff['current']?->status,
+            'reasons' => $signoff['reasons'],
+        ];
+        if (! $signoff['allowed']) {
+            array_push($blocking, ...$signoff['reasons']);
+            $nextSteps[] = 'Record the required internal or client sign-off before publishing.';
+        }
+
+        $checks['publish_window'] = [
+            'ok' => $publishWindow['allowed_now'],
+            'label' => 'Current publish window allows release.',
+            'summary' => $publishWindow,
+        ];
+        if (! $publishWindow['allowed_now']) {
+            array_push($blocking, ...$publishWindow['reasons']);
+            $nextSteps[] = 'Wait for the next allowed publish window or use a force publish with a reason.';
+        }
+
         $checks['generation_diff'] = [
             'ok' => isset($generation->meta['diff']['summary']),
             'label' => 'Generation diff is available.',
@@ -177,6 +204,8 @@ class FeedReleaseReadinessService
             'next_steps' => array_values(array_unique($nextSteps)),
             'checks' => $checks,
             'publish_guard' => $guard,
+            'signoff' => $signoff,
+            'publish_window' => $publishWindow,
         ];
     }
 

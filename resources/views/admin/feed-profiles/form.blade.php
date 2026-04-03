@@ -61,6 +61,37 @@
                     <label for="maximum_invalid_ratio">Maximum invalid ratio</label>
                     <input id="maximum_invalid_ratio" type="number" min="0" max="1" step="0.01" name="maximum_invalid_ratio" value="{{ old('maximum_invalid_ratio', $exportSettings['maximum_invalid_ratio'] ?? 1) }}">
                 </div>
+                <div class="field">
+                    <label for="required_signoff_status">Required sign-off status</label>
+                    <select id="required_signoff_status" name="required_signoff_status">
+                        @foreach(['internal_approved', 'client_review', 'client_approved'] as $signoffStatus)
+                            <option value="{{ $signoffStatus }}" @selected(old('required_signoff_status', $exportSettings['required_signoff_status'] ?? 'internal_approved') === $signoffStatus)>{{ $signoffStatus }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="publish_window_timezone">Publish window timezone</label>
+                    <input id="publish_window_timezone" name="publish_window_timezone" value="{{ old('publish_window_timezone', $exportSettings['publish_window_timezone'] ?? ($feedProfile->shop?->timezone ?? config('app.timezone'))) }}">
+                </div>
+                <div class="field">
+                    <label for="publish_window_start">Publish window start</label>
+                    <input id="publish_window_start" name="publish_window_start" value="{{ old('publish_window_start', $exportSettings['publish_window_start'] ?? '09:00') }}">
+                </div>
+                <div class="field">
+                    <label for="publish_window_end">Publish window end</label>
+                    <input id="publish_window_end" name="publish_window_end" value="{{ old('publish_window_end', $exportSettings['publish_window_end'] ?? '18:00') }}">
+                </div>
+                <div class="field full">
+                    <label>Allowed publish weekdays</label>
+                    <div class="checks">
+                        @foreach(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as $day)
+                            <label class="check">
+                                <input type="checkbox" name="publish_window_days[]" value="{{ $day }}" @checked(in_array($day, old('publish_window_days', $exportSettings['publish_window_days'] ?? ['mon', 'tue', 'wed', 'thu', 'fri']), true))>
+                                {{ $day }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
                 <div class="field full">
                     <label>Flags</label>
                     <div class="checks">
@@ -69,6 +100,9 @@
                         <label class="check"><input type="checkbox" name="auto_build" value="1" @checked(old('auto_build', $feedProfile->auto_build))> Auto build</label>
                         <label class="check"><input type="checkbox" name="publish_guard_enabled" value="1" @checked(old('publish_guard_enabled', $exportSettings['publish_guard_enabled'] ?? false))> Enable publish guard</label>
                         <label class="check"><input type="checkbox" name="block_publish_on_critical_conformance" value="1" @checked(old('block_publish_on_critical_conformance', $exportSettings['block_publish_on_critical_conformance'] ?? true))> Block on critical conformance errors</label>
+                        <label class="check"><input type="checkbox" name="signoff_required" value="1" @checked(old('signoff_required', $exportSettings['signoff_required'] ?? false))> Require sign-off before publish</label>
+                        <label class="check"><input type="checkbox" name="publish_window_enabled" value="1" @checked(old('publish_window_enabled', $exportSettings['publish_window_enabled'] ?? false))> Enable publish window</label>
+                        <label class="check"><input type="checkbox" name="freeze_mode" value="1" @checked(old('freeze_mode', $exportSettings['freeze_mode'] ?? false))> Freeze mode active</label>
                     </div>
                 </div>
                 <div class="field full">

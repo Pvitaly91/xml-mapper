@@ -11,9 +11,11 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Back to release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reports.invalid-items', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]) }}">Invalid items CSV</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.diff', [$feedProfile, $generation]) }}">Diff JSON</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.readiness', [$feedProfile, $generation]) }}">Readiness JSON</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.qa-bundle', [$feedProfile, $generation]) }}">QA bundle</a>
             @if($publicFeedUrl)
                 <a class="button link" href="{{ $publicFeedUrl }}" target="_blank" rel="noreferrer">Open published feed</a>
             @endif
@@ -28,6 +30,7 @@
             <div class="detail-row"><strong>Published at</strong><div>{{ optional($generation->published_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Counts</strong><div>ready {{ $summary['ready'] ?? 0 }}, invalid {{ $summary['invalid_total'] ?? 0 }}, excluded {{ $summary['excluded'] ?? 0 }}</div></div>
             <div class="detail-row"><strong>Smoke check</strong><div>{{ $generation->last_smoke_check_status ?: 'n/a' }} @if($generation->last_smoke_check_at) ({{ $generation->last_smoke_check_at->format('Y-m-d H:i:s') }}) @endif</div></div>
+            <div class="detail-row"><strong>Current sign-off</strong><div>{{ $generation->signoffs->where('is_current', true)->first()?->status ?: 'n/a' }}</div></div>
         </div>
     </section>
 
@@ -80,6 +83,120 @@
             @endif
         </div>
     </section>
+
+    <div class="grid cols-2">
+        <section class="panel">
+            <h2>Candidate Preview</h2>
+            <form method="POST" action="{{ route('admin.feed-profiles.generations.preview-links.store', [$feedProfile, $generation]) }}">
+                @csrf
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="ttl_minutes">TTL minutes</label>
+                        <input id="ttl_minutes" type="number" min="5" max="10080" name="ttl_minutes" value="1440">
+                    </div>
+                    <div class="field">
+                        <label for="preview_reason">Reason</label>
+                        <input id="preview_reason" name="reason" placeholder="Preview share note">
+                    </div>
+                </div>
+                <button class="button secondary" type="submit">Generate preview link</button>
+            </form>
+
+            @if($generation->previewLinks->isNotEmpty())
+                <div class="table-wrap" style="margin-top: 14px;">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Expires</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach($generation->previewLinks as $previewLink)
+                            <tr>
+                                <td>#{{ $previewLink->id }}</td>
+                                <td>{{ optional($previewLink->expires_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</td>
+                                <td>{{ $previewLink->isActive() ? 'active' : 'inactive' }}</td>
+                                <td>
+                                    @if($previewUrls[$previewLink->id] ?? null)
+                                        <a class="button link" href="{{ $previewUrls[$previewLink->id] }}" target="_blank" rel="noreferrer">Open preview</a>
+                                    @endif
+                                    <form method="POST" action="{{ route('admin.feed-profiles.generations.preview-links.smoke-check', [$feedProfile, $generation, $previewLink]) }}" style="display: inline-flex;">
+                                        @csrf
+                                        <input type="text" name="reason" placeholder="Preview smoke-check note">
+                                        <button class="button secondary" type="submit">Smoke check</button>
+                                    </form>
+                                    @if($previewLink->revoked_at === null)
+                                        <form method="POST" action="{{ route('admin.feed-profiles.generations.preview-links.revoke', [$feedProfile, $generation, $previewLink]) }}" style="display: inline-flex;">
+                                            @csrf
+                                            <input type="text" name="reason" placeholder="Revoke reason">
+                                            <button class="button warning" type="submit">Revoke</button>
+                                        </form>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <p class="muted" style="margin-top: 14px;">No preview links generated yet.</p>
+            @endif
+        </section>
+
+        <section class="panel">
+            <h2>Sign-off And Notes</h2>
+            <form method="POST" action="{{ route('admin.feed-profiles.generations.signoff', [$feedProfile, $generation]) }}">
+                @csrf
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="signoff_status">Status</label>
+                        <select id="signoff_status" name="status">
+                            @foreach(['pending_review', 'internal_approved', 'client_review', 'client_approved', 'rejected'] as $status)
+                                <option value="{{ $status }}">{{ $status }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="reviewer_name">Reviewer</label>
+                        <input id="reviewer_name" name="reviewer_name" placeholder="Reviewer name">
+                    </div>
+                    <div class="field full">
+                        <label for="signoff_note">Note</label>
+                        <input id="signoff_note" name="note" placeholder="Sign-off note">
+                    </div>
+                    <div class="field full">
+                        <label for="signoff_reason">Reason</label>
+                        <input id="signoff_reason" name="reason" placeholder="Required for rejected or override context">
+                    </div>
+                </div>
+                <button class="button secondary" type="submit">Record sign-off</button>
+            </form>
+
+            <form method="POST" action="{{ route('admin.feed-profiles.generations.notes', [$feedProfile, $generation]) }}" style="margin-top: 16px;">
+                @csrf
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="note_type">Note type</label>
+                        <select id="note_type" name="note_type">
+                            <option value="internal">internal</option>
+                            <option value="external">external</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="check" style="margin-top: 28px;"><input type="checkbox" name="important" value="1"> Include in QA bundle notes</label>
+                    </div>
+                    <div class="field full">
+                        <label for="note_body">Note</label>
+                        <textarea id="note_body" name="body"></textarea>
+                    </div>
+                </div>
+                <button class="button secondary" type="submit">Save note</button>
+            </form>
+        </section>
+    </div>
 
     <div class="grid cols-2">
         <section class="panel">

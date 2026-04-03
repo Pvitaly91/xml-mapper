@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
+use App\Services\Feeds\FeedPreviewLinkService;
 use App\Services\Feeds\FeedReleaseReadinessService;
 use App\Services\Feeds\FeedReleaseReportService;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class FeedGenerationController extends AdminController
         Request $request,
         FeedProfile $feedProfile,
         FeedGeneration $feedGeneration,
+        FeedPreviewLinkService $previewLinkService,
         FeedReleaseReadinessService $readinessService,
         FeedReleaseReportService $reportService,
     ): View {
@@ -22,7 +24,7 @@ class FeedGenerationController extends AdminController
         abort_unless($feedGeneration->feed_profile_id === $feedProfile->id, 404);
 
         $feedProfile->load(['publishedGeneration', 'sourceConnection.latestImport']);
-        $feedGeneration->load(['approvedBy', 'smokeChecks.user']);
+        $feedGeneration->load(['approvedBy', 'smokeChecks.user', 'previewLinks', 'signoffs.user']);
 
         return view('admin.feed-generations.show', [
             'feedProfile' => $feedProfile,
@@ -36,6 +38,7 @@ class FeedGenerationController extends AdminController
                 ->limit(20)
                 ->get(),
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
+            'previewUrls' => $feedGeneration->previewLinks->mapWithKeys(fn ($previewLink) => [$previewLink->id => $previewLink->isActive() ? $previewLinkService->urlFor($previewLink) : null]),
         ]);
     }
 }
