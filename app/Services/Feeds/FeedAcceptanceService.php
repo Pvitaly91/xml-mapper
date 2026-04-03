@@ -17,6 +17,8 @@ class FeedAcceptanceService
         private readonly FeedPublishWindowService $publishWindowService,
         private readonly FeedReleaseNotesService $notesService,
         private readonly FeedPreviewLinkService $previewLinkService,
+        private readonly FeedCutoverService $cutoverService,
+        private readonly FeedFirstPullVerificationService $firstPullVerificationService,
     ) {
     }
 
@@ -42,6 +44,8 @@ class FeedAcceptanceService
         $signoff = $generation ? $this->signoffService->evaluate($feedProfile, $generation) : null;
         $window = $this->publishWindowService->evaluate($feedProfile);
         $latestPublishedSmokeCheck = $feedProfile->publishedGeneration?->smokeChecks()->latest('checked_at')->first();
+        $cutover = $this->cutoverService->summarize($feedProfile, $generation);
+        $firstPull = $this->firstPullVerificationService->summarize($feedProfile);
         $previewLinks = $generation
             ? $generation->previewLinks()
                 ->latest('id')
@@ -64,6 +68,8 @@ class FeedAcceptanceService
             'publish_window' => $window,
             'preview_links' => $previewLinks,
             'latest_published_smoke_check' => $latestPublishedSmokeCheck,
+            'cutover' => $cutover,
+            'first_pull_verification' => $firstPull,
             'notes' => $generation ? $this->notesService->notes($generation) : collect(),
             'unresolved_mappings_count' => ValidationError::query()
                 ->where('feed_profile_id', $feedProfile->id)

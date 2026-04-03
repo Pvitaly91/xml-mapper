@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
+use App\Services\Feeds\FeedCutoverService;
 use App\Services\Feeds\FeedPublishWindowService;
 use App\Services\Feeds\FeedReleaseReadinessService;
 use App\Services\Shops\ShopOnboardingService;
@@ -17,7 +18,8 @@ class FeedReleaseCenterController extends AdminController
         FeedProfile $feedProfile,
         FeedReleaseReadinessService $readinessService,
         FeedPublishWindowService $publishWindowService,
-        ShopOnboardingService $onboardingService
+        ShopOnboardingService $onboardingService,
+        FeedCutoverService $cutoverService,
     ): View {
         $this->ensureShopOwned($request, $feedProfile);
         $onboardingService->markReleaseCenterOpened($request->user());
@@ -44,6 +46,7 @@ class FeedReleaseCenterController extends AdminController
                 ->get(),
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
             'publishWindow' => $publishWindowService->evaluate($feedProfile),
+            'cutoverSummary' => $cutoverService->summarize($feedProfile, $latestGeneration),
         ]);
     }
 }

@@ -12,6 +12,7 @@
             <a class="button" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Back to release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]) }}">Acceptance screen</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reports.invalid-items', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]) }}">Invalid items CSV</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.diff', [$feedProfile, $generation]) }}">Diff JSON</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.readiness', [$feedProfile, $generation]) }}">Readiness JSON</a>
@@ -31,6 +32,7 @@
             <div class="detail-row"><strong>Counts</strong><div>ready {{ $summary['ready'] ?? 0 }}, invalid {{ $summary['invalid_total'] ?? 0 }}, excluded {{ $summary['excluded'] ?? 0 }}</div></div>
             <div class="detail-row"><strong>Smoke check</strong><div>{{ $generation->last_smoke_check_status ?: 'n/a' }} @if($generation->last_smoke_check_at) ({{ $generation->last_smoke_check_at->format('Y-m-d H:i:s') }}) @endif</div></div>
             <div class="detail-row"><strong>Current sign-off</strong><div>{{ $generation->signoffs->where('is_current', true)->first()?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>First-pull verification</strong><div>{{ $generation->meta['first_pull_verification']['status'] ?? 'n/a' }}</div></div>
         </div>
     </section>
 
@@ -72,6 +74,14 @@
                 <input type="text" name="reason" placeholder="Optional smoke-check note">
                 <button class="button secondary" type="submit">Rerun smoke check</button>
             </form>
+
+            @if($feedProfile->publishedGeneration && $feedProfile->publishedGeneration->id === $generation->id)
+                <form method="POST" action="{{ route('admin.feed-profiles.generations.first-pull-verify', [$feedProfile, $generation]) }}">
+                    @csrf
+                    <input type="text" name="reason" placeholder="Optional first-pull note">
+                    <button class="button secondary" type="submit">First-pull verify</button>
+                </form>
+            @endif
 
             @if($feedProfile->publishedGeneration && $feedProfile->publishedGeneration->id !== $generation->id)
                 <form method="POST" action="{{ route('admin.feed-profiles.rollback', $feedProfile) }}">

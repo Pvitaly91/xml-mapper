@@ -16,6 +16,9 @@
             <a class="button secondary" href="{{ route('admin.shop-control.show') }}">Go-live control panel</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <form method="POST" action="{{ route('admin.feed-profiles.status', $feedProfile) }}">
                 @csrf
                 <input type="hidden" name="status" value="{{ $feedProfile->status === 'active' ? 'inactive' : 'active' }}">

@@ -118,6 +118,26 @@ class FeedGeneration extends Model
         return $this->hasMany(FeedGenerationSignoff::class);
     }
 
+    public function cutovers(): HasMany
+    {
+        return $this->hasMany(FeedProfileCutover::class, 'target_generation_id');
+    }
+
+    public function firstPullVerifications(): HasMany
+    {
+        return $this->hasMany(FeedFirstPullVerification::class);
+    }
+
+    public function feedbackImports(): HasMany
+    {
+        return $this->hasMany(FeedbackImport::class);
+    }
+
+    public function feedbackRecords(): HasMany
+    {
+        return $this->hasMany(FeedbackRecord::class);
+    }
+
     /**
      * @return list<string>
      */

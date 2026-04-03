@@ -65,6 +65,11 @@ php artisan feed:approve {generationId}
 php artisan feed:publish {feedProfileId?} {generationId?}
 php artisan feed:rollback {feedProfileId} --to-generation={generationId} --reason="..."
 php artisan feed:smoke-check {feedProfileId?} {generationId?} --latest-published
+php artisan feed:cutover-status {feedProfileId}
+php artisan feed:first-pull-verify {feedProfileId} --generation={generationId}
+php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
+php artisan feedback:reconcile {feedProfileId}
+php artisan feed:runbook {feedProfileId}
 ```
 
 Supervisor config:
@@ -238,6 +243,22 @@ Use it to:
 
 Blocked publish is expected to be visible there with explicit reasons. Do not bypass it blindly.
 
+## Production Operations Screen
+
+Use `/admin/feed-profiles/{profile}/operations` during the real merchant pilot window.
+
+It centralizes:
+
+- last sync / build / publish / preview
+- current cutover status and launch window
+- latest smoke check and first-pull verification
+- publish window / freeze mode state
+- broken source auth signal
+- feedback summary and open remediation count
+- recent incidents and warnings
+
+This page is the fastest way to answer “what happened after go-live?” for one merchant.
+
 ## Candidate Preview And QA Bundle
 
 Candidate preview:
@@ -329,6 +350,33 @@ Interpretation:
 - `warning`: XML is valid but response time crossed the warning threshold
 - `failed`: URL/content/count/checksum validation failed and needs operator action
 
+## First-Pull Verification
+
+First-pull verification is cutover-specific and persists separately from the generic smoke-check history.
+
+Use it when:
+
+- the first live publish has just happened
+- you need to confirm the first production fetch explicitly
+- you want a rerunnable verification event after a rollback or republish
+
+It stores:
+
+- status
+- latency
+- response size
+- offers/categories totals
+- checksum summary
+- warnings and errors
+
+Manual trigger points:
+
+- acceptance screen
+- operations screen
+- `php artisan feed:first-pull-verify {feedProfileId}`
+
+If it fails, review the published feed immediately and decide whether to remediate and republish or to roll back.
+
 ## Blocked Publish / Force Publish / Rollback
 
 Normal publish is blocked when readiness detects issues such as:
@@ -357,6 +405,86 @@ Rollback is always manual. The system records the operator, reason and from/to g
 - rollback
 
 Use the release center audit table as the operator-friendly history for who did what and why.
+
+## Reconciliation Report
+
+`/admin/feed-profiles/{profile}/reconciliation` compares source, normalized, mapped, ready and published counts.
+
+Use it when:
+
+- the merchant reports fewer offers than expected
+- imported feedback suggests missing products
+- source sync finished but published totals did not move as expected
+
+Download:
+
+- JSON for detailed diagnostics
+- CSV for blocker-count handoff
+
+The report highlights top blocker codes and source-vs-published deltas.
+
+## Manual Feedback Import And Remediation
+
+The system does not assume any official Kasta acceptance/rejection API. Merchant feedback is handled manually.
+
+Import surface:
+
+- `/admin/feed-profiles/{profile}/feedback/import`
+- `php artisan feedback:import csv --file=/abs/path/file.csv --feed-profile={feedProfileId}`
+
+Formats:
+
+- CSV
+- JSON
+
+Dry-run preview is available before persistence.
+
+After import, use:
+
+- `/admin/feed-profiles/{profile}/feedback-workbench`
+- `php artisan feedback:reconcile {feedProfileId}`
+
+Remediation statuses:
+
+- `open`
+- `in_progress`
+- `fixed`
+- `wont_fix`
+- `excluded`
+
+Typical operator loop:
+
+1. import merchant feedback
+2. filter unmatched / mapping / image / pricing / size-color issues
+3. open diagnostics or mapping screens from the workbench
+4. mark the remediation status
+5. rebuild the candidate
+6. republish intentionally when fixes are ready
+
+## Merchant-Specific Overrides
+
+Feed profile settings now include merchant-local export rules:
+
+- excluded source categories
+- excluded vendors / brands
+- minimum price threshold
+- override minimum pictures
+- disabled mapped Kasta categories
+- forced attribute overrides JSON
+- forced value overrides JSON
+
+These rules are profile-scoped and applied centrally by validation / conformance services.
+
+Use them sparingly and document why they were added in the feed profile or release notes.
+
+## Runbook Export
+
+Generate a merchant go-live checklist snapshot with:
+
+- `/admin/feed-profiles/{profile}/runbook`
+- `php artisan feed:runbook {feedProfileId}`
+
+The generated Markdown snapshot includes source state, mappings, candidate readiness, sign-off, publish window, first-pull verification and feedback follow-up.
 
 ## Reports
 

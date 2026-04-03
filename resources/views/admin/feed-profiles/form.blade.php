@@ -54,6 +54,14 @@
                     <input id="minimum_pictures" type="number" min="1" name="minimum_pictures" value="{{ old('minimum_pictures', $exportSettings['minimum_pictures'] ?? 1) }}">
                 </div>
                 <div class="field">
+                    <label for="minimum_price_threshold">Minimum price threshold</label>
+                    <input id="minimum_price_threshold" type="number" min="0" step="0.01" name="minimum_price_threshold" value="{{ old('minimum_price_threshold', $exportSettings['minimum_price_threshold'] ?? '') }}">
+                </div>
+                <div class="field">
+                    <label for="override_minimum_pictures">Override minimum pictures</label>
+                    <input id="override_minimum_pictures" type="number" min="1" name="override_minimum_pictures" value="{{ old('override_minimum_pictures', $exportSettings['override_minimum_pictures'] ?? '') }}">
+                </div>
+                <div class="field">
                     <label for="minimum_ready_items">Minimum ready items</label>
                     <input id="minimum_ready_items" type="number" min="0" name="minimum_ready_items" value="{{ old('minimum_ready_items', $exportSettings['minimum_ready_items'] ?? 0) }}">
                 </div>
@@ -91,6 +99,26 @@
                             </label>
                         @endforeach
                     </div>
+                </div>
+                <div class="field full">
+                    <label for="excluded_source_category_ids_text">Excluded source category IDs</label>
+                    <textarea id="excluded_source_category_ids_text" name="excluded_source_category_ids_text" rows="3" placeholder="One ID per line">{{ old('excluded_source_category_ids_text', implode(PHP_EOL, $exportSettings['excluded_source_category_ids'] ?? [])) }}</textarea>
+                </div>
+                <div class="field full">
+                    <label for="excluded_vendors_text">Excluded vendors / brands</label>
+                    <textarea id="excluded_vendors_text" name="excluded_vendors_text" rows="3" placeholder="One vendor per line">{{ old('excluded_vendors_text', implode(PHP_EOL, $exportSettings['excluded_vendors'] ?? [])) }}</textarea>
+                </div>
+                <div class="field full">
+                    <label for="disabled_export_category_ids_text">Disabled Kasta category IDs</label>
+                    <textarea id="disabled_export_category_ids_text" name="disabled_export_category_ids_text" rows="3" placeholder="One category external ID per line">{{ old('disabled_export_category_ids_text', implode(PHP_EOL, $exportSettings['disabled_export_category_ids'] ?? [])) }}</textarea>
+                </div>
+                <div class="field full">
+                    <label for="forced_attribute_overrides_json">Forced attribute overrides JSON</label>
+                    <textarea id="forced_attribute_overrides_json" name="forced_attribute_overrides_json" rows="5" placeholder='{"color":"Black"}'>{{ old('forced_attribute_overrides_json', !empty($exportSettings['forced_attribute_overrides']) ? json_encode($exportSettings['forced_attribute_overrides'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '') }}</textarea>
+                </div>
+                <div class="field full">
+                    <label for="forced_value_overrides_json">Forced value overrides JSON</label>
+                    <textarea id="forced_value_overrides_json" name="forced_value_overrides_json" rows="5" placeholder='{"темно-синий":"Navy"}'>{{ old('forced_value_overrides_json', !empty($exportSettings['forced_value_overrides']) ? json_encode($exportSettings['forced_value_overrides'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '') }}</textarea>
                 </div>
                 <div class="field full">
                     <label>Flags</label>

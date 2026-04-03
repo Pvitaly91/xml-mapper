@@ -32,6 +32,7 @@
                 </form>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.workbench.index', $feedProfile) }}">Open unresolved workbench</a>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Open release center</a>
+                <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             @endif
         </div>
     </section>

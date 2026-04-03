@@ -18,6 +18,7 @@ class KastaExportConformanceService
         private readonly CategoryMappingServiceInterface $categoryMappingService,
         private readonly AttributeMappingServiceInterface $attributeMappingService,
         private readonly KastaExportFieldNormalizer $fieldNormalizer,
+        private readonly FeedProfileOverrideService $overrideService,
     ) {
     }
 
@@ -60,10 +61,27 @@ class KastaExportConformanceService
             );
         } else {
             $mappingRows = $this->attributeMappingService->resolveMappingRows($feedProfile, $product, $variant, $mappedCategory);
+
+            $mappingRows = $mappingRows->map(function (array $row) use ($feedProfile): array {
+                $originalMappedValue = $row['mapped_value'] ?? null;
+                $override = $this->overrideService->overrideValue(
+                    $feedProfile,
+                    $originalMappedValue ?? $row['source_value'] ?? null
+                );
+
+                if ($override !== null) {
+                    $row['mapped_value'] = $override;
+                    $row['resolution'] = $originalMappedValue === null ? 'forced_value_override' : 'forced_override';
+                }
+
+                return $row;
+            });
+
             $mappedAttributes = $mappingRows
                 ->filter(fn (array $row) => $row['mapped_value'] !== null)
                 ->mapWithKeys(fn (array $row) => [$row['kasta_attribute_code'] => $row['mapped_value']])
                 ->all();
+            $mappedAttributes = $this->overrideService->applyAttributeOverrides($feedProfile, $mappedAttributes);
 
             $requiredAttributes = KastaAttribute::query()
                 ->where('kasta_category_id', $mappedCategory->id)
@@ -76,6 +94,25 @@ class KastaExportConformanceService
 
             foreach ($requiredAttributes as $requiredAttribute) {
                 $row = $rowsByAttributeId->get($requiredAttribute->id);
+                $forcedOverride = $mappedAttributes[Canonicalizer::normalizeKey($requiredAttribute->code)]
+                    ?? $mappedAttributes[$requiredAttribute->code]
+                    ?? null;
+
+                if ($row === null && $forcedOverride !== null) {
+                    $requiredDiagnostics[] = [
+                        'attribute_id' => $requiredAttribute->id,
+                        'attribute_code' => $requiredAttribute->code,
+                        'attribute_name' => $requiredAttribute->name,
+                        'status' => 'ok',
+                        'failure_type' => null,
+                        'message' => 'Filled by merchant attribute override.',
+                        'source_attribute' => null,
+                        'source_value' => null,
+                        'mapped_value' => $forcedOverride,
+                    ];
+
+                    continue;
+                }
 
                 if (! is_array($row)) {
                     $mappingErrors[] = $this->error(
@@ -104,6 +141,22 @@ class KastaExportConformanceService
                 }
 
                 if ($row['source_value'] === null && $row['mapped_value'] === null) {
+                    if ($forcedOverride !== null) {
+                        $requiredDiagnostics[] = [
+                            'attribute_id' => $requiredAttribute->id,
+                            'attribute_code' => $requiredAttribute->code,
+                            'attribute_name' => $requiredAttribute->name,
+                            'status' => 'ok',
+                            'failure_type' => null,
+                            'message' => 'Filled by merchant attribute override.',
+                            'source_attribute' => $row['source_attribute_name'],
+                            'source_value' => null,
+                            'mapped_value' => $forcedOverride,
+                        ];
+
+                        continue;
+                    }
+
                     $sourceErrors[] = $this->error(
                         ValidationError::CODE_MISSING_REQUIRED_ATTRIBUTE_VALUE,
                         sprintf('Required attribute [%s] has no source value.', $requiredAttribute->name),
@@ -132,6 +185,22 @@ class KastaExportConformanceService
                 }
 
                 if ($row['mapped_value'] === null && $row['resolution'] === 'missing_value_mapping') {
+                    if ($forcedOverride !== null) {
+                        $requiredDiagnostics[] = [
+                            'attribute_id' => $requiredAttribute->id,
+                            'attribute_code' => $requiredAttribute->code,
+                            'attribute_name' => $requiredAttribute->name,
+                            'status' => 'ok',
+                            'failure_type' => null,
+                            'message' => 'Filled by merchant attribute override.',
+                            'source_attribute' => $row['source_attribute_name'],
+                            'source_value' => $row['source_value'],
+                            'mapped_value' => $forcedOverride,
+                        ];
+
+                        continue;
+                    }
+
                     $mappingErrors[] = $this->error(
                         ValidationError::CODE_MISSING_VALUE_MAPPING,
                         sprintf('Required attribute [%s] is missing a value mapping.', $requiredAttribute->name),

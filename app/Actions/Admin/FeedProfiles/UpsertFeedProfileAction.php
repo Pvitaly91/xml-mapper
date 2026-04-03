@@ -22,6 +22,12 @@ class UpsertFeedProfileAction
                 : 1,
             'block_publish_on_critical_conformance' => (bool) ($payload['block_publish_on_critical_conformance'] ?? false),
             'minimum_pictures' => max(1, (int) ($payload['minimum_pictures'] ?? 1)),
+            'minimum_price_threshold' => array_key_exists('minimum_price_threshold', $payload) && $payload['minimum_price_threshold'] !== null && $payload['minimum_price_threshold'] !== ''
+                ? (float) $payload['minimum_price_threshold']
+                : null,
+            'override_minimum_pictures' => array_key_exists('override_minimum_pictures', $payload) && $payload['override_minimum_pictures'] !== null && $payload['override_minimum_pictures'] !== ''
+                ? max(1, (int) $payload['override_minimum_pictures'])
+                : null,
             'signoff_required' => (bool) ($payload['signoff_required'] ?? false),
             'required_signoff_status' => $payload['required_signoff_status'] ?? FeedGenerationSignoff::STATUS_INTERNAL_APPROVED,
             'publish_window_enabled' => (bool) ($payload['publish_window_enabled'] ?? false),
@@ -30,6 +36,11 @@ class UpsertFeedProfileAction
             'publish_window_end' => (string) ($payload['publish_window_end'] ?? '18:00'),
             'publish_window_timezone' => $payload['publish_window_timezone'] ?? ($user->shop?->timezone ?: config('app.timezone')),
             'freeze_mode' => (bool) ($payload['freeze_mode'] ?? false),
+            'excluded_source_category_ids' => $this->parseLines($payload['excluded_source_category_ids_text'] ?? null, true),
+            'excluded_vendors' => $this->parseLines($payload['excluded_vendors_text'] ?? null),
+            'disabled_export_category_ids' => $this->parseLines($payload['disabled_export_category_ids_text'] ?? null),
+            'forced_attribute_overrides' => $this->decodeJson($payload['forced_attribute_overrides_json'] ?? null) ?? [],
+            'forced_value_overrides' => $this->decodeJson($payload['forced_value_overrides_json'] ?? null) ?? [],
         ]);
 
         $attributes = [
@@ -72,5 +83,22 @@ class UpsertFeedProfileAction
         $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @return list<int|string>
+     */
+    private function parseLines(mixed $value, bool $castToInt = false): array
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        return collect(preg_split('/\r\n|\n|\r|,/', $value) ?: [])
+            ->map(fn ($item) => trim((string) $item))
+            ->filter(fn ($item) => $item !== '')
+            ->map(fn ($item) => $castToInt ? (int) $item : $item)
+            ->values()
+            ->all();
     }
 }

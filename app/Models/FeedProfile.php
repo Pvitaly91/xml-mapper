@@ -104,6 +104,31 @@ class FeedProfile extends Model
         return $this->hasMany(FeedReleaseEvent::class);
     }
 
+    public function cutovers(): HasMany
+    {
+        return $this->hasMany(FeedProfileCutover::class);
+    }
+
+    public function currentCutover(): HasOne
+    {
+        return $this->hasOne(FeedProfileCutover::class)->where('is_current', true)->latestOfMany();
+    }
+
+    public function firstPullVerifications(): HasMany
+    {
+        return $this->hasMany(FeedFirstPullVerification::class);
+    }
+
+    public function feedbackImports(): HasMany
+    {
+        return $this->hasMany(FeedbackImport::class);
+    }
+
+    public function feedbackRecords(): HasMany
+    {
+        return $this->hasMany(FeedbackRecord::class);
+    }
+
     public function categoryMappings(): HasMany
     {
         return $this->hasMany(CategoryMapping::class);
@@ -148,6 +173,13 @@ class FeedProfile extends Model
             'publish_window_end' => '18:00',
             'publish_window_timezone' => null,
             'freeze_mode' => false,
+            'excluded_source_category_ids' => [],
+            'excluded_vendors' => [],
+            'minimum_price_threshold' => null,
+            'override_minimum_pictures' => null,
+            'forced_attribute_overrides' => [],
+            'forced_value_overrides' => [],
+            'disabled_export_category_ids' => [],
         ], $this->settings ?? []);
     }
 
@@ -174,6 +206,20 @@ class FeedProfile extends Model
     public function minimumPictures(): int
     {
         return max(1, (int) ($this->exportSettings()['minimum_pictures'] ?? 1));
+    }
+
+    public function minimumPriceThreshold(): ?float
+    {
+        $value = $this->exportSettings()['minimum_price_threshold'] ?? null;
+
+        return $value === null || $value === '' ? null : (float) $value;
+    }
+
+    public function overrideMinimumPictures(): ?int
+    {
+        $value = $this->exportSettings()['override_minimum_pictures'] ?? null;
+
+        return $value === null || $value === '' ? null : max(1, (int) $value);
     }
 
     public function signoffRequired(): bool

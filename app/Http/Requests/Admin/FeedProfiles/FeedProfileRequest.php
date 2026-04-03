@@ -48,6 +48,8 @@ class FeedProfileRequest extends FormRequest
             'maximum_invalid_ratio' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'block_publish_on_critical_conformance' => ['nullable', 'boolean'],
             'minimum_pictures' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'minimum_price_threshold' => ['nullable', 'numeric', 'min:0'],
+            'override_minimum_pictures' => ['nullable', 'integer', 'min:1', 'max:50'],
             'signoff_required' => ['nullable', 'boolean'],
             'required_signoff_status' => ['nullable', Rule::in(FeedGenerationSignoff::statuses())],
             'publish_window_enabled' => ['nullable', 'boolean'],
@@ -57,6 +59,11 @@ class FeedProfileRequest extends FormRequest
             'publish_window_end' => ['nullable', 'date_format:H:i'],
             'publish_window_timezone' => ['nullable', 'timezone'],
             'freeze_mode' => ['nullable', 'boolean'],
+            'excluded_source_category_ids_text' => ['nullable', 'string'],
+            'excluded_vendors_text' => ['nullable', 'string'],
+            'disabled_export_category_ids_text' => ['nullable', 'string'],
+            'forced_attribute_overrides_json' => ['nullable', 'json'],
+            'forced_value_overrides_json' => ['nullable', 'json'],
             'settings_json' => ['nullable', 'json'],
         ];
     }

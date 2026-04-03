@@ -51,6 +51,13 @@ Feed-item export lifecycle:
 - `FeedReleaseReadinessService` aggregates go-live blockers and warnings before publish
 - `FeedReleaseService` owns candidate/approve/publish/force-publish/rollback transitions
 - `FeedSmokeCheckService` verifies the published URL after publish or manual rerun
+- `FeedCutoverService` tracks the live merchant cutover state for one feed profile and target generation
+- `FeedFirstPullVerificationService` persists first production pull verification separately from generic smoke checks
+- `FeedReconciliationService` compares source counts, mapped counts, ready counts and published counts
+- `FeedbackImportService` imports manual acceptance/rejection CSV or JSON feedback without assuming an external API
+- `FeedbackRemediationWorkbenchService` turns imported feedback into an operator remediation queue
+- `FeedOperationsService` aggregates the production operations screen for one profile
+- `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
 - `FeedReleaseReportService` exports invalid-item, diff and readiness reports for operators
 - `ShopControlPanelService` aggregates daily go-live state for one shop
@@ -136,6 +143,10 @@ Kasta export assumptions:
 - publish windows and freeze mode stay in `feed_profiles.settings`, so release timing rules remain profile-scoped without a second configuration model
 - operator notes reuse `feed_release_events` with `note_added` actions instead of a parallel comments subsystem
 - QA bundles are generated on demand from the built generation file plus report services; no extra export model is introduced
+- production cutover state is stored in `feed_profile_cutovers` so the operator can track current live-launch progress without inventing a second release engine
+- first-pull verification history is stored in `feed_first_pull_verifications` and links back to the smoke-check row that validated the same published URL
+- manual merchant feedback imports are stored in `feedback_imports` and `feedback_records`, which keeps external acceptance/rejection history queryable and shop-scoped
+- merchant-specific export overrides stay in `feed_profiles.settings`; validation/conformance services read them centrally
 
 ## Dictionary Import Architecture
 
@@ -184,18 +195,25 @@ app/
     Readers/
   Services/Feeds/
     FeedAcceptanceService.php
+    FeedCutoverService.php
+    FeedFirstPullVerificationService.php
     FeedGenerationDiffService.php
     FeedItemDiagnosticsService.php
+    FeedOperationsService.php
     FeedPilotReadinessService.php
     FeedPublishGuardService.php
     FeedPublishWindowService.php
     FeedPreviewLinkService.php
     FeedQaBundleService.php
+    FeedReconciliationService.php
     FeedReleaseAuditService.php
     FeedReleaseNotesService.php
     FeedReleaseReadinessService.php
     FeedReleaseReportService.php
     FeedReleaseService.php
+    FeedRunbookService.php
+    FeedbackImportService.php
+    FeedbackRemediationWorkbenchService.php
     FeedSignoffService.php
     FeedSmokeCheckService.php
     KastaExportConformanceService.php
@@ -234,3 +252,17 @@ The merchant pilot acceptance path is:
 8. `FeedReleaseService` publishes or force-publishes with audit trail and post-publish smoke check
 
 This keeps the whole acceptance workflow generation-centric and reuses the existing build/publish pipeline instead of inventing a parallel release model.
+
+## First Merchant Production Execution Flow
+
+The live merchant execution path is:
+
+1. onboarding and mapping reconciliation prepare a stable candidate generation
+2. `FeedCutoverService` starts tracking the merchant launch window and target generation
+3. `FeedReleaseService` publishes to the stable public XML URL
+4. `FeedSmokeCheckService` runs generic post-publish checks
+5. `FeedFirstPullVerificationService` records the first production pull result
+6. the merchant sends acceptance/rejection feedback manually as CSV or JSON
+7. `FeedbackImportService` matches that feedback to feed items / source variants
+8. `FeedbackRemediationWorkbenchService` groups external rejection reasons into actionable operator queues
+9. the operator rebuilds and republishes intentionally until the cutover reaches `pilot_stable`

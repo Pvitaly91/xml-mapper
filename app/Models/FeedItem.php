@@ -83,6 +83,11 @@ class FeedItem extends Model
         return $this->validationErrors()->where('is_active', true);
     }
 
+    public function feedbackRecords(): HasMany
+    {
+        return $this->hasMany(FeedbackRecord::class);
+    }
+
     /**
      * @return list<string>
      */

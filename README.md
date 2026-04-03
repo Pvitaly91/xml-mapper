@@ -647,6 +647,177 @@ Rollback journal:
 - preview link creation/revoke, sign-off transitions, QA bundle generation, blocked publish, publish failures, smoke-check reruns, rollback and freeze toggles are all stored in `feed_release_events`
 - use the release center audit trail as the operator incident journal for pilot go-live
 
+## First Real Merchant Production Execution
+
+For the first real merchant go-live the operator workflow now extends beyond candidate acceptance:
+
+1. onboard the merchant and finish unresolved mappings
+2. build and approve the production candidate
+3. start cutover tracking for the selected generation
+4. publish to the stable public feed URL inside the allowed window
+5. verify the first production pull
+6. import merchant feedback manually from CSV or JSON
+7. remediate rejected items in the rejection workbench
+8. rebuild / republish intentionally if fixes are required
+
+New operator surfaces:
+
+- `/admin/feed-profiles/{profile}/operations`
+- `/admin/feed-profiles/{profile}/reconciliation`
+- `/admin/feed-profiles/{profile}/feedback/import`
+- `/admin/feed-profiles/{profile}/feedback-workbench`
+
+New commands:
+
+```bash
+php artisan feed:cutover-status {feedProfileId}
+php artisan feed:first-pull-verify {feedProfileId} --generation={generationId}
+php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
+php artisan feedback:reconcile {feedProfileId}
+php artisan feed:runbook {feedProfileId}
+```
+
+`feedback:import` assumes `--feed-profile` is provided because feedback is matched against one shop/feed-profile context. This keeps manual CSV/JSON imports deterministic and shop-scoped.
+
+## First-Pull Verification
+
+First-pull verification is separate from generic smoke checks and is cutover-specific.
+
+It stores:
+
+- status
+- verified timestamp
+- latency
+- response size
+- offers/categories totals
+- checksum summary
+- warnings and errors
+
+It is triggered:
+
+- automatically right after publish
+- manually from the acceptance screen or operations screen
+- from CLI with `feed:first-pull-verify`
+
+Use it to confirm the first production fetch after go-live, even if the ordinary smoke check already passed.
+
+## Reconciliation Report
+
+`/admin/feed-profiles/{profile}/reconciliation` compares:
+
+- total source products / variants
+- normalized variants
+- mapped items
+- ready items
+- excluded items
+- invalid items and blocker categories
+- latest published offer count
+- source vs published deltas
+
+Download formats:
+
+- JSON
+- CSV
+
+This report is intended for operator triage when the merchant asks why source counts and published counts diverge.
+
+## Manual Feedback Import
+
+The system does not assume any official Kasta rejection API. Merchant feedback is handled through a manual import pipeline.
+
+Supported formats:
+
+- CSV
+- JSON
+
+Supported identifiers:
+
+- `offer_id`
+- `external_item_reference`
+- `vendor_code`
+- `article`
+
+Stored per record:
+
+- acceptance status: `accepted`, `rejected`, `warning`, `unknown`
+- rejection reason code and message
+- matched feed item / source variant when found
+- raw payload
+- remediation status
+
+Use the import page for dry-run preview before persisting records.
+
+## Rejection Remediation Workflow
+
+`/admin/feed-profiles/{profile}/feedback-workbench` groups imported feedback into an operator queue.
+
+Problem filters:
+
+- unmatched feedback
+- missing mapping
+- content issues
+- image issues
+- pricing issues
+- size/color issues
+
+Resolution statuses:
+
+- `open`
+- `in_progress`
+- `fixed`
+- `wont_fix`
+- `excluded`
+
+Quick actions link the operator back to feed item diagnostics, mappings and candidate rebuild.
+
+## Merchant-Specific Overrides
+
+Feed profile export settings now support merchant overrides:
+
+- excluded source categories
+- excluded vendors / brands
+- minimum price threshold
+- override minimum pictures
+- disabled mapped Kasta categories
+- forced attribute overrides JSON
+- forced value overrides JSON
+
+These settings remain profile-scoped inside `feed_profiles.settings` and are applied by the shared validation/conformance layer instead of ad-hoc Blade rules.
+
+## Production Operations Screen
+
+`/admin/feed-profiles/{profile}/operations` is the day-to-day production screen for one merchant.
+
+It shows:
+
+- last sync / build / publish / preview
+- current cutover state
+- latest smoke check and first-pull verification
+- publish window and freeze state
+- broken source auth signal
+- relevant failed jobs count
+- merchant feedback summary
+- recent incidents and warnings
+
+Use it as the main control point between first publish and pilot stabilization.
+
+## Runbook Export
+
+`feed:runbook` and `/admin/feed-profiles/{profile}/runbook` generate a merchant-specific Markdown checklist snapshot.
+
+The runbook includes:
+
+- source verification
+- dictionaries state
+- mappings review
+- candidate / QA bundle / sign-off state
+- publish window and freeze state
+- publish execution
+- first-pull verification
+- feedback import follow-up
+
+The latest runbook snapshot is also stored on the current cutover meta.
+
 ## Production Basics
 
 - use Redis for `CACHE_STORE` and `QUEUE_CONNECTION`

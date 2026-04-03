@@ -7,9 +7,13 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.release-center', $feed_profile) }}">Back to release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feed_profile) }}">Back to profile</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feed_profile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feed_profile) }}">Reconciliation</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feed_profile) }}">Rejection workbench</a>
             @if($generation)
                 <a class="button secondary" href="{{ route('admin.feed-profiles.generations.show', [$feed_profile, $generation]) }}">Generation details</a>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.generations.qa-bundle', [$feed_profile, $generation]) }}">Download QA bundle</a>
+                <a class="button secondary" href="{{ route('admin.feed-profiles.runbook.show', ['feed_profile' => $feed_profile, 'generation_id' => $generation->id]) }}">Download runbook</a>
             @endif
         </div>
 
@@ -22,6 +26,8 @@
             <div class="detail-row"><strong>Next allowed window</strong><div>{{ $publish_window['next_allowed_at'] ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Sign-off status</strong><div>{{ $signoff['current']?->status ?: 'not recorded' }}</div></div>
             <div class="detail-row"><strong>Latest published smoke check</strong><div>{{ $latest_published_smoke_check?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutover['cutover']?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>First-pull verification</strong><div>{{ $first_pull_verification['latest']?->status ?: 'n/a' }}</div></div>
         </div>
     </section>
 
@@ -42,6 +48,7 @@
                 <div class="detail-row"><strong>Publish guards</strong><div>{{ ($release_readiness['publish_guard']['allowed'] ?? false) ? 'pass' : 'blocked' }}</div></div>
                 <div class="detail-row"><strong>Sign-off</strong><div>{{ $signoff['current']?->status ?: 'missing' }}</div></div>
                 <div class="detail-row"><strong>Publish window</strong><div>{{ $publish_window['allowed_now'] ? 'open' : 'closed' }}</div></div>
+                <div class="detail-row"><strong>Feedback open</strong><div>{{ $cutover['feedback_summary']['open_total'] ?? 0 }}</div></div>
             </div>
 
             @if(($release_readiness['blocking_issues'] ?? []) !== [])
@@ -95,6 +102,13 @@
                         <input type="text" name="reason" placeholder="Manual smoke-check note">
                         <button class="button secondary" type="submit">Rerun smoke check</button>
                     </form>
+                    @if($feed_profile->publishedGeneration && $feed_profile->publishedGeneration->id === $generation->id)
+                        <form method="POST" action="{{ route('admin.feed-profiles.generations.first-pull-verify', [$feed_profile, $generation]) }}">
+                            @csrf
+                            <input type="text" name="reason" placeholder="First-pull verification note">
+                            <button class="button secondary" type="submit">Run first-pull verification</button>
+                        </form>
+                    @endif
                     @if($feed_profile->publishedGeneration && $feed_profile->publishedGeneration->id !== $generation->id)
                         <form method="POST" action="{{ route('admin.feed-profiles.rollback', $feed_profile) }}">
                             @csrf
@@ -112,6 +126,28 @@
                 <input type="text" name="reason" placeholder="{{ $publish_window['freeze_active'] ? 'Reason to unfreeze' : 'Reason to freeze' }}" required>
                 <button class="button warning" type="submit">{{ $publish_window['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
             </form>
+
+            @if($generation)
+                <form method="POST" action="{{ route('admin.feed-profiles.cutover', $feed_profile) }}" style="margin-top: 16px;">
+                    @csrf
+                    <input type="hidden" name="generation_id" value="{{ $generation->id }}">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="planned_window_starts_at">Cutover start</label>
+                            <input id="planned_window_starts_at" type="datetime-local" name="planned_window_starts_at">
+                        </div>
+                        <div class="field">
+                            <label for="planned_window_ends_at">Cutover end</label>
+                            <input id="planned_window_ends_at" type="datetime-local" name="planned_window_ends_at">
+                        </div>
+                        <div class="field full">
+                            <label for="cutover_note">Cutover note</label>
+                            <input id="cutover_note" name="note" placeholder="Launch note">
+                        </div>
+                    </div>
+                    <button class="button secondary" type="submit">Track production cutover</button>
+                </form>
+            @endif
         </section>
     </div>
 
@@ -231,4 +267,20 @@
             </section>
         </div>
     @endif
+
+    <section class="panel">
+        <h2>Cutover And Feedback</h2>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutover['cutover']?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Accepted feedback</strong><div>{{ $cutover['feedback_summary']['accepted_total'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Rejected feedback</strong><div>{{ $cutover['feedback_summary']['rejected_total'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Warnings</strong><div>{{ $cutover['feedback_summary']['warning_total'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Unmatched feedback</strong><div>{{ $cutover['feedback_summary']['unmatched_total'] ?? 0 }}</div></div>
+        </div>
+
+        <div class="toolbar" style="margin-top: 16px;">
+            <a class="button secondary" href="{{ route('admin.feed-profiles.feedback.create', $feed_profile) }}">Import feedback</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feed_profile) }}">Open rejection workbench</a>
+        </div>
+    </section>
 @endsection

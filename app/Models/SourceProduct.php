@@ -74,4 +74,9 @@ class SourceProduct extends Model
     {
         return $this->hasMany(ValidationError::class);
     }
+
+    public function feedbackRecords(): HasMany
+    {
+        return $this->hasMany(FeedbackRecord::class);
+    }
 }

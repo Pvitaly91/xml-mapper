@@ -14,6 +14,7 @@ class FeedItemDiagnosticsService
     public function __construct(
         private readonly ValidationServiceInterface $validationService,
         private readonly KastaExportConformanceService $conformanceService,
+        private readonly FeedProfileOverrideService $overrideService,
     ) {
     }
 
@@ -34,10 +35,19 @@ class FeedItemDiagnosticsService
         $conformanceErrors = $conformance['conformance_errors'];
         $status = FeedItem::STATUS_READY;
         $excludedReason = null;
+        $overrideExclusionReason = $this->overrideService->exclusionReason(
+            $feedProfile,
+            $product,
+            $variant,
+            $conformance['mapped_category']
+        );
 
         if (! $variant->is_enabled || ($feedItem !== null && ! $feedItem->is_enabled)) {
             $status = FeedItem::STATUS_EXCLUDED;
             $excludedReason = $feedItem?->excluded_reason ?: 'Feed item is manually excluded.';
+        } elseif ($overrideExclusionReason !== null) {
+            $status = FeedItem::STATUS_EXCLUDED;
+            $excludedReason = $overrideExclusionReason;
         } elseif (! $feedProfile->include_unavailable && ! $variant->is_available) {
             $status = FeedItem::STATUS_EXCLUDED;
             $excludedReason = 'Variant is unavailable.';

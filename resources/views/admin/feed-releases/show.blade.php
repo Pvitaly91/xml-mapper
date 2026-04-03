@@ -6,6 +6,9 @@
     <section class="panel">
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <form method="POST" action="{{ route('admin.feed-profiles.build', $feedProfile) }}">
                 @csrf
                 <button class="button secondary" type="submit">Build now</button>
@@ -25,6 +28,7 @@
             <div class="detail-row"><strong>Freeze mode</strong><div>{{ $publishWindow['freeze_active'] ? 'active' : 'inactive' }}</div></div>
             <div class="detail-row"><strong>Publish now</strong><div>{{ $publishWindow['allowed_now'] ? 'allowed' : 'blocked' }}</div></div>
             <div class="detail-row"><strong>Next allowed window</strong><div>{{ $publishWindow['next_allowed_at'] ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutoverSummary['cutover']?->status ?: 'n/a' }}</div></div>
         </div>
 
         <div class="toolbar" style="margin-top: 14px;">
@@ -73,6 +77,28 @@
                     @endif
                 </div>
             </div>
+        </section>
+    @endif
+
+    @if(($cutoverSummary['blocking_issues'] ?? []) !== [] || ($cutoverSummary['warnings'] ?? []) !== [])
+        <section class="panel">
+            <h2>Production Cutover</h2>
+            @if(($cutoverSummary['blocking_issues'] ?? []) !== [])
+                <h3>Blocking issues</h3>
+                <ul>
+                    @foreach($cutoverSummary['blocking_issues'] as $issue)
+                        <li>{{ $issue }}</li>
+                    @endforeach
+                </ul>
+            @endif
+            @if(($cutoverSummary['warnings'] ?? []) !== [])
+                <h3>Warnings</h3>
+                <ul>
+                    @foreach($cutoverSummary['warnings'] as $warning)
+                        <li>{{ $warning }}</li>
+                    @endforeach
+                </ul>
+            @endif
         </section>
     @endif
 

@@ -19,6 +19,8 @@ class FeedReleaseService
         private readonly PilotNotificationService $notificationService,
         private readonly FeedSmokeCheckService $smokeCheckService,
         private readonly FeedSignoffService $signoffService,
+        private readonly FeedCutoverService $cutoverService,
+        private readonly FeedFirstPullVerificationService $firstPullVerificationService,
     ) {
     }
 
@@ -163,7 +165,24 @@ class FeedReleaseService
             $this->signoffService->supersedeCurrent($previousPublished, $user, 'Published generation was superseded.');
         }
 
-        $this->smokeCheckService->run($feedProfile->fresh(), $published->fresh(), FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC);
+        $smokeCheck = $this->smokeCheckService->run($feedProfile->fresh(), $published->fresh(), FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC);
+        $this->cutoverService->markPublished($feedProfile->fresh(), $published->fresh(), $user, $reason);
+
+        try {
+            $this->firstPullVerificationService->recordFromSmokeCheck(
+                $feedProfile->fresh(),
+                $published->fresh(),
+                $smokeCheck,
+                FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC,
+                $user,
+                $reason ? 'Automatic first-pull verification after publish. '.$reason : 'Automatic first-pull verification after publish.'
+            );
+        } catch (Throwable $exception) {
+            $this->auditService->record($feedProfile, $published, 'first_pull_verification_failed', $user, $reason, [
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
 
         return $published->fresh();
     }
@@ -231,6 +250,7 @@ class FeedReleaseService
         );
 
         $this->smokeCheckService->run($feedProfile->fresh(), $rolledBack->fresh(), FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC);
+        $this->cutoverService->syncState($feedProfile->fresh(), $rolledBack->fresh(), $user, 'Rollback executed.');
 
         return $rolledBack->fresh();
     }
