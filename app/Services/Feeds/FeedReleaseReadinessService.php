@@ -10,6 +10,8 @@ use App\Models\KastaCategory;
 use App\Models\SourceConnection;
 use App\Models\ValidationError;
 use App\Services\Ops\OpsStatusService;
+use App\Services\Ops\EnvironmentContextService;
+use App\Services\Promotion\PromotionStatusService;
 use App\Services\Setup\DatabaseSetupInspector;
 use Carbon\CarbonInterface;
 
@@ -22,6 +24,8 @@ class FeedReleaseReadinessService
         private readonly FeedPublishWindowService $publishWindowService,
         private readonly OpsStatusService $opsStatusService,
         private readonly DatabaseSetupInspector $databaseSetupInspector,
+        private readonly PromotionStatusService $promotionStatusService,
+        private readonly EnvironmentContextService $environmentContextService,
     ) {}
 
     /**
@@ -43,6 +47,8 @@ class FeedReleaseReadinessService
         $connection = $feedProfile->sourceConnection;
         $schema = $this->databaseSetupInspector->dashboardReport();
         $opsStatus = $this->opsStatusService->overallStatus($feedProfile->shop);
+        $environment = $this->environmentContextService->summary();
+        $promotion = $this->promotionStatusService->summarize($feedProfile);
         $latestSmokeCheck = $generation->smokeChecks()->latest('checked_at')->first();
         $publishedSmokeCheck = $feedProfile->publishedGeneration?->smokeChecks()->latest('checked_at')->first();
         $lastSyncFresh = $this->isFresh($connection?->last_synced_at, $connection?->sync_interval_minutes);
@@ -192,6 +198,22 @@ class FeedReleaseReadinessService
             $warnings[] = 'Ops status is degraded. Review dashboard heartbeats and failed jobs.';
         }
 
+        $checks['promotion_parity'] = [
+            'ok' => in_array($promotion['status'], ['in_sync', 'unknown'], true),
+            'label' => 'Promotion parity and source secret rebinding are acceptable.',
+            'summary' => $promotion,
+        ];
+        if ($environment['is_production'] && in_array($promotion['status'], ['promotion_needed', 'incompatible', 'secret_rebind_pending'], true)) {
+            $blocking[] = match ($promotion['status']) {
+                'promotion_needed' => 'Production config is not in sync with the latest promotion-relevant snapshot.',
+                'incompatible' => 'Promotion drift report marks the current target as incompatible.',
+                default => 'Source connection secret rebind is still pending on target.',
+            };
+            $nextSteps[] = 'Open the Promotion Center, run compare/dry-run, apply the required config changes, and validate source secrets.';
+        } elseif ($promotion['drift_status'] === 'drift_detected') {
+            $warnings[] = 'Promotion drift is detected. Review Promotion Center before go-live.';
+        }
+
         $overall = $blocking !== []
             ? 'blocked'
             : ($warnings !== [] ? 'warning' : 'ready');
@@ -205,6 +227,7 @@ class FeedReleaseReadinessService
             'publish_guard' => $guard,
             'signoff' => $signoff,
             'publish_window' => $publishWindow,
+            'promotion' => $promotion,
         ];
     }
 

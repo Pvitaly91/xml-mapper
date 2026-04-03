@@ -8,6 +8,7 @@
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
@@ -33,6 +34,9 @@
             <div class="detail-row"><strong>Next allowed window</strong><div>{{ $publishWindow['next_allowed_at'] ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutoverSummary['cutover']?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Hypercare</strong><div>{{ $feedProfile->currentHypercareWindow?->status ?: 'inactive' }}</div></div>
+            <div class="detail-row"><strong>Promotion status</strong><div>{{ $promotionStatus['status'] }}</div></div>
+            <div class="detail-row"><strong>Promotion drift</strong><div>{{ $promotionStatus['drift_status'] }}</div></div>
+            <div class="detail-row"><strong>Secret rebind</strong><div>{{ $promotionStatus['secret_rebind_pending'] ? 'pending' : 'clear' }}</div></div>
         </div>
 
         <div class="toolbar" style="margin-top: 14px;">
@@ -100,6 +104,19 @@
             </div>
         </section>
     @endif
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Promotion Parity</h2>
+            <span class="badge {{ $promotionStatus['status'] === 'in_sync' ? 'ok' : ($promotionStatus['status'] === 'unknown' ? 'warn' : 'err') }}">{{ $promotionStatus['status'] }}</span>
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Current checksum</strong><div>{{ $promotionStatus['current_checksum'] }}</div></div>
+            <div class="detail-row"><strong>Latest compare</strong><div>{{ $promotionStatus['latest_compare']?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Latest target apply</strong><div>{{ $promotionStatus['latest_target_apply']?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Promotion needed</strong><div>{{ $promotionStatus['promotion_needed'] === null ? 'unknown' : ($promotionStatus['promotion_needed'] ? 'yes' : 'no') }}</div></div>
+        </div>
+    </section>
 
     @if(($cutoverSummary['blocking_issues'] ?? []) !== [] || ($cutoverSummary['warnings'] ?? []) !== [])
         <section class="panel">

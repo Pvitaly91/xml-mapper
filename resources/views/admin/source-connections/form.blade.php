@@ -66,7 +66,10 @@
                 </div>
                 <div class="field full">
                     <label for="options_json">Settings / options JSON</label>
-                    <textarea id="options_json" name="options_json">{{ old('options_json', $connection->options ? json_encode($connection->options, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '') }}</textarea>
+                    <textarea id="options_json" name="options_json">{{ old('options_json', $connection->options ? json_encode(\Illuminate\Support\Arr::except($connection->options, ['promotion_meta']), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '') }}</textarea>
+                    @if($connection->promotionMeta() !== [])
+                        <p class="muted" style="margin-top: 6px;">Promotion metadata is preserved separately and is not edited in this JSON field.</p>
+                    @endif
                 </div>
             </div>
 

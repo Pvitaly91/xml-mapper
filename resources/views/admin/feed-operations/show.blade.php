@@ -13,6 +13,7 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
@@ -35,6 +36,7 @@
         <div class="stat"><span class="muted">Last benchmark</span><strong>{{ optional($panel['maintenance']['last_benchmark']?->started_at)->format('H:i') ?: 'n/a' }}</strong></div>
         <div class="stat"><span class="muted">Environment</span><strong>{{ $panel['environment']['label'] }}</strong></div>
         <div class="stat"><span class="muted">SLO</span><strong>{{ $panel['slo']['status'] ?? 'healthy' }}</strong></div>
+        <div class="stat"><span class="muted">Promotion</span><strong>{{ $panel['promotion']['status'] }}</strong></div>
     </div>
 
     <div class="grid cols-2">
@@ -48,6 +50,8 @@
                 <div class="detail-row"><strong>Last smoke-check</strong><div>{{ $panel['last_smoke_check']?->status ?: 'n/a' }}</div></div>
                 <div class="detail-row"><strong>Last first-pull verification</strong><div>{{ $firstPull?->status ?: 'n/a' }}</div></div>
                 <div class="detail-row"><strong>Last rollback</strong><div>{{ optional($panel['last_rollback']?->occurred_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Promotion drift</strong><div>{{ $panel['promotion']['drift_status'] }}</div></div>
+                <div class="detail-row"><strong>Secret rebind</strong><div>{{ $panel['promotion']['secret_rebind_pending'] ? 'pending' : 'clear' }}</div></div>
             </div>
         </section>
 

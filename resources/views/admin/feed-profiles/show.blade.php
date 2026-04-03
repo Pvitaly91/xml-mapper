@@ -17,6 +17,7 @@
             <a class="button secondary" href="{{ route('admin.shop-control.show') }}">Go-live control panel</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
@@ -38,6 +39,9 @@
             <div class="detail-row"><strong>Last build status</strong><div>{{ $feedProfile->latestGeneration?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Published generation</strong><div>{{ $feedProfile->publishedGeneration?->id ? '#'.$feedProfile->publishedGeneration->id : 'n/a' }}</div></div>
             <div class="detail-row"><strong>Hypercare</strong><div>{{ $currentHypercare?->status ?: 'inactive' }}</div></div>
+            <div class="detail-row"><strong>Promotion status</strong><div>{{ $promotionStatus['status'] }}</div></div>
+            <div class="detail-row"><strong>Promotion drift</strong><div>{{ $promotionStatus['drift_status'] }}</div></div>
+            <div class="detail-row"><strong>Secret rebind</strong><div>{{ $promotionStatus['secret_rebind_pending'] ? 'pending' : 'clear' }}</div></div>
             <div class="detail-row"><strong>Public feed URL</strong><div>{{ $publicFeedUrl ?: 'n/a' }}</div></div>
         </div>
     </section>

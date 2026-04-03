@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Arr;
 
 class SourceConnection extends Model
 {
@@ -156,6 +157,107 @@ class SourceConnection extends Model
         }
 
         return mb_substr($token, 0, 4).str_repeat('*', max(4, mb_strlen($token) - 8)).mb_substr($token, -4);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function promotionMeta(): array
+    {
+        return (array) data_get($this->options ?? [], 'promotion_meta', []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $secretPolicy
+     */
+    public function promotionSecretStateFor(array $secretPolicy): string
+    {
+        $requiredFields = array_values(array_filter((array) ($secretPolicy['required_fields'] ?? [])));
+
+        if ($requiredFields === []) {
+            return 'not_required';
+        }
+
+        $hasSecrets = $this->usesPromApi()
+            ? filled($this->api_token)
+            : ! empty($this->credentials);
+
+        if (! $hasSecrets) {
+            return 'missing';
+        }
+
+        if ($this->last_connection_check_status === self::CHECK_STATUS_OK) {
+            return 'validated';
+        }
+
+        $storedState = (string) ($this->promotionMeta()['secret_state'] ?? '');
+
+        return in_array($storedState, ['validated', 'not_validated'], true)
+            ? $storedState
+            : 'not_validated';
+    }
+
+    public function promotionSecretState(): string
+    {
+        $requiredFields = $this->usesPromApi()
+            ? ['api_token']
+            : (! empty($this->credentials) ? ['credentials'] : []);
+
+        return $this->promotionSecretStateFor(['required_fields' => $requiredFields]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $secretPolicy
+     */
+    public function promotionSecretRebindRequiredFor(array $secretPolicy): bool
+    {
+        return $this->promotionSecretStateFor($secretPolicy) !== 'validated'
+            && $this->promotionSecretStateFor($secretPolicy) !== 'not_required';
+    }
+
+    public function promotionSecretRebindRequired(): bool
+    {
+        return $this->promotionSecretState() !== 'validated'
+            && $this->promotionSecretState() !== 'not_required';
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public function withPromotionMeta(array $attributes): static
+    {
+        $options = (array) ($this->options ?? []);
+        $options['promotion_meta'] = array_merge($this->promotionMeta(), $attributes);
+        $this->options = $options;
+
+        return $this;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public function savePromotionMeta(array $attributes): void
+    {
+        $this->withPromotionMeta($attributes)->save();
+    }
+
+    /**
+     * @param  array<string, mixed>  $secretPolicy
+     */
+    public function applyPromotionSecretPolicy(array $secretPolicy, ?string $snapshotChecksum = null): static
+    {
+        $state = $this->promotionSecretStateFor($secretPolicy);
+
+        return $this->withPromotionMeta([
+            'secret_policy' => Arr::except($secretPolicy, ['secret_present', 'secret_validated']),
+            'secret_state' => $state,
+            'secret_rebind_required' => $state !== 'validated' && $state !== 'not_required',
+            'source_snapshot_checksum' => $snapshotChecksum,
+            'applied_at' => now()->toIso8601String(),
+            'validated_at' => $state === 'validated'
+                ? now()->toIso8601String()
+                : data_get($this->promotionMeta(), 'validated_at'),
+        ]);
     }
 
     public function shop(): BelongsTo

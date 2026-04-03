@@ -8,6 +8,7 @@
             <a class="button" href="{{ route('admin.feed-profiles.release-center', $feed_profile) }}">Back to release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feed_profile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feed_profile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feed_profile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feed_profile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feed_profile) }}">Reconciliation</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feed_profile) }}">Rejection workbench</a>
@@ -31,6 +32,9 @@
             <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutover['cutover']?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>First-pull verification</strong><div>{{ $first_pull_verification['latest']?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Rehearsal status</strong><div>{{ $rehearsal['status'] ?? 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Promotion status</strong><div>{{ $promotion['status'] }}</div></div>
+            <div class="detail-row"><strong>Promotion drift</strong><div>{{ $promotion['drift_status'] }}</div></div>
+            <div class="detail-row"><strong>Secret rebind</strong><div>{{ $promotion['secret_rebind_pending'] ? 'pending' : 'clear' }}</div></div>
         </div>
     </section>
 
@@ -49,6 +53,7 @@
                 <div class="detail-row"><strong>Dictionaries imported</strong><div>{{ $pilot_readiness['dictionaries_imported']['ok'] ? 'Yes' : 'No' }}</div></div>
                 <div class="detail-row"><strong>Conformance blockers</strong><div>{{ ($release_readiness['checks']['critical_conformance']['count'] ?? 0) }}</div></div>
                 <div class="detail-row"><strong>Publish guards</strong><div>{{ ($release_readiness['publish_guard']['allowed'] ?? false) ? 'pass' : 'blocked' }}</div></div>
+                <div class="detail-row"><strong>Promotion parity</strong><div>{{ ($release_readiness['checks']['promotion_parity']['ok'] ?? false) ? 'pass' : 'needs action' }}</div></div>
                 <div class="detail-row"><strong>Sign-off</strong><div>{{ $signoff['current']?->status ?: 'missing' }}</div></div>
                 <div class="detail-row"><strong>Publish window</strong><div>{{ $publish_window['allowed_now'] ? 'open' : 'closed' }}</div></div>
                 <div class="detail-row"><strong>Feedback open</strong><div>{{ $cutover['feedback_summary']['open_total'] ?? 0 }}</div></div>

@@ -67,4 +67,14 @@ class Shop extends Model
     {
         return $this->hasMany(OpsSilenceWindow::class);
     }
+
+    public function promotionSnapshots(): HasMany
+    {
+        return $this->hasMany(PromotionSnapshot::class);
+    }
+
+    public function promotionRuns(): HasMany
+    {
+        return $this->hasMany(PromotionRun::class);
+    }
 }

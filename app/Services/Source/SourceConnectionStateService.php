@@ -27,6 +27,14 @@ class SourceConnectionStateService
             'last_connection_check_status' => $result->status,
             'last_connection_check_message' => $result->message,
         ])->save();
+        $connection->savePromotionMeta([
+            'secret_state' => $connection->promotionSecretState(),
+            'secret_rebind_required' => $connection->promotionSecretRebindRequired(),
+            'validated_at' => $result->status === SourceConnection::CHECK_STATUS_OK
+                ? now()->toIso8601String()
+                : data_get($connection->promotionMeta(), 'validated_at'),
+            'last_connection_check_status' => $result->status,
+        ]);
 
         $this->notifyBrokenAuthIfNeeded($connection->fresh(), $result->status, $previousStatus, 'Source connection test reported broken authentication.');
 
@@ -63,6 +71,10 @@ class SourceConnectionStateService
                 'finished_at' => now()->toIso8601String(),
             ]),
         ])->save();
+        $connection->savePromotionMeta([
+            'secret_state' => $connection->promotionSecretState(),
+            'secret_rebind_required' => $connection->promotionSecretRebindRequired(),
+        ]);
 
         $this->alertService->syncConnectionAlert(
             $connection->fresh(),
@@ -93,6 +105,10 @@ class SourceConnectionStateService
             'last_sync_message' => $exception->getMessage(),
             'last_sync_summary' => null,
         ])->save();
+        $connection->savePromotionMeta([
+            'secret_state' => $connection->promotionSecretState(),
+            'secret_rebind_required' => $connection->promotionSecretRebindRequired(),
+        ]);
 
         $this->notifyBrokenAuthIfNeeded($connection->fresh(), $status, $previousStatus, 'Source sync reported broken authentication.');
 

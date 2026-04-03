@@ -64,6 +64,11 @@ Feed-item export lifecycle:
 - `FeedHypercareReportService` generates daily digest, shift handoff and closeout markdown reports
 - `FeedStabilityService` computes the stability score and closeout posture from launch-time signals
 - `FeedbackSlaService` aggregates rejection backlog, acknowledge/resolve timings and reason trends
+- `PromotionSnapshotService` builds portable promotion packs with config fingerprints and compatibility metadata
+- `PromotionPlannerService` produces drift reports and dry-run/apply plans with create/update/delete/skip/conflict semantics
+- `PromotionService` owns compare, dry-run, apply, rollback and promotion audit/history persistence
+- `PromotionStatusService` surfaces promotion parity state into readiness, rehearsal, acceptance, release and operations views
+- `PromotionReportService` exports markdown/JSON artifacts for runs and snapshots
 - `FeedOperationsService` aggregates the production operations screen for one profile
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
@@ -164,6 +169,8 @@ Kasta export assumptions:
 - monitoring policy results are stored in `ops_policy_results`, which keeps cadence/threshold evaluation queryable without scattering ad-hoc status flags
 - alerts/incidents are stored in `ops_alerts` and mirrored into `feed_release_events` plus `sync_logs` so operator workflow and forensic logs stay aligned
 - maintenance silence windows are stored in `ops_silence_windows` and applied centrally by the alert service instead of in controllers or Blade views
+- promotion snapshots are stored in `promotion_snapshots`; promotion history and rollback lineage are stored in `promotion_runs`
+- promotion snapshots never carry plaintext source secrets; source-connection promotion metadata tracks `missing`, `not_validated`, and `validated` secret states on the target side
 
 ## Dictionary Import Architecture
 
@@ -242,6 +249,14 @@ app/
     KastaExportConformanceService.php
     KastaExportFieldNormalizer.php
     KastaExportXmlService.php
+  Services/Promotion/
+    PromotionCenterService.php
+    PromotionFingerprintService.php
+    PromotionPlannerService.php
+    PromotionReportService.php
+    PromotionService.php
+    PromotionSnapshotService.php
+    PromotionStatusService.php
   Services/Ops/
     BackupService.php
     BenchmarkService.php
@@ -331,6 +346,18 @@ Rollback is code-level and symlink-based. Database rollback is deliberately not 
 7. `FeedSmokeCheckService` and `FeedFirstPullVerificationService` verify that isolated artifact
 8. optional rollback rehearsal prepares another isolated preview artifact for the currently published generation
 9. the operator sees a persisted rehearsal summary in admin without mutating the stable public feed URL
+
+## Staging-To-Production Promotion Flow
+
+1. `PromotionSnapshotService` captures shop/feed/mapping/override/publish-window config from the staging-side merchant profile
+2. the snapshot stores compatibility metadata, dictionary references, source driver metadata and fingerprints, but never raw secrets
+3. the operator downloads the snapshot JSON and imports it into the production-side merchant profile
+4. `PromotionPlannerService` compares the imported snapshot with the live target profile and emits a `no_drift`, `drift_detected`, or `incompatible` report
+5. the planner also builds a dry-run/apply plan using `safe_merge`, `overwrite_target`, or `skip_existing_conflicts`
+6. `PromotionService` persists the compare/dry-run/apply run in `promotion_runs`, records audit events, and stores the pre-apply target snapshot for rollback lineage
+7. source-connection promotion copies only non-secret metadata; target secrets are preserved or marked for re-entry and validation
+8. successful apply updates promotion parity state so the release center, acceptance screen, rehearsal view, operations screen, launch pack and runbook all reflect the latest promotion outcome
+9. rollback is config-level only and uses the saved pre-apply target snapshot when the target has not drifted since the apply run
 
 ## Reliability / Recovery Layer
 

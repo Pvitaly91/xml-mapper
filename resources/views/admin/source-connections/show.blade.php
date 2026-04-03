@@ -33,6 +33,8 @@
             <div class="detail-row"><strong>API base URL</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiBaseUrl() : 'n/a' }}</div></div>
             <div class="detail-row"><strong>API version</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiVersion() : 'n/a' }}</div></div>
             <div class="detail-row"><strong>API token</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? ($connection->maskedApiToken() ?: 'not configured') : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Promotion secret state</strong><div>{{ $connection->promotionSecretState() }}</div></div>
+            <div class="detail-row"><strong>Promotion rebind required</strong><div>{{ $connection->promotionSecretRebindRequired() ? 'yes' : 'no' }}</div></div>
             <div class="detail-row"><strong>Token present</strong><div>{{ ($rotation['token_present'] ?? false) ? 'yes' : 'no' }}</div></div>
             <div class="detail-row"><strong>Token last validated</strong><div>{{ optional($rotation['token_last_validated_at'] ?? null)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Last rotation</strong><div>{{ optional($rotation['latest_rotation']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
@@ -53,6 +55,14 @@
                 @endif
             </div></div>
         </div>
+        @if($connection->promotionMeta() !== [])
+            <div class="detail-list" style="margin-top: 18px;">
+                <div class="detail-row"><strong>Promotion snapshot checksum</strong><div>{{ $connection->promotionMeta()['source_snapshot_checksum'] ?? 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Required secret fields</strong><div>{{ implode(', ', $connection->promotionMeta()['secret_policy']['required_fields'] ?? []) ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Promotion applied at</strong><div>{{ $connection->promotionMeta()['applied_at'] ?? 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Promotion validated at</strong><div>{{ $connection->promotionMeta()['validated_at'] ?? 'n/a' }}</div></div>
+            </div>
+        @endif
     </section>
 
     <section class="panel">

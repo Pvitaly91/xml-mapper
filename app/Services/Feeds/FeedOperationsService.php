@@ -12,6 +12,7 @@ use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\RestoreDrillService;
 use App\Services\Ops\SloSummaryService;
+use App\Services\Promotion\PromotionStatusService;
 
 class FeedOperationsService
 {
@@ -26,6 +27,7 @@ class FeedOperationsService
         private readonly RestoreDrillService $restoreDrillService,
         private readonly SloSummaryService $sloSummaryService,
         private readonly EnvironmentContextService $environmentContextService,
+        private readonly PromotionStatusService $promotionStatusService,
     ) {}
 
     /**
@@ -73,6 +75,7 @@ class FeedOperationsService
             'failed_jobs_count' => $ops['failed_jobs']['count'] ?? 0,
             'maintenance' => $maintenance,
             'environment' => $this->environmentContextService->summary(),
+            'promotion' => $this->promotionStatusService->summarize($feedProfile),
             'rehearsal' => $this->rehearsalService->summarize($feedProfile),
             'restore_drill' => $this->restoreDrillService->summarize($feedProfile),
             'slo' => $this->sloSummaryService->summarize($feedProfile->shop, $feedProfile),

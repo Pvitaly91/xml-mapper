@@ -6,6 +6,7 @@ use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Models\ValidationError;
 use App\Services\Ops\EnvironmentContextService;
+use App\Services\Promotion\PromotionStatusService;
 use App\Services\Shops\ShopOnboardingService;
 
 class FeedAcceptanceService
@@ -22,6 +23,7 @@ class FeedAcceptanceService
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
         private readonly FeedRehearsalService $rehearsalService,
         private readonly EnvironmentContextService $environmentContextService,
+        private readonly PromotionStatusService $promotionStatusService,
     ) {}
 
     /**
@@ -74,6 +76,7 @@ class FeedAcceptanceService
             'first_pull_verification' => $firstPull,
             'rehearsal' => $this->rehearsalService->summarize($feedProfile),
             'environment' => $this->environmentContextService->summary(),
+            'promotion' => $this->promotionStatusService->summarize($feedProfile),
             'notes' => $generation ? $this->notesService->notes($generation) : collect(),
             'unresolved_mappings_count' => ValidationError::query()
                 ->where('feed_profile_id', $feedProfile->id)

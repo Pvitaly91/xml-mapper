@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Ops\EnvironmentContextService;
 use App\Services\Ops\OpsRunService;
 use App\Services\Ops\ProductionPreflightService;
+use App\Services\Promotion\PromotionStatusService;
 use App\Services\Source\SourceConnectionTestService;
 use App\Services\Source\SourceSyncWorkflowService;
 use RuntimeException;
@@ -36,6 +37,7 @@ class FeedRehearsalService
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
         private readonly OpsRunService $opsRunService,
+        private readonly PromotionStatusService $promotionStatusService,
     ) {}
 
     /**
@@ -307,6 +309,7 @@ class FeedRehearsalService
                 ->latest('checked_at')
                 ->first(),
             'rehearsal_rollback_result' => $rollbackPreviewLink ? 'checked' : 'n/a',
+            'promotion' => $this->promotionStatusService->summarize($feedProfile),
         ];
     }
 

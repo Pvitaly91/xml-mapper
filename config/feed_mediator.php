@@ -176,6 +176,10 @@ return [
             ],
         ],
     ],
+    'promotion' => [
+        'snapshot_schema_version' => (int) env('FEED_MEDIATOR_PROMOTION_SCHEMA_VERSION', 1),
+        'reports_directory' => env('FEED_MEDIATOR_PROMOTION_REPORTS_DIRECTORY', 'feeds/runbooks/promotion'),
+    ],
     'normalization' => [
         'article_keys' => ['article', 'vendorcode', 'vendor_code', 'артикул', 'sku'],
         'size_keys' => ['size', 'розмір', 'размер'],

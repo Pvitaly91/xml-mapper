@@ -37,6 +37,7 @@ The application stores normalized source data locally, validates exportability, 
 - first-live hypercare windows with persisted monitoring state per feed profile
 - operator alerts/incidents with acknowledge, resolve, false-positive and escalation flow
 - unified live timeline, daily digest, shift handoff and silence windows
+- staging-to-production promotion snapshots, drift detection, dry-run/apply, secret-safe rebinding and config rollback history
 
 ## Local Setup
 
@@ -1327,6 +1328,95 @@ Recommended staging baseline:
 - `APP_DEBUG=false`
 - `FEED_MEDIATOR_ENV_CLASS=staging`
 - separate DB / Redis / shared storage / app URL from production
+
+## Staging-To-Production Promotion Workflow
+
+Use the Promotion Center at `/admin/feed-profiles/{profile}/promotion` to move a merchant from staging-ready config into production without copying secrets unsafely.
+
+Operator flow:
+
+1. generate a promotion snapshot on staging
+2. download the snapshot JSON
+3. import that snapshot in production for the target merchant/profile
+4. run `compare` to see drift and compatibility
+5. run `dry-run` with the intended strategy
+6. apply only after the dry-run is clean enough
+7. re-enter and validate any source secrets on production
+8. continue with release center / acceptance / cutover / hypercare
+
+CLI:
+
+```bash
+php artisan promotion:snapshot {feedProfileId} --env=staging
+php artisan promotion:diff {sourceFeedProfileId} {targetFeedProfileId} --source-env=staging --target-env=production
+php artisan promotion:dry-run {sourceFeedProfileId} {targetFeedProfileId} --strategy=safe_merge
+php artisan promotion:apply {sourceFeedProfileId} {targetFeedProfileId} --strategy=safe_merge --reason="approved staging config"
+php artisan promotion:rollback {promotionRunId} --reason="revert target config"
+```
+
+## Promotion Snapshot Contents
+
+A promotion snapshot contains only promotion-relevant, non-secret configuration:
+
+- shop-level non-secret config
+- onboarding/bootstrap state
+- feed profile config and export settings
+- category / attribute / value mappings
+- merchant overrides
+- publish guards, freeze mode and publish-window rules
+- dictionary references and checksums
+- source connection driver metadata and non-secret options
+- compatibility metadata and fingerprints
+
+It never includes raw API tokens or plaintext credentials.
+
+## Drift Detection And Strategies
+
+Drift compare classifies the target as:
+
+- `no_drift`
+- `drift_detected`
+- `incompatible`
+
+Dry-run/apply strategies:
+
+- `safe_merge`: update compatible config and mappings, preserve unrelated target settings
+- `overwrite_target`: replace conflicting target config and delete target-only mappings when needed to match the source snapshot
+- `skip_existing_conflicts`: keep target conflicts in place and skip those rows explicitly
+
+The dry-run summary shows what will be created, updated, deleted, skipped, or blocked before any write happens.
+
+## Source Secret Rebinding After Promotion
+
+Source connection promotion rules are intentionally secret-safe:
+
+- driver metadata and non-secret fields move with the snapshot
+- existing production tokens are preserved
+- missing target secrets are marked as `missing`
+- re-entered but untested secrets are marked as `not_validated`
+- only a successful source connection test marks them as `validated`
+
+Production operators should open the source connection screen after apply, paste the target secret, run `Test connection`, and only then treat promotion parity as fully clean.
+
+## Promotion Rollback Limits
+
+Promotion rollback is config-level only.
+
+- it uses the pre-apply target snapshot as the rollback baseline
+- it can safely restore settings and mappings when the target has not drifted since the apply run
+- it is blocked when the current target config no longer matches the original post-apply snapshot
+- it is not a universal database rollback and does not undo runtime side effects outside the promoted config scope
+
+## Practical Merchant Move From Staging To Production
+
+1. Finish merchant setup, mappings and release rules in staging.
+2. Run a fresh staging snapshot and archive the JSON artifact with the release notes.
+3. Import the snapshot into production and check `drift`, `promotion needed`, and `secret rebind pending`.
+4. Run dry-run and review create/update/delete/conflict results with the merchant owner or release operator.
+5. Apply the promotion, then immediately rebind source secrets if needed.
+6. Run source `Test connection`, sync, and production readiness checks.
+7. Open release center / acceptance / runbook / launch pack and confirm promotion parity is now visible there.
+8. Proceed with the normal production launch and then hypercare.
 
 ## Staging Rehearsal Workflow
 

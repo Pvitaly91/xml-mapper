@@ -61,6 +61,7 @@ Important env variables:
 - `FEED_MEDIATOR_LATENCY_CRIT_MS=6000`
 - `FEED_MEDIATOR_FEEDBACK_BACKLOG_WARN=10`
 - `FEED_MEDIATOR_FEEDBACK_BACKLOG_CRIT=25`
+- `FEED_MEDIATOR_PROMOTION_SCHEMA_VERSION=1`
 
 ## Scheduler
 
@@ -102,6 +103,11 @@ php artisan feed:first-pull-verify {feedProfileId} --generation={generationId}
 php artisan feed:hypercare:start {feedProfileId} --hours=24 --note="launch window"
 php artisan feed:hypercare:status {feedProfileId}
 php artisan feed:hypercare:close {feedProfileId} --reason="merchant stable"
+php artisan promotion:snapshot {feedProfileId} --env=staging
+php artisan promotion:diff {sourceFeedProfileId} {targetFeedProfileId} --source-env=staging --target-env=production
+php artisan promotion:dry-run {sourceFeedProfileId} {targetFeedProfileId} --strategy=safe_merge
+php artisan promotion:apply {sourceFeedProfileId} {targetFeedProfileId} --strategy=safe_merge --reason="approved staging config"
+php artisan promotion:rollback {promotionRunId} --reason="restore production baseline"
 php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
 php artisan feedback:reconcile {feedProfileId}
 php artisan feed:runbook {feedProfileId}
@@ -1015,6 +1021,88 @@ Set the environment class explicitly:
 - `FEED_MEDIATOR_ENV_CLASS=production`
 
 Operators should verify the environment badge before running rehearsal, force publish, rollback, freeze toggles, or feedback import.
+
+## Merchant Promotion Workflow
+
+Use `/admin/feed-profiles/{profile}/promotion` when a merchant is configured in staging and must be moved into production safely.
+
+Practical operator path:
+
+1. generate a staging snapshot
+2. download the JSON artifact
+3. import it in the production profile
+4. run compare
+5. run dry-run with the intended strategy
+6. apply the promotion
+7. rebind and validate target source secrets
+8. continue with release center, acceptance, cutover and hypercare
+
+Snapshot contents:
+
+- shop non-secret config
+- onboarding/bootstrap state
+- feed settings and release rules
+- mappings and merchant overrides
+- dictionary references/checksums
+- source driver metadata and non-secret options
+- compatibility metadata and fingerprints
+
+Excluded intentionally:
+
+- raw API tokens
+- plaintext credentials
+- transient runtime-only status fields
+
+## Dry-Run / Apply Strategies
+
+- `safe_merge`: update compatible config while preserving unrelated target settings
+- `overwrite_target`: make the target match the snapshot, including removal of target-only mappings when safe
+- `skip_existing_conflicts`: keep conflicting target rows untouched and report them as skipped
+
+Always review:
+
+- created count
+- updated count
+- deleted count when `overwrite_target` is used
+- skipped count
+- conflicts
+- warnings
+- blocking errors
+
+## Source Secret Rebinding
+
+Promotion never copies secrets as plaintext.
+
+Target source-connection workflow:
+
+1. apply promotion metadata
+2. open the target source connection screen
+3. re-enter the production token or credentials
+4. run `Test connection`
+5. confirm the secret state moved from `missing` or `not_validated` to `validated`
+
+If secrets are already present on target, promotion preserves them instead of overwriting them.
+
+## Promotion Rollback Limits
+
+Rollback is config-level only.
+
+- it uses the stored pre-apply target snapshot
+- it is safe only while the target still matches the original post-apply snapshot
+- it is blocked when the target has drifted since the apply run
+- it does not undo runtime events outside the promoted config scope
+
+## Practical Runbook For Moving A Merchant From Staging To Production
+
+1. Finish staging mappings, merchant overrides and release rules.
+2. Generate a staging snapshot right before handoff.
+3. Import the snapshot in production and review drift plus compatibility.
+4. Run dry-run and resolve blocking conflicts first.
+5. Apply the promotion.
+6. Re-enter production secrets and validate the source connection.
+7. Run a fresh source sync if the target catalog needs parity.
+8. Open release center / acceptance / runbook / launch pack and confirm promotion status is visible there.
+9. Publish only after promotion parity and secret rebind status are acceptable.
 
 ## Staging Rehearsal Workflow
 

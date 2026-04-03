@@ -7,6 +7,7 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Back to operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
         </div>
         <div class="detail-list">
@@ -16,6 +17,9 @@
             <div class="detail-row"><strong>Canary preview</strong><div>{{ $rehearsal['preview_url'] ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Rollback preview</strong><div>{{ $rehearsal['rollback_preview_url'] ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>QA bundle path</strong><div>{{ $rehearsal['qa_bundle_path'] ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Promotion status</strong><div>{{ $rehearsal['promotion']['status'] }}</div></div>
+            <div class="detail-row"><strong>Promotion drift</strong><div>{{ $rehearsal['promotion']['drift_status'] }}</div></div>
+            <div class="detail-row"><strong>Secret rebind</strong><div>{{ $rehearsal['promotion']['secret_rebind_pending'] ? 'pending' : 'clear' }}</div></div>
         </div>
     </section>
 

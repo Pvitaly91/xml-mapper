@@ -98,6 +98,7 @@ class FeedLaunchPackService
                 .(($acceptance['pilot_readiness']['generation_summary']['invalid_total'] ?? 0)).' / '
                 .(($acceptance['pilot_readiness']['generation_summary']['excluded'] ?? 0)),
             '- Readiness: '.($acceptance['release_readiness']['status'] ?? 'n/a'),
+            '- Promotion parity: '.($acceptance['promotion']['status'] ?? 'n/a'),
             '- Sign-off: '.($acceptance['signoff']['current']?->status ?: 'n/a'),
             '- Publish window: '.(($acceptance['publish_window']['allowed_now'] ?? false) ? 'open' : 'closed'),
             '- Freeze mode: '.(($acceptance['publish_window']['freeze_active'] ?? false) ? 'active' : 'inactive'),
@@ -109,6 +110,7 @@ class FeedLaunchPackService
             '',
             '## Cutover / rollback / first-pull plan',
             '- Cutover status: '.($operations['cutover']['cutover']?->status ?: 'n/a'),
+            '- Secret rebind pending: '.(($operations['promotion']['secret_rebind_pending'] ?? false) ? 'yes' : 'no'),
             '- Next allowed window: '.($operations['publish_window']['next_allowed_at'] ?? 'n/a'),
             '- Rollback target available: '.($feedProfile->publishedGeneration?->id ? 'yes (#'.$feedProfile->publishedGeneration->id.')' : 'no'),
             '- First-pull verification latest: '.($operations['first_pull']['latest']?->status ?: 'n/a'),

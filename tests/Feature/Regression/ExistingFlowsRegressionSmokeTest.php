@@ -24,6 +24,9 @@ class ExistingFlowsRegressionSmokeTest extends TestCase
             ->get(route('admin.feed-profiles.release-center', $feedProfile))
             ->assertOk();
         $this->actingAs($admin)
+            ->get(route('admin.feed-profiles.promotion.show', $feedProfile))
+            ->assertOk();
+        $this->actingAs($admin)
             ->get(route('admin.feed-profiles.operations.show', $feedProfile))
             ->assertOk();
         $this->actingAs($admin)

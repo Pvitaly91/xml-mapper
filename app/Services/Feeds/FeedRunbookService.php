@@ -69,6 +69,7 @@ class FeedRunbookService
             ['label' => 'Source connection verified', 'ok' => (bool) ($summary['release_readiness']['checks']['source_healthy']['ok'] ?? false)],
             ['label' => 'Dictionaries imported', 'ok' => (bool) ($summary['pilot_readiness']['dictionaries_imported']['ok'] ?? false)],
             ['label' => 'Mappings reviewed', 'ok' => (bool) ($summary['release_readiness']['checks']['mappings_complete']['ok'] ?? false)],
+            ['label' => 'Promotion parity reviewed', 'ok' => in_array(($summary['promotion']['status'] ?? 'unknown'), ['in_sync', 'unknown'], true)],
             ['label' => 'Candidate built', 'ok' => (bool) ($summary['release_readiness']['checks']['generation_built']['ok'] ?? false)],
             ['label' => 'QA bundle generated', 'ok' => $summary['generation'] !== null],
             ['label' => 'Sign-off complete', 'ok' => (bool) ($summary['signoff']['allowed'] ?? false)],

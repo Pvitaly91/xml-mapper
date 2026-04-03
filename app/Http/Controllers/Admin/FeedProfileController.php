@@ -10,6 +10,7 @@ use App\Models\SourceConnection;
 use App\Models\ValidationError;
 use App\Services\Feeds\FeedHypercareService;
 use App\Services\Feeds\FeedPilotReadinessService;
+use App\Services\Promotion\PromotionStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -66,7 +67,8 @@ class FeedProfileController extends AdminController
         Request $request,
         FeedProfile $feedProfile,
         FeedPilotReadinessService $pilotReadinessService,
-        FeedHypercareService $hypercareService
+        FeedHypercareService $hypercareService,
+        PromotionStatusService $promotionStatusService,
     ): View
     {
         $this->ensureShopOwned($request, $feedProfile);
@@ -90,6 +92,7 @@ class FeedProfileController extends AdminController
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
             'pilotReadiness' => $pilotReadiness,
             'hypercareSummary' => $hypercareService->summarize($feedProfile),
+            'promotionStatus' => $promotionStatusService->summarize($feedProfile),
         ]);
     }
 
