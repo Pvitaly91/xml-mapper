@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\Admin\SourceConnections\UpsertSourceConnectionAction;
 use App\Http\Requests\Admin\SourceConnections\SourceConnectionRequest;
 use App\Models\SourceConnection;
+use App\Services\Ops\SecretsRotationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -65,7 +66,7 @@ class SourceConnectionController extends AdminController
             ->with('status', 'Source connection created.');
     }
 
-    public function show(Request $request, SourceConnection $sourceConnection): View
+    public function show(Request $request, SourceConnection $sourceConnection, SecretsRotationService $rotationService): View
     {
         $this->ensureShopOwned($request, $sourceConnection);
         $sourceConnection->load(['latestImport', 'feedProfiles' => fn ($query) => $query->latest('id')->limit(10)]);
@@ -73,6 +74,7 @@ class SourceConnectionController extends AdminController
         return view('admin.source-connections.show', [
             'connection' => $sourceConnection,
             'imports' => $sourceConnection->imports()->latest('id')->paginate(10, ['*'], 'imports_page'),
+            'rotation' => $rotationService->summarize($sourceConnection),
         ]);
     }
 

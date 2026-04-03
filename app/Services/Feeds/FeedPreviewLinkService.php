@@ -17,8 +17,16 @@ class FeedPreviewLinkService
         private readonly PilotNotificationService $notificationService,
     ) {}
 
-    public function create(FeedGeneration $generation, int $ttlMinutes = 1440, ?User $user = null, ?string $reason = null): FeedGenerationPreviewLink
-    {
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function create(
+        FeedGeneration $generation,
+        int $ttlMinutes = 1440,
+        ?User $user = null,
+        ?string $reason = null,
+        array $meta = []
+    ): FeedGenerationPreviewLink {
         if (! in_array($generation->status, [FeedGeneration::STATUS_BUILT, FeedGeneration::STATUS_PUBLISHED], true)) {
             throw new RuntimeException('Only built generations can be shared as preview URLs.');
         }
@@ -36,9 +44,9 @@ class FeedPreviewLinkService
             'token' => Str::random(64),
             'expires_at' => now()->addMinutes($ttlMinutes),
             'note' => $reason,
-            'meta' => [
+            'meta' => array_merge([
                 'ttl_minutes' => $ttlMinutes,
-            ],
+            ], $meta),
         ]);
 
         $this->auditService->record(

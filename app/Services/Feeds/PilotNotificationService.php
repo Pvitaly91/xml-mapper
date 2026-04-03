@@ -37,7 +37,11 @@ class PilotNotificationService
             'source_connection_id' => $feedProfile->source_connection_id,
             'feed_profile_id' => $feedProfile->id,
             'feed_generation_id' => $generation?->id,
-            'level' => $severity === 'error' ? 'error' : 'warning',
+            'level' => match ($severity) {
+                'error' => 'error',
+                'info' => 'info',
+                default => 'warning',
+            },
             'event' => $event,
             'message' => $message,
             'context' => $context,
@@ -65,7 +69,11 @@ class PilotNotificationService
         SyncLog::create([
             'shop_id' => $connection->shop_id,
             'source_connection_id' => $connection->id,
-            'level' => $severity === 'error' ? 'error' : 'warning',
+            'level' => match ($severity) {
+                'error' => 'error',
+                'info' => 'info',
+                default => 'warning',
+            },
             'event' => $event,
             'message' => $message,
             'context' => $context,

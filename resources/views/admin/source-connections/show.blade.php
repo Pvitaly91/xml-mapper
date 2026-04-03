@@ -14,6 +14,14 @@
                 @csrf
                 <button class="button" type="submit">Sync now</button>
             </form>
+            @if($connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API)
+                <form method="POST" action="{{ route('admin.source-connections.rotation', $connection) }}">
+                    @csrf
+                    <input type="hidden" name="target" value="prom_api_token">
+                    <input type="text" name="note" placeholder="Rotation note">
+                    <button class="button warning" type="submit">Record token rotation</button>
+                </form>
+            @endif
             <a class="button secondary" href="{{ route('admin.source-connections.index') }}">Back</a>
         </div>
 
@@ -25,6 +33,9 @@
             <div class="detail-row"><strong>API base URL</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiBaseUrl() : 'n/a' }}</div></div>
             <div class="detail-row"><strong>API version</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiVersion() : 'n/a' }}</div></div>
             <div class="detail-row"><strong>API token</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? ($connection->maskedApiToken() ?: 'not configured') : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Token present</strong><div>{{ ($rotation['token_present'] ?? false) ? 'yes' : 'no' }}</div></div>
+            <div class="detail-row"><strong>Token last validated</strong><div>{{ optional($rotation['token_last_validated_at'] ?? null)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Last rotation</strong><div>{{ optional($rotation['latest_rotation']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Sync interval</strong><div>{{ $connection->sync_interval_minutes }} minutes</div></div>
             <div class="detail-row"><strong>Last sync at</strong><div>{{ optional($connection->last_synced_at)->format('Y-m-d H:i:s') ?: 'Never' }}</div></div>
             <div class="detail-row"><strong>Next sync at</strong><div>{{ optional($connection->next_sync_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>

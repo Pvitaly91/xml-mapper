@@ -7,6 +7,8 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <form method="POST" action="{{ route('admin.feed-profiles.build', $feedProfile) }}">
@@ -36,11 +38,28 @@
                 @csrf
                 <input type="hidden" name="freeze" value="{{ $publishWindow['freeze_active'] ? '0' : '1' }}">
                 <input type="text" name="reason" placeholder="{{ $publishWindow['freeze_active'] ? 'Reason to unfreeze' : 'Reason to freeze' }}" required>
+                <input type="text" name="confirmation" placeholder="Type CONFIRM if required">
                 <button class="button warning" type="submit">{{ $publishWindow['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
             </form>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
         </div>
     </section>
+
+    @if(($rehearsalSummary['latest'] ?? null) || ($appEnvironment['warnings'] ?? []) !== [])
+        <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Staging Rehearsal</h2>
+                <span class="badge {{ ($rehearsalSummary['status'] ?? 'not_started') === 'passed' ? 'ok' : (($rehearsalSummary['status'] ?? 'not_started') === 'blocked' ? 'warn' : (($rehearsalSummary['status'] ?? 'not_started') === 'failed' ? 'err' : '')) }}">{{ $rehearsalSummary['status'] ?? 'not_started' }}</span>
+            </div>
+            <div class="detail-list">
+                <div class="detail-row"><strong>Environment</strong><div>{{ $appEnvironment['label'] }}</div></div>
+                <div class="detail-row"><strong>Candidate prepared</strong><div>{{ ($rehearsalSummary['rehearsal_candidate'] ?? false) ? 'yes' : 'no' }}</div></div>
+                <div class="detail-row"><strong>Canary publish</strong><div>{{ $rehearsalSummary['rehearsal_publish_result'] ?? 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Canary smoke</strong><div>{{ $rehearsalSummary['rehearsal_smoke_result']?->status ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Rollback rehearsal</strong><div>{{ $rehearsalSummary['rehearsal_rollback_result'] ?? 'n/a' }}</div></div>
+            </div>
+        </section>
+    @endif
 
     @if($latestReadiness)
         <section class="panel">

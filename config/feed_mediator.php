@@ -1,6 +1,14 @@
 <?php
 
 return [
+    'environment' => [
+        'class' => env('FEED_MEDIATOR_ENV_CLASS', env('APP_ENV', 'local')),
+        'label' => env('FEED_MEDIATOR_ENV_LABEL'),
+        'staging_public_publish_note' => env(
+            'FEED_MEDIATOR_STAGING_PUBLISH_NOTE',
+            'Staging publish is isolated from the production merchant feed URL.'
+        ),
+    ],
     'storage_disk' => env('FEED_MEDIATOR_STORAGE_DISK', 'local'),
     'imports_directory' => env('FEED_MEDIATOR_IMPORTS_DIRECTORY', 'imports/prom'),
     'builds_directory' => env('FEED_MEDIATOR_BUILDS_DIRECTORY', 'feeds/builds'),
@@ -77,6 +85,7 @@ return [
             'admin_login_per_minute' => (int) env('FEED_MEDIATOR_ADMIN_LOGIN_PER_MINUTE', 5),
             'admin_sensitive_per_minute' => (int) env('FEED_MEDIATOR_ADMIN_SENSITIVE_PER_MINUTE', 20),
         ],
+        'require_high_risk_confirmation' => (bool) env('FEED_MEDIATOR_REQUIRE_HIGH_RISK_CONFIRMATION', false),
     ],
     'deploy' => [
         'health_url' => env('FEED_MEDIATOR_DEPLOY_HEALTH_URL', '/health'),
@@ -94,6 +103,15 @@ return [
     'first_pull_verification' => [
         'timeout_seconds' => (int) env('FEED_MEDIATOR_FIRST_PULL_TIMEOUT_SECONDS', 20),
         'warning_reverify_after_minutes' => (int) env('FEED_MEDIATOR_FIRST_PULL_REVERIFY_MINUTES', 30),
+    ],
+    'rehearsal' => [
+        'preview_ttl_minutes' => (int) env('FEED_MEDIATOR_REHEARSAL_PREVIEW_TTL_MINUTES', 240),
+        'allow_on_production' => (bool) env('FEED_MEDIATOR_REHEARSAL_ALLOW_ON_PRODUCTION', false),
+    ],
+    'reliability' => [
+        'healthy_rate' => (float) env('FEED_MEDIATOR_SLO_HEALTHY_RATE', 0.98),
+        'warning_rate' => (float) env('FEED_MEDIATOR_SLO_WARNING_RATE', 0.90),
+        'history_windows_hours' => [24, 168],
     ],
     'normalization' => [
         'article_keys' => ['article', 'vendorcode', 'vendor_code', 'артикул', 'sku'],

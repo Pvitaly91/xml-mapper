@@ -22,6 +22,7 @@ use App\Services\Feeds\FeedPublishService;
 use App\Services\Mappings\AttributeMappingService;
 use App\Services\Mappings\CategoryMappingService;
 use App\Services\Mappings\ValueMappingService;
+use App\Services\Ops\EnvironmentContextService;
 use App\Services\Ops\HeartbeatService;
 use App\Services\Source\Drivers\PromApiSourceDriver;
 use App\Services\Source\Drivers\PromYmlSourceDriver;
@@ -40,6 +41,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -93,6 +95,10 @@ class AppServiceProvider extends ServiceProvider
 
         Queue::looping(static function (): void {
             app(HeartbeatService::class)->recordWorkerHeartbeat();
+        });
+
+        View::composer('*', static function ($view): void {
+            $view->with('appEnvironment', app(EnvironmentContextService::class)->summary());
         });
     }
 }

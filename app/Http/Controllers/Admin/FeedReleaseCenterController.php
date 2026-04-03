@@ -6,6 +6,7 @@ use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Services\Feeds\FeedCutoverService;
 use App\Services\Feeds\FeedPublishWindowService;
+use App\Services\Feeds\FeedRehearsalService;
 use App\Services\Feeds\FeedReleaseReadinessService;
 use App\Services\Shops\ShopOnboardingService;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class FeedReleaseCenterController extends AdminController
         FeedPublishWindowService $publishWindowService,
         ShopOnboardingService $onboardingService,
         FeedCutoverService $cutoverService,
+        FeedRehearsalService $rehearsalService,
     ): View {
         $this->ensureShopOwned($request, $feedProfile);
         $onboardingService->markReleaseCenterOpened($request->user());
@@ -47,6 +49,7 @@ class FeedReleaseCenterController extends AdminController
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
             'publishWindow' => $publishWindowService->evaluate($feedProfile),
             'cutoverSummary' => $cutoverService->summarize($feedProfile, $latestGeneration),
+            'rehearsalSummary' => $rehearsalService->summarize($feedProfile),
         ]);
     }
 }

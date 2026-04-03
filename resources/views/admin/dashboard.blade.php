@@ -62,6 +62,22 @@
         </div>
     @endif
 
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Environment</h2>
+            <span class="badge {{ $metrics['environment']['badge_class'] }}">{{ $metrics['environment']['label'] }}</span>
+        </div>
+        @if(($metrics['environment']['warnings'] ?? []) !== [])
+            <ul>
+                @foreach($metrics['environment']['warnings'] as $warning)
+                    <li>{{ $warning }}</li>
+                @endforeach
+            </ul>
+        @else
+            <p class="muted">Environment separation indicators are healthy.</p>
+        @endif
+    </section>
+
     <div class="grid cols-2">
         <section class="panel">
             <div class="toolbar">
@@ -203,6 +219,21 @@
                     <strong>{{ $size ?? 'n/a' }}</strong>
                 </div>
             @endforeach
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Reliability Summary</h2>
+            <span class="badge {{ ($metrics['slo']['status'] ?? 'healthy') === 'healthy' ? 'ok' : (($metrics['slo']['status'] ?? 'healthy') === 'warning' ? 'warn' : 'err') }}">{{ $metrics['slo']['status'] ?? 'healthy' }}</span>
+        </div>
+        <div class="stats">
+            @php($slo24 = $metrics['slo']['windows']['24h'] ?? null)
+            @php($slo7d = $metrics['slo']['windows']['168h'] ?? null)
+            <div class="stat"><span class="muted">24h sync rate</span><strong>{{ $slo24 ? (($slo24['sync']['rate'] ?? null) !== null ? number_format(($slo24['sync']['rate'] ?? 0) * 100, 1).'%' : 'n/a') : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">24h publish rate</span><strong>{{ $slo24 ? (($slo24['publish']['rate'] ?? null) !== null ? number_format(($slo24['publish']['rate'] ?? 0) * 100, 1).'%' : 'n/a') : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">24h first-pull rate</span><strong>{{ $slo24 ? (($slo24['first_pull']['rate'] ?? null) !== null ? number_format(($slo24['first_pull']['rate'] ?? 0) * 100, 1).'%' : 'n/a') : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">7d status</span><strong>{{ $slo7d['status'] ?? 'n/a' }}</strong></div>
         </div>
     </section>
 @endsection

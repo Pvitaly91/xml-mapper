@@ -62,6 +62,10 @@
                     <label for="file_store">Feedback file</label>
                     <input id="file_store" type="file" name="file" required>
                 </div>
+                <div class="field full">
+                    <label for="confirmation_store">Confirmation</label>
+                    <input id="confirmation_store" name="confirmation" placeholder="Type CONFIRM if high-risk confirmation is enabled">
+                </div>
             </div>
             <button class="button" type="submit">Import feedback</button>
         </form>

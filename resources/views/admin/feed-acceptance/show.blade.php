@@ -8,12 +8,14 @@
             <a class="button" href="{{ route('admin.feed-profiles.release-center', $feed_profile) }}">Back to release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feed_profile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feed_profile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feed_profile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feed_profile) }}">Reconciliation</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feed_profile) }}">Rejection workbench</a>
             @if($generation)
                 <a class="button secondary" href="{{ route('admin.feed-profiles.generations.show', [$feed_profile, $generation]) }}">Generation details</a>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.generations.qa-bundle', [$feed_profile, $generation]) }}">Download QA bundle</a>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.runbook.show', ['feed_profile' => $feed_profile, 'generation_id' => $generation->id]) }}">Download runbook</a>
+                <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', ['feed_profile' => $feed_profile, 'generation_id' => $generation->id]) }}">Download launch pack</a>
             @endif
         </div>
 
@@ -28,6 +30,7 @@
             <div class="detail-row"><strong>Latest published smoke check</strong><div>{{ $latest_published_smoke_check?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutover['cutover']?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>First-pull verification</strong><div>{{ $first_pull_verification['latest']?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Rehearsal status</strong><div>{{ $rehearsal['status'] ?? 'n/a' }}</div></div>
         </div>
     </section>
 
@@ -74,6 +77,12 @@
             <h2>Direct Actions</h2>
             @if($generation)
                 <div class="toolbar">
+                    <form method="POST" action="{{ route('admin.feed-profiles.rehearsal.store', $feed_profile) }}">
+                        @csrf
+                        <input type="hidden" name="with_preview" value="1">
+                        <input type="hidden" name="with_smoke" value="1">
+                        <button class="button secondary" type="submit">Run staging rehearsal</button>
+                    </form>
                     <form method="POST" action="{{ route('admin.feed-profiles.generations.preview-links.store', [$feed_profile, $generation]) }}">
                         @csrf
                         <input type="number" name="ttl_minutes" min="5" max="10080" value="1440">
@@ -95,6 +104,7 @@
                         <input type="hidden" name="generation_id" value="{{ $generation->id }}">
                         <input type="hidden" name="force_publish" value="1">
                         <input type="text" name="reason" placeholder="Emergency override reason" required>
+                        <input type="text" name="confirmation" placeholder="Type CONFIRM if required">
                         <button class="button warning" type="submit">Force publish</button>
                     </form>
                     <form method="POST" action="{{ route('admin.feed-profiles.generations.smoke-check', [$feed_profile, $generation]) }}">
@@ -114,6 +124,7 @@
                             @csrf
                             <input type="hidden" name="to_generation_id" value="{{ $generation->id }}">
                             <input type="text" name="reason" placeholder="Rollback reason" required>
+                            <input type="text" name="confirmation" placeholder="Type CONFIRM if required">
                             <button class="button danger" type="submit">Rollback</button>
                         </form>
                     @endif
@@ -124,6 +135,7 @@
                 @csrf
                 <input type="hidden" name="freeze" value="{{ $publish_window['freeze_active'] ? '0' : '1' }}">
                 <input type="text" name="reason" placeholder="{{ $publish_window['freeze_active'] ? 'Reason to unfreeze' : 'Reason to freeze' }}" required>
+                <input type="text" name="confirmation" placeholder="Type CONFIRM if required">
                 <button class="button warning" type="submit">{{ $publish_window['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
             </form>
 
@@ -266,6 +278,20 @@
                 @endif
             </section>
         </div>
+    @endif
+
+    @if(($rehearsal['steps'] ?? []) !== [])
+        <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Rehearsal Summary</h2>
+                <span class="badge {{ ($rehearsal['status'] ?? 'not_started') === 'passed' ? 'ok' : (($rehearsal['status'] ?? 'not_started') === 'blocked' ? 'warn' : (($rehearsal['status'] ?? 'not_started') === 'failed' ? 'err' : '')) }}">{{ $rehearsal['status'] ?? 'not_started' }}</span>
+            </div>
+            <ul>
+                @foreach($rehearsal['steps'] as $step)
+                    <li>{{ $step['key'] }}: {{ $step['status'] }}</li>
+                @endforeach
+            </ul>
+        </section>
     @endif
 
     <section class="panel">

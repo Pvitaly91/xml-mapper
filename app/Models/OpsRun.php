@@ -24,6 +24,14 @@ class OpsRun extends Model
 
     public const TYPE_ROLLBACK = 'rollback';
 
+    public const TYPE_REHEARSAL = 'rehearsal';
+
+    public const TYPE_RESTORE_DRILL = 'restore_drill';
+
+    public const TYPE_SECRET_ROTATION = 'secret_rotation';
+
+    public const TYPE_LAUNCH_PACK = 'launch_pack';
+
     public const STATUS_RUNNING = 'running';
 
     public const STATUS_SUCCEEDED = 'succeeded';

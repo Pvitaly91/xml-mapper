@@ -131,6 +131,11 @@ class FeedProfile extends Model
         return $this->hasMany(FeedbackRecord::class);
     }
 
+    public function opsRuns(): HasMany
+    {
+        return $this->hasMany(OpsRun::class);
+    }
+
     public function categoryMappings(): HasMany
     {
         return $this->hasMany(CategoryMapping::class);

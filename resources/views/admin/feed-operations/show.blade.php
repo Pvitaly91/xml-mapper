@@ -14,10 +14,12 @@
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback.create', $feedProfile) }}">Import feedback</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.runbook.show', $feedProfile) }}">Download runbook</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
         </div>
     </section>
 
@@ -29,6 +31,8 @@
         <div class="stat"><span class="muted">Feedback warnings</span><strong>{{ $panel['feedback_summary']['warnings'] }}</strong></div>
         <div class="stat"><span class="muted">Feedback open</span><strong>{{ $panel['feedback_summary']['open'] }}</strong></div>
         <div class="stat"><span class="muted">Last benchmark</span><strong>{{ optional($panel['maintenance']['last_benchmark']?->started_at)->format('H:i') ?: 'n/a' }}</strong></div>
+        <div class="stat"><span class="muted">Environment</span><strong>{{ $panel['environment']['label'] }}</strong></div>
+        <div class="stat"><span class="muted">SLO</span><strong>{{ $panel['slo']['status'] ?? 'healthy' }}</strong></div>
     </div>
 
     <div class="grid cols-2">
@@ -80,6 +84,53 @@
 
     <div class="grid cols-2">
         <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Staging Rehearsal</h2>
+                <span class="badge {{ ($panel['rehearsal']['status'] ?? 'not_started') === 'passed' ? 'ok' : (($panel['rehearsal']['status'] ?? 'not_started') === 'blocked' ? 'warn' : (($panel['rehearsal']['status'] ?? 'not_started') === 'failed' ? 'err' : '')) }}">{{ $panel['rehearsal']['status'] ?? 'not_started' }}</span>
+            </div>
+            <div class="detail-list">
+                <div class="detail-row"><strong>Latest run</strong><div>{{ optional($panel['rehearsal']['latest']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Current step</strong><div>{{ $panel['rehearsal']['current_step'] ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Canary publish</strong><div>{{ $panel['rehearsal']['rehearsal_publish_result'] ?? 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Canary smoke</strong><div>{{ $panel['rehearsal']['rehearsal_smoke_result']?->status ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Rollback rehearsal</strong><div>{{ $panel['rehearsal']['rehearsal_rollback_result'] ?? 'n/a' }}</div></div>
+            </div>
+            <form method="POST" action="{{ route('admin.feed-profiles.rehearsal.store', $feedProfile) }}" style="margin-top: 16px;">
+                @csrf
+                <label class="check"><input type="checkbox" name="with_sync" value="1"> With sync</label>
+                <label class="check"><input type="checkbox" name="with_build" value="1"> With build</label>
+                <label class="check"><input type="checkbox" name="with_preview" value="1" checked> With preview</label>
+                <label class="check"><input type="checkbox" name="with_smoke" value="1" checked> With smoke</label>
+                <label class="check"><input type="checkbox" name="with_rollback_check" value="1"> With rollback check</label>
+                <button class="button secondary" type="submit" style="margin-top: 12px;">Run rehearsal</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Restore Drill</h2>
+                <span class="badge {{ ($panel['restore_drill']['latest']?->status ?? 'warning') === 'succeeded' ? 'ok' : (($panel['restore_drill']['latest']?->status ?? 'warning') === 'failed' ? 'err' : 'warn') }}">{{ $panel['restore_drill']['latest']?->status ?: 'n/a' }}</span>
+            </div>
+            <div class="detail-list">
+                <div class="detail-row"><strong>Latest drill</strong><div>{{ optional($panel['restore_drill']['latest']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Report</strong><div>
+                    @if($panel['restore_drill']['latest'])
+                        <a class="button link" href="{{ route('admin.feed-profiles.restore-drill.show', [$feedProfile, $panel['restore_drill']['latest']]) }}">Download report</a>
+                    @else
+                        n/a
+                    @endif
+                </div></div>
+            </div>
+            <form method="POST" action="{{ route('admin.feed-profiles.restore-drill.store', $feedProfile) }}" style="margin-top: 16px;">
+                @csrf
+                <input type="text" name="note" placeholder="Restore drill note">
+                <button class="button secondary" type="submit">Run restore drill</button>
+            </form>
+        </section>
+    </div>
+
+    <div class="grid cols-2">
+        <section class="panel">
             <h2>Maintenance</h2>
             <div class="detail-list">
                 <div class="detail-row"><strong>Last preflight</strong><div>{{ optional($panel['maintenance']['last_preflight']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
@@ -108,6 +159,22 @@
     </div>
 
     <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Reliability Summary</h2>
+            <span class="badge {{ ($panel['slo']['status'] ?? 'healthy') === 'healthy' ? 'ok' : (($panel['slo']['status'] ?? 'healthy') === 'warning' ? 'warn' : 'err') }}">{{ $panel['slo']['status'] ?? 'healthy' }}</span>
+        </div>
+        <div class="stats">
+            @php($slo24 = $panel['slo']['windows']['24h'] ?? null)
+            @php($slo7d = $panel['slo']['windows']['168h'] ?? null)
+            <div class="stat"><span class="muted">24h sync</span><strong>{{ $slo24 && ($slo24['sync']['rate'] ?? null) !== null ? number_format(($slo24['sync']['rate'] ?? 0) * 100, 1).'%' : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">24h build</span><strong>{{ $slo24 && ($slo24['build']['rate'] ?? null) !== null ? number_format(($slo24['build']['rate'] ?? 0) * 100, 1).'%' : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">24h publish</span><strong>{{ $slo24 && ($slo24['publish']['rate'] ?? null) !== null ? number_format(($slo24['publish']['rate'] ?? 0) * 100, 1).'%' : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">24h first-pull</span><strong>{{ $slo24 && ($slo24['first_pull']['rate'] ?? null) !== null ? number_format(($slo24['first_pull']['rate'] ?? 0) * 100, 1).'%' : 'n/a' }}</strong></div>
+            <div class="stat"><span class="muted">7d status</span><strong>{{ $slo7d['status'] ?? 'n/a' }}</strong></div>
+        </div>
+    </section>
+
+    <section class="panel">
         <h2>Direct Actions</h2>
         <div class="toolbar">
             @if($panel['source_connection'])
@@ -123,6 +190,12 @@
             <form method="POST" action="{{ route('admin.feed-profiles.benchmark', $feedProfile) }}">
                 @csrf
                 <button class="button secondary" type="submit">Run benchmark</button>
+            </form>
+            <form method="POST" action="{{ route('admin.feed-profiles.rehearsal.store', $feedProfile) }}">
+                @csrf
+                <input type="hidden" name="with_preview" value="1">
+                <input type="hidden" name="with_smoke" value="1">
+                <button class="button secondary" type="submit">Rehearse launch</button>
             </form>
             @if($latestGeneration)
                 <form method="POST" action="{{ route('admin.feed-profiles.generations.preview-links.store', [$feedProfile, $latestGeneration]) }}">
@@ -148,6 +221,7 @@
                 <form method="POST" action="{{ route('admin.feed-profiles.rollback', $feedProfile) }}">
                     @csrf
                     <input type="text" name="reason" placeholder="Rollback reason" required>
+                    <input type="text" name="confirmation" placeholder="Type CONFIRM if required">
                     <button class="button danger" type="submit">Rollback</button>
                 </form>
             @endif

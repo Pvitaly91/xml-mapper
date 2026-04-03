@@ -27,6 +27,15 @@ class FeedPublishRequest extends FormRequest
             ],
             'force_publish' => ['nullable', 'boolean'],
             'reason' => ['nullable', 'string', 'max:2000', Rule::requiredIf($this->boolean('force_publish'))],
+            'confirmation' => [
+                'nullable',
+                'string',
+                Rule::requiredIf(
+                    config('feed_mediator.security.require_high_risk_confirmation', false)
+                    && $this->boolean('force_publish')
+                ),
+                Rule::in(['CONFIRM']),
+            ],
         ];
     }
 }

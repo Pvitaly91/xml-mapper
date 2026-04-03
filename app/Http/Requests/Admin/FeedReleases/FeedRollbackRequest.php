@@ -26,6 +26,12 @@ class FeedRollbackRequest extends FormRequest
                 Rule::exists('feed_generations', 'id')->where(fn ($query) => $query->where('feed_profile_id', $feedProfile?->id)),
             ],
             'reason' => ['required', 'string', 'max:2000'],
+            'confirmation' => [
+                'nullable',
+                'string',
+                Rule::requiredIf(config('feed_mediator.security.require_high_risk_confirmation', false)),
+                Rule::in(['CONFIRM']),
+            ],
         ];
     }
 }

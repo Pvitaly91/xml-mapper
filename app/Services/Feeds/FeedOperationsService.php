@@ -7,8 +7,11 @@ use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Models\SourceConnection;
 use App\Models\SyncLog;
+use App\Services\Ops\EnvironmentContextService;
 use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
+use App\Services\Ops\RestoreDrillService;
+use App\Services\Ops\SloSummaryService;
 
 class FeedOperationsService
 {
@@ -19,6 +22,10 @@ class FeedOperationsService
         private readonly OpsStatusService $opsStatusService,
         private readonly OpsMaintenanceStatusService $opsMaintenanceStatusService,
         private readonly FeedReleaseReadinessService $readinessService,
+        private readonly FeedRehearsalService $rehearsalService,
+        private readonly RestoreDrillService $restoreDrillService,
+        private readonly SloSummaryService $sloSummaryService,
+        private readonly EnvironmentContextService $environmentContextService,
     ) {}
 
     /**
@@ -65,6 +72,10 @@ class FeedOperationsService
             ], true),
             'failed_jobs_count' => $ops['failed_jobs']['count'] ?? 0,
             'maintenance' => $maintenance,
+            'environment' => $this->environmentContextService->summary(),
+            'rehearsal' => $this->rehearsalService->summarize($feedProfile),
+            'restore_drill' => $this->restoreDrillService->summarize($feedProfile),
+            'slo' => $this->sloSummaryService->summarize($feedProfile->shop, $feedProfile),
             'feedback_summary' => [
                 'imports' => $feedProfile->feedbackImports()->count(),
                 'accepted' => $feedProfile->feedbackRecords()->where('status', FeedbackRecord::STATUS_ACCEPTED)->count(),
@@ -85,6 +96,8 @@ class FeedOperationsService
                     'publish_failed',
                     'rolled_back',
                     'first_pull_verification_failed',
+                    'rehearsal_failed',
+                    'rehearsal_passed',
                     'preview_link_created',
                     'feedback_imported',
                 ])

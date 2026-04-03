@@ -788,3 +788,128 @@ If `/admin` shows `setup_required`:
 2. Run `php artisan app:doctor`
 3. Review the missing tables reported by the command
 4. Reload `/admin`
+
+## Staging vs Production
+
+Set the environment class explicitly:
+
+- `FEED_MEDIATOR_ENV_CLASS=local`
+- `FEED_MEDIATOR_ENV_CLASS=staging`
+- `FEED_MEDIATOR_ENV_CLASS=production`
+
+Operators should verify the environment badge before running rehearsal, force publish, rollback, freeze toggles, or feedback import.
+
+## Staging Rehearsal Workflow
+
+Admin:
+
+- `/admin/feed-profiles/{profile}/rehearsal`
+
+CLI:
+
+```bash
+php artisan feed:rehearse-launch {feedProfileId} --with-sync --with-build --with-preview --with-smoke --with-rollback-check
+```
+
+What the rehearsal covers:
+
+1. staging-target preflight
+2. source test connection
+3. optional sync
+4. unresolved mapping summary
+5. candidate build
+6. canary preview artifact
+7. QA bundle generation
+8. sign-off capture or verification
+9. canary smoke-check
+10. canary first-pull verification
+11. optional rollback rehearsal
+
+Each run is persisted in `ops_runs` as type `rehearsal`.
+
+## Canary / Safe Publish Rehearsal
+
+Canary rehearsal never replaces the stable public feed URL.
+
+- it uses the preview-link subsystem with `meta.target=canary`
+- smoke checks can run directly against that isolated artifact
+- first-pull verification can also run against that artifact
+- rollback rehearsal can validate a safe fallback artifact without publishing it
+
+## Restore Drill Procedure
+
+Use the restore-drill action from the profile operations screen after recent DB/files backups exist.
+
+The drill stores:
+
+- actor
+- started / finished timestamps
+- latest DB/files backup references
+- checklist outcome
+- markdown report artifact path
+
+The drill is intentionally non-destructive. It verifies readiness for restore rather than executing a live restore on the running environment.
+
+## Secret Rotation Notes
+
+Rotation metadata is stored in `ops_runs` as type `secret_rotation`.
+
+Supported targets:
+
+- `prom_api_token`
+- `app_secret`
+- `deploy_credentials`
+
+Rule:
+
+- record who rotated the secret
+- record when it was rotated
+- record the note / ticket reference
+- never store raw secret values in the repo, logs, or rotation notes
+
+Optional extra hardening:
+
+```dotenv
+FEED_MEDIATOR_REQUIRE_HIGH_RISK_CONFIRMATION=true
+```
+
+Then force publish, rollback, freeze toggles, and non-dry-run feedback import require `confirmation=CONFIRM` together with the explicit reason.
+
+## Reliability Summary
+
+The dashboard and feed-profile operations screen expose rolling reliability summaries for:
+
+- sync success rate
+- build success rate
+- publish success rate
+- smoke-check success rate
+- first-pull verification success rate
+
+Windows:
+
+- last 24h
+- last 7d
+
+Overall states:
+
+- `healthy`
+- `warning`
+- `degraded`
+
+## First Merchant Launch Pack
+
+Generate from:
+
+- `/admin/feed-profiles/{profile}/launch-pack`
+
+The markdown pack includes:
+
+- shop / source / dictionary summary
+- unresolved mapping summary
+- candidate readiness
+- sign-off state
+- publish window / freeze status
+- preview / QA references
+- cutover / rollback / first-pull plan
+- feedback import plan
+- operator notes

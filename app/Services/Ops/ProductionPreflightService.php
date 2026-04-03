@@ -22,9 +22,11 @@ class ProductionPreflightService
     /**
      * @return array<string, mixed>
      */
-    public function run(?User $user = null): array
+    public function run(?User $user = null, string $targetEnvironment = 'production'): array
     {
-        $run = $this->opsRunService->start(OpsRun::TYPE_PREFLIGHT, user: $user);
+        $run = $this->opsRunService->start(OpsRun::TYPE_PREFLIGHT, user: $user, meta: [
+            'target_environment' => $targetEnvironment,
+        ]);
         $checks = [
             $this->databaseCheck(),
             $this->redisCheck(),
@@ -33,7 +35,7 @@ class ProductionPreflightService
             $this->queueCheck(),
             $this->schedulerCheck(),
             $this->appKeyCheck(),
-            $this->environmentCheck(),
+            $this->environmentCheck($targetEnvironment),
             $this->criticalConfigCheck(),
         ];
         $blockingIssues = collect($checks)
@@ -256,27 +258,28 @@ class ProductionPreflightService
     /**
      * @return array<string, mixed>
      */
-    private function environmentCheck(): array
+    private function environmentCheck(string $targetEnvironment): array
     {
         $issues = [];
+        $currentEnvironment = (string) config('feed_mediator.environment.class', config('app.env'));
 
         if (config('app.debug')) {
             $issues[] = 'APP_DEBUG=true';
         }
 
-        if ((string) config('app.env') !== 'production') {
-            $issues[] = 'APP_ENV is not production';
+        if ($currentEnvironment !== $targetEnvironment) {
+            $issues[] = sprintf('runtime environment is [%s], expected [%s]', $currentEnvironment, $targetEnvironment);
         }
 
         if ($issues !== []) {
             return $this->warning(
                 'environment',
                 'Environment sanity warnings: '.implode(', ', $issues).'.',
-                ['Review APP_ENV and APP_DEBUG before go-live.']
+                ['Review APP_ENV / FEED_MEDIATOR_ENV_CLASS and APP_DEBUG before go-live.']
             );
         }
 
-        return $this->ok('environment', 'Environment flags are production-safe.');
+        return $this->ok('environment', sprintf('Environment flags are safe for %s.', $targetEnvironment));
     }
 
     /**

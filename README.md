@@ -1019,6 +1019,121 @@ Weekly:
 
 Detailed ops runbook: [docs/operations.md](docs/operations.md)
 
+## Staging vs Production Separation
+
+The service now exposes an explicit environment layer through `FEED_MEDIATOR_ENV_CLASS`.
+
+- `local`: development-only
+- `staging`: rehearsal / canary / restore-drill environment
+- `production`: live merchant environment
+
+The current environment is shown as a badge in the admin shell, dashboard, release center, acceptance screen, operations screen, and rehearsal screen.
+
+Recommended staging baseline:
+
+- `APP_ENV=staging`
+- `APP_DEBUG=false`
+- `FEED_MEDIATOR_ENV_CLASS=staging`
+- separate DB / Redis / shared storage / app URL from production
+
+## Staging Rehearsal Workflow
+
+Admin path:
+
+- `/admin/feed-profiles/{profile}/rehearsal`
+
+CLI:
+
+```bash
+php artisan feed:rehearse-launch {feedProfileId} --with-sync --with-build --with-preview --with-smoke --with-rollback-check
+```
+
+Persisted rehearsal status:
+
+- `not_started`
+- `in_progress`
+- `passed`
+- `failed`
+- `blocked`
+
+Each run is stored in `ops_runs` with step details, warnings, blocking issues, QA bundle reference, canary preview link, smoke result, and rollback rehearsal result.
+
+## Canary / Safe Publish Rehearsal
+
+Rehearsal publish does not touch the stable public feed URL.
+
+- it uses the existing preview-link layer with `meta.target=canary`
+- smoke checks can run directly against that canary artifact
+- first-pull verification can run against that canary artifact
+- rollback rehearsal can verify a fallback artifact for the currently published generation through another isolated preview link
+
+This keeps the existing public feed endpoint unchanged while still giving the operator a realistic publish/smoke/rollback drill.
+
+## Restore Drill
+
+Restore drill is checklist-based and non-destructive.
+
+- run it from the feed-profile operations screen
+- every run is persisted in `ops_runs` with type `restore_drill`
+- a markdown report is written to shared storage
+
+The drill verifies:
+
+- latest DB backup exists
+- latest files backup exists
+- shared storage contains the published artifact if one exists
+- current ops health is reachable
+
+## Secret Rotation Notes
+
+Secret values are never stored in the repo or in rotation history. Only metadata is persisted.
+
+- Prom API token presence and last validation time are visible on the source connection details screen
+- token rotation metadata can be recorded from `/admin/source-connections/{connection}`
+- rotation history is stored in `ops_runs` with type `secret_rotation`
+
+Optional extra hardening:
+
+```dotenv
+FEED_MEDIATOR_REQUIRE_HIGH_RISK_CONFIRMATION=true
+```
+
+When enabled, force publish, rollback, freeze toggles, and non-dry-run feedback import require `confirmation=CONFIRM` in addition to the existing reason field.
+
+## Reliability Summary
+
+The dashboard and operations screen expose rolling `24h` and `7d` operator summaries for:
+
+- sync success rate
+- build success rate
+- publish success rate
+- smoke-check success rate
+- first-pull verification success rate
+
+Overall state is summarized as:
+
+- `healthy`
+- `warning`
+- `degraded`
+
+## First Merchant Launch Pack
+
+Generate from:
+
+- `/admin/feed-profiles/{profile}/launch-pack`
+
+The generated markdown pack includes:
+
+- shop and source summary
+- dictionary and unresolved mapping state
+- candidate generation readiness
+- sign-off state
+- publish window / freeze status
+- preview / QA references
+- cutover / rollback / first-pull plan
+- feedback import plan
+- operator notes
+
 ## Public Feed
 
 Published feeds are served from:

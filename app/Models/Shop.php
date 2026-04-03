@@ -42,4 +42,9 @@ class Shop extends Model
     {
         return $this->hasMany(FeedProfile::class);
     }
+
+    public function opsRuns(): HasMany
+    {
+        return $this->hasMany(OpsRun::class);
+    }
 }

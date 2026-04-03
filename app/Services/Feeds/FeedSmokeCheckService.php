@@ -68,6 +68,41 @@ class FeedSmokeCheckService
         return $smokeCheck;
     }
 
+    public function runCanary(
+        FeedGenerationPreviewLink $previewLink,
+        string $trigger = FeedGenerationSmokeCheck::TRIGGER_MANUAL,
+        ?User $user = null,
+        ?string $reason = null
+    ): FeedGenerationSmokeCheck {
+        if (! $previewLink->isActive()) {
+            throw new RuntimeException('Preview link is expired or revoked.');
+        }
+
+        $url = $this->previewLinkService->urlFor($previewLink);
+        $smokeCheck = $this->runForUrl(
+            $previewLink->feedProfile,
+            $previewLink->feedGeneration,
+            $url,
+            $trigger,
+            $user,
+            $reason,
+            [
+                'target' => 'canary',
+                'preview_link_id' => $previewLink->id,
+            ]
+        );
+
+        $previewLink->forceFill([
+            'last_smoke_check_status' => $smokeCheck->status,
+            'last_smoke_check_at' => $smokeCheck->checked_at,
+            'meta' => array_merge($previewLink->meta ?? [], [
+                'canary_smoke_check_id' => $smokeCheck->id,
+            ]),
+        ])->save();
+
+        return $smokeCheck;
+    }
+
     /**
      * @param  array<string, mixed>  $meta
      */
@@ -188,32 +223,40 @@ class FeedSmokeCheckService
         ])->save();
 
         if (in_array($trigger, [FeedGenerationSmokeCheck::TRIGGER_MANUAL, FeedGenerationSmokeCheck::TRIGGER_COMMAND], true)) {
+            $target = $meta['target'] ?? 'published';
             $this->auditService->record(
                 $feedProfile,
                 $generation,
-                ($meta['target'] ?? 'published') === 'preview' ? 'preview_smoke_check_rerun' : 'smoke_check_rerun',
+                match ($target) {
+                    'preview' => 'preview_smoke_check_rerun',
+                    'canary' => 'canary_smoke_check_rerun',
+                    default => 'smoke_check_rerun',
+                },
                 $user,
                 $reason,
                 [
                     'status' => $status,
                     'smoke_check_id' => $smokeCheck->id,
                     'trigger_source' => $trigger,
-                    'target' => $meta['target'] ?? 'published',
+                    'target' => $target,
                 ]
             );
         }
 
         if ($status === FeedGenerationSmokeCheck::STATUS_FAILED) {
+            $target = $meta['target'] ?? 'published';
             $this->notificationService->notifyFeedProfileAdmins(
                 $feedProfile,
                 'feed.smoke_check_failed',
-                'Published feed smoke check failed',
-                'The published feed URL failed post-publish smoke checks.',
+                $target === 'canary' ? 'Canary feed smoke check failed' : 'Published feed smoke check failed',
+                $target === 'canary'
+                    ? 'The canary preview artifact failed staging smoke checks.'
+                    : 'The published feed URL failed post-publish smoke checks.',
                 [
                     'generation_id' => $generation->id,
                     'smoke_check_id' => $smokeCheck->id,
                     'errors' => $errors,
-                    'target' => $meta['target'] ?? 'published',
+                    'target' => $target,
                 ],
                 'error',
                 $generation

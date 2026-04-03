@@ -293,3 +293,24 @@ The production deployment path is intentionally release-based rather than in-pla
 9. deploy metadata is persisted in `ops_runs`
 
 Rollback is code-level and symlink-based. Database rollback is deliberately not abstracted away as “magic”; restore depends on the backup/restore runbook.
+
+## Staging Rehearsal Flow
+
+1. `EnvironmentContextService` classifies the runtime as `local`, `staging`, or `production`
+2. `FeedRehearsalService` opens an `ops_runs` record with type `rehearsal`
+3. `ProductionPreflightService` runs against the staging target profile
+4. `SourceConnectionTestService` validates the upstream source
+5. optional sync/build steps reuse the existing ingestion/build services
+6. `FeedPreviewLinkService` creates a canary preview artifact with `meta.target=canary`
+7. `FeedSmokeCheckService` and `FeedFirstPullVerificationService` verify that isolated artifact
+8. optional rollback rehearsal prepares another isolated preview artifact for the currently published generation
+9. the operator sees a persisted rehearsal summary in admin without mutating the stable public feed URL
+
+## Reliability / Recovery Layer
+
+- `RestoreDrillService` records non-destructive restore verification drills in `ops_runs`
+- `SecretsRotationService` records secret rotation metadata without storing the rotated values
+- `SloSummaryService` aggregates rolling 24h / 7d success rates for sync/build/publish/smoke/first-pull
+- `FeedLaunchPackService` exports a reusable merchant launch pack from the same acceptance / operations / reconciliation state
+
+This keeps rehearsal, recovery, and reliability visibility attached to the current architecture instead of inventing a parallel launch subsystem.

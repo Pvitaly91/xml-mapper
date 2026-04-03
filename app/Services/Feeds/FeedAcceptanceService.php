@@ -5,6 +5,7 @@ namespace App\Services\Feeds;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Models\ValidationError;
+use App\Services\Ops\EnvironmentContextService;
 use App\Services\Shops\ShopOnboardingService;
 
 class FeedAcceptanceService
@@ -19,6 +20,8 @@ class FeedAcceptanceService
         private readonly FeedPreviewLinkService $previewLinkService,
         private readonly FeedCutoverService $cutoverService,
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
+        private readonly FeedRehearsalService $rehearsalService,
+        private readonly EnvironmentContextService $environmentContextService,
     ) {}
 
     /**
@@ -69,6 +72,8 @@ class FeedAcceptanceService
             'latest_published_smoke_check' => $latestPublishedSmokeCheck,
             'cutover' => $cutover,
             'first_pull_verification' => $firstPull,
+            'rehearsal' => $this->rehearsalService->summarize($feedProfile),
+            'environment' => $this->environmentContextService->summary(),
             'notes' => $generation ? $this->notesService->notes($generation) : collect(),
             'unresolved_mappings_count' => ValidationError::query()
                 ->where('feed_profile_id', $feedProfile->id)

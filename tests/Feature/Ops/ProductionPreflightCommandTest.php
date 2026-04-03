@@ -26,6 +26,7 @@ class ProductionPreflightCommandTest extends TestCase
         config()->set('app.env', 'production');
         config()->set('app.debug', false);
         config()->set('app.url', 'https://xml-mapper.example.com');
+        config()->set('feed_mediator.environment.class', 'production');
         config()->set('queue.default', 'redis');
 
         Redis::shouldReceive('connection->ping')->once()->andReturn('PONG');
@@ -48,6 +49,7 @@ class ProductionPreflightCommandTest extends TestCase
         config()->set('app.env', 'production');
         config()->set('app.debug', false);
         config()->set('app.url', 'https://xml-mapper.example.com');
+        config()->set('feed_mediator.environment.class', 'production');
         config()->set('queue.default', 'redis');
 
         Redis::shouldReceive('connection->ping')->once()->andThrow(new \RuntimeException('redis offline'));

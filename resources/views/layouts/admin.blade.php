@@ -64,6 +64,14 @@
                     <p>@yield('subtitle')</p>
                 @endif
             </div>
+            @isset($appEnvironment)
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                    <span class="badge {{ $appEnvironment['badge_class'] }}">{{ $appEnvironment['label'] }}</span>
+                    @if(($appEnvironment['warnings'] ?? []) !== [])
+                        <div class="muted" style="max-width: 380px; text-align: right;">{{ $appEnvironment['warnings'][0] }}</div>
+                    @endif
+                </div>
+            @endisset
         </div>
         @include('components.admin.flash')
         @yield('content')
