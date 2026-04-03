@@ -28,3 +28,21 @@ Schedule::command('feed:publish --due --queue')
     ->everyFiveMinutes()
     ->onOneServer()
     ->withoutOverlapping();
+
+Schedule::command('ops:backup-db')
+    ->name('ops:backup-db')
+    ->dailyAt((string) config('feed_mediator.schedule.backup_db_at'))
+    ->onOneServer()
+    ->withoutOverlapping();
+
+Schedule::command('ops:backup-files')
+    ->name('ops:backup-files')
+    ->dailyAt((string) config('feed_mediator.schedule.backup_files_at'))
+    ->onOneServer()
+    ->withoutOverlapping();
+
+Schedule::command('ops:prune')
+    ->name('ops:prune')
+    ->dailyAt((string) config('feed_mediator.schedule.prune_at'))
+    ->onOneServer()
+    ->withoutOverlapping();

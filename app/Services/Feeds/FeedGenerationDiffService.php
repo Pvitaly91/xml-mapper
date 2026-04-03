@@ -8,8 +8,7 @@ class FeedGenerationDiffService
 {
     public function __construct(
         private readonly KastaExportXmlService $xmlService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

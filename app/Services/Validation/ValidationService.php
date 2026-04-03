@@ -15,8 +15,7 @@ class ValidationService implements ValidationServiceInterface
 {
     public function __construct(
         private readonly FeedProfileOverrideService $overrideService,
-    ) {
-    }
+    ) {}
 
     public function validate(
         FeedProfile $feedProfile,

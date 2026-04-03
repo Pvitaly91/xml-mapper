@@ -15,8 +15,7 @@ class FeedItemDiagnosticsService
         private readonly ValidationServiceInterface $validationService,
         private readonly KastaExportConformanceService $conformanceService,
         private readonly FeedProfileOverrideService $overrideService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

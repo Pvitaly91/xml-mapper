@@ -11,8 +11,7 @@ class FeedRunbookService
     public function __construct(
         private readonly FeedAcceptanceService $acceptanceService,
         private readonly FeedCutoverService $cutoverService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{path:string,absolute_path:string,filename:string,content:string,checklist:array<int, array<string, mixed>>}

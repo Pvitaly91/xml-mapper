@@ -12,8 +12,7 @@ class PromApiClient implements PromApiClientInterface
 {
     public function __construct(
         private readonly PromApiHttpTransport $transport,
-    ) {
-    }
+    ) {}
 
     public function checkConnection(SourceConnection $connection): array
     {

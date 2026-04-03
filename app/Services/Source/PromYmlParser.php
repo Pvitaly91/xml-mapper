@@ -16,7 +16,7 @@ class PromYmlParser implements PromYmlParserInterface
 {
     public function parseFile(string $filePath): ParsedSourceFeedData
     {
-        $reader = new XMLReader();
+        $reader = new XMLReader;
 
         if (! $reader->open($filePath, null, LIBXML_NONET | LIBXML_COMPACT | LIBXML_NOCDATA)) {
             throw new RuntimeException(sprintf('Failed to open XML file [%s].', $filePath));

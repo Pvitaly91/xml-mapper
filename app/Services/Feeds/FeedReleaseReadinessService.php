@@ -22,8 +22,7 @@ class FeedReleaseReadinessService
         private readonly FeedPublishWindowService $publishWindowService,
         private readonly OpsStatusService $opsStatusService,
         private readonly DatabaseSetupInspector $databaseSetupInspector,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

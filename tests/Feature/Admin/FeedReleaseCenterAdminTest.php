@@ -3,7 +3,6 @@
 namespace Tests\Feature\Admin;
 
 use App\Contracts\Feeds\FeedBuildServiceInterface;
-use App\Services\Feeds\FeedReleaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\CreatesAdminContext;

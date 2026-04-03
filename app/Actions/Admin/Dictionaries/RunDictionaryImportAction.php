@@ -10,8 +10,7 @@ class RunDictionaryImportAction
 {
     public function __construct(
         private readonly KastaDictionaryImportServiceInterface $service,
-    ) {
-    }
+    ) {}
 
     public function handle(DictionaryImportOptions $options): DictionaryImport
     {

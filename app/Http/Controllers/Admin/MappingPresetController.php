@@ -30,7 +30,7 @@ class MappingPresetController extends AdminController
         $payload = json_encode($service->export($feedProfile), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
         return response()->streamDownload(
-            static fn () => print($payload),
+            static fn () => print ($payload),
             sprintf('feed-profile-%d-mapping-preset.json', $feedProfile->id),
             ['Content-Type' => 'application/json; charset=UTF-8']
         );

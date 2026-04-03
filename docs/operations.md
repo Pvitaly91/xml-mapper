@@ -7,6 +7,7 @@
 - PHP CLI
 - one or more queue workers
 - Laravel scheduler
+- persistent shared storage for feeds, previews, bundles, backups and runbooks
 
 ## Environment
 
@@ -29,13 +30,24 @@ Important env variables:
 - `PROM_API_PAGE_LIMIT=100`
 - `PROM_API_MAX_PAGES=500`
 - `PROM_API_LOCALE=uk`
+- `FEED_MEDIATOR_BACKUPS_DB_DIRECTORY=ops/backups/db`
+- `FEED_MEDIATOR_BACKUPS_FILES_DIRECTORY=ops/backups/files`
+- `FEED_MEDIATOR_RET_GEN_DAYS=14`
+- `FEED_MEDIATOR_RET_PREVIEW_DAYS=7`
+- `FEED_MEDIATOR_RET_SMOKE_DAYS=30`
+- `FEED_MEDIATOR_RET_FEEDBACK_DAYS=30`
+- `FEED_MEDIATOR_RET_QA_BUNDLES_DAYS=14`
+- `FEED_MEDIATOR_RET_RUNBOOKS_DAYS=30`
+- `FEED_MEDIATOR_ADMIN_LOGIN_PER_MINUTE=5`
+- `FEED_MEDIATOR_ADMIN_SENSITIVE_PER_MINUTE=20`
+- `FEED_MEDIATOR_DEPLOY_HEALTH_URL=/health`
 
 ## Scheduler
 
 Recommended cron:
 
 ```cron
-* * * * * cd /var/www/xml-mapper && php artisan schedule:run >> /var/log/xml-mapper/scheduler.log 2>&1
+* * * * * cd /var/www/xml-mapper/current && php artisan schedule:run >> /var/log/xml-mapper/scheduler.log 2>&1
 ```
 
 Reference file: [`deploy/cron/schedule-run.cron`](../deploy/cron/schedule-run.cron)
@@ -70,6 +82,11 @@ php artisan feed:first-pull-verify {feedProfileId} --generation={generationId}
 php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
 php artisan feedback:reconcile {feedProfileId}
 php artisan feed:runbook {feedProfileId}
+php artisan ops:preflight-production
+php artisan ops:backup-db
+php artisan ops:backup-files
+php artisan ops:prune
+php artisan ops:benchmark-feed {feedProfileId}
 ```
 
 Supervisor config:
@@ -114,6 +131,80 @@ sudo systemctl restart xml-mapper-worker.service
 sudo systemctl restart xml-mapper-schedule-work.service
 ```
 
+## Production Topology
+
+Recommended server topology:
+
+- `nginx` with [`deploy/nginx/xml-mapper.conf`](../deploy/nginx/xml-mapper.conf)
+- dedicated `php-fpm` pool with [`deploy/php-fpm/www.conf.example`](../deploy/php-fpm/www.conf.example)
+- MySQL for application data
+- Redis for queues, cache and locks
+- queue worker under systemd or supervisor
+- scheduler under cron or dedicated process
+- shared storage mounted at `/var/www/xml-mapper/shared/storage`
+
+Release directories:
+
+- `/var/www/xml-mapper/releases/<release>`
+- `/var/www/xml-mapper/current`
+- `/var/www/xml-mapper/shared/.env`
+- `/var/www/xml-mapper/shared/storage`
+
+## Zero-Downtime Deploy
+
+Server-side deploy example:
+
+```bash
+APP_BASE=/var/www/xml-mapper \
+DEPLOY_REPO_URL=git@github.com:Pvitaly91/xml-mapper.git \
+DEPLOY_BRANCH=main \
+APP_URL=https://xml-mapper.example.com \
+bash scripts/deploy.sh
+```
+
+The deploy script:
+
+1. clones the branch into a new release directory
+2. links shared `.env` and `storage`
+3. installs Composer production dependencies
+4. runs migrations
+5. caches config/routes/views
+6. switches the `current` symlink
+7. restarts queue workers
+8. runs `ops:preflight-production`
+9. checks `/health`
+10. optionally runs `feed:smoke-check` when `FEED_MEDIATOR_DEPLOY_SMOKE_FEED_PROFILE_ID` is set
+11. records deploy metadata in `ops_runs`
+
+GitHub Actions:
+
+- `.github/workflows/tests.yml` runs Pint + `php artisan test` on push and PR
+- `.github/workflows/deploy-production.yml` is manual (`workflow_dispatch`) and builds a release artifact only; it does not push to the server automatically
+
+## Rollback Procedure
+
+Code rollback:
+
+```bash
+APP_BASE=/var/www/xml-mapper \
+APP_URL=https://xml-mapper.example.com \
+bash scripts/rollback.sh
+```
+
+What rollback does:
+
+- switches `current` to the previous or explicitly selected release
+- restarts workers
+- reruns `ops:preflight-production`
+- rechecks `/health`
+- optionally reruns feed smoke check
+- records rollback metadata in `ops_runs`
+
+Important limit:
+
+- database rollback is manual
+- if the broken release shipped destructive migrations, restore from backup before reopening writes
+
 ## Health Monitoring
 
 `/health` returns:
@@ -137,6 +228,108 @@ The endpoint becomes degraded when:
 - an active Prom API source connection is in `auth_failed`
 
 The endpoint returns `setup_required` when the database connection is available but required application tables are still missing.
+
+## Production Preflight
+
+Use before cutover, before deploy, and right after deploy:
+
+```bash
+php artisan ops:preflight-production
+```
+
+Checks covered:
+
+- DB connection
+- Redis connection
+- required schema tables
+- writable storage directories
+- queue reachability
+- scheduler heartbeat hint
+- `APP_KEY`
+- `APP_ENV` / `APP_DEBUG`
+- critical config keys
+
+Every run is stored in `ops_runs` and shown on the dashboard / operations screen.
+
+## Backup / Restore
+
+Database backup:
+
+```bash
+php artisan ops:backup-db
+```
+
+Files backup:
+
+```bash
+php artisan ops:backup-files
+```
+
+Restore guidance:
+
+- DB: import the generated SQL dump into the target database, then run `php artisan ops:preflight-production`
+- files: restore the ZIP contents into shared storage, then rerun preflight and smoke-checks
+
+## Prune / Retention
+
+Retention command:
+
+```bash
+php artisan ops:prune
+```
+
+Current prune scope:
+
+- old non-published generation XML artifacts
+- expired/revoked preview links
+- old smoke-check history while keeping the latest row per generation
+- old feedback import source files
+- old QA bundle archives
+- old runbook snapshots
+- old benchmark/preflight ops runs
+
+Audit and release history are intentionally not pruned automatically.
+
+## Benchmark / Performance
+
+Benchmark command:
+
+```bash
+php artisan ops:benchmark-feed {feedProfileId}
+```
+
+The benchmark stores:
+
+- latest sync/build/publish/smoke durations
+- reconciliation probe time
+- feedback workbench probe time
+- unresolved mappings probe time
+- operations summary probe time
+- peak memory usage
+
+Use it after major catalog growth, before go-live windows, and after any query/index changes.
+
+## Security Hardening
+
+Admin HTTP responses now send:
+
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- CSP on HTML pages
+- HSTS on secure requests
+
+Rate limits:
+
+- login requests
+- release-sensitive POST actions
+- backup/prune/preflight/benchmark admin actions
+
+Secrets handling:
+
+- Prom API tokens are encrypted at rest
+- `api_token` is excluded from flashed validation input
+- token rotation should be followed by `source:test`
 
 ## Pilot Publish Checklist
 
@@ -560,13 +753,32 @@ php artisan queue:flush
 ## Deployment Checklist
 
 1. Deploy code.
-2. Run `php artisan migrate --force`.
-3. Run `php artisan app:doctor`.
+2. Run `php artisan ops:preflight-production`.
+3. Run `php artisan migrate --force`.
 4. Refresh caches.
 5. Restart queue workers.
 6. Confirm scheduler is active.
 7. Check `/health`.
-8. Open `/admin` and confirm ops status is healthy.
+8. If a published feed exists, run `php artisan feed:smoke-check {feedProfileId} --latest-published`.
+9. Open `/admin` and confirm ops/maintenance status is healthy.
+
+## Daily / Weekly Service Checklist
+
+Daily:
+
+1. dashboard healthy
+2. no broken Prom API auth
+3. queue backlog acceptable
+4. last backups recent
+5. no retention warnings building up
+
+Weekly:
+
+1. run preflight manually
+2. verify backup artifacts are downloadable
+3. run benchmark for the busiest merchant
+4. review storage growth
+5. review old preview/build artifacts and prune if needed
 
 ## Local Setup Recovery
 

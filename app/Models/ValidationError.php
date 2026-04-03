@@ -11,19 +11,33 @@ class ValidationError extends Model
     use HasFactory;
 
     public const CODE_MISSING_PRICE = 'missing_price';
+
     public const CODE_MISSING_PHOTO = 'missing_photo';
+
     public const CODE_MISSING_VENDOR = 'missing_vendor';
+
     public const CODE_MISSING_ARTICLE = 'missing_article';
+
     public const CODE_PRICE_BELOW_THRESHOLD = 'price_below_threshold';
+
     public const CODE_MISSING_CATEGORY_MAPPING = 'missing_category_mapping';
+
     public const CODE_MISSING_REQUIRED_ATTRIBUTE_MAPPING = 'missing_required_attribute_mapping';
+
     public const CODE_MISSING_REQUIRED_ATTRIBUTE_VALUE = 'missing_required_attribute_value';
+
     public const CODE_MISSING_VALUE_MAPPING = 'missing_value_mapping';
+
     public const CODE_INVALID_VENDOR = 'invalid_vendor';
+
     public const CODE_INVALID_ARTICLE = 'invalid_article';
+
     public const CODE_INVALID_COLOR = 'invalid_color';
+
     public const CODE_INVALID_SIZE = 'invalid_size';
+
     public const CODE_INVALID_IMAGE_URL = 'invalid_image_url';
+
     public const CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID = 'duplicated_or_unstable_offer_id';
 
     protected $fillable = [

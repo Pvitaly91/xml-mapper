@@ -11,10 +11,15 @@ class FeedGenerationSignoff extends Model
     use HasFactory;
 
     public const STATUS_PENDING_REVIEW = 'pending_review';
+
     public const STATUS_INTERNAL_APPROVED = 'internal_approved';
+
     public const STATUS_CLIENT_REVIEW = 'client_review';
+
     public const STATUS_CLIENT_APPROVED = 'client_approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_SUPERSEDED = 'superseded';
 
     protected $fillable = [

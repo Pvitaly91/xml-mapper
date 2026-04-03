@@ -15,20 +15,28 @@ use App\Models\User;
 class ShopOnboardingService
 {
     public const STEP_SHOP = 'shop';
+
     public const STEP_SOURCE_DRIVER = 'source_driver';
+
     public const STEP_SOURCE_CONNECTION = 'source_connection';
+
     public const STEP_TEST_CONNECTION = 'test_connection';
+
     public const STEP_DICTIONARIES = 'dictionaries';
+
     public const STEP_FEED_PROFILE = 'feed_profile';
+
     public const STEP_FIRST_SYNC = 'first_sync';
+
     public const STEP_MAPPING_BOOTSTRAP = 'mapping_bootstrap';
+
     public const STEP_BUILD_CANDIDATE = 'build_candidate';
+
     public const STEP_RELEASE_CENTER = 'release_center';
 
     public function __construct(
         private readonly ShopOnboardingStateService $stateService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

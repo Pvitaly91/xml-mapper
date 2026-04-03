@@ -26,6 +26,5 @@ readonly class ParsedSourceOfferData
         public array $images = [],
         public array $params = [],
         public array $rawPayload = [],
-    ) {
-    }
+    ) {}
 }

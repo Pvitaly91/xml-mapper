@@ -33,7 +33,7 @@ class FeedQaBundleTest extends TestCase
 
         $this->assertFileExists($bundle['absolute_path']);
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         $this->assertTrue($zip->open($bundle['absolute_path']) === true);
         $this->assertNotFalse($zip->locateName('candidate.xml'));
         $this->assertNotFalse($zip->locateName('summary.json'));

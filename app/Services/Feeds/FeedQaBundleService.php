@@ -16,8 +16,7 @@ class FeedQaBundleService
         private readonly FeedReleaseNotesService $notesService,
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{path:string,absolute_path:string,filename:string,summary:array<string,mixed>}
@@ -74,7 +73,7 @@ class FeedQaBundleService
         $smokeCheckSummary = $this->reportService->smokeCheckReport($generation);
         $releaseNotes = $this->releaseNotes($generation);
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
 
         if ($zip->open($absolutePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new RuntimeException('Unable to create QA bundle ZIP archive.');

@@ -8,8 +8,7 @@ class ImportKastaDictionariesAction
 {
     public function __construct(
         private readonly KastaDictionaryImportServiceInterface $service,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{categories:int,attributes:int,attribute_values:int,size_grids:int}

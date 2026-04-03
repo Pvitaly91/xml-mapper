@@ -60,6 +60,11 @@ Feed-item export lifecycle:
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
 - `FeedReleaseReportService` exports invalid-item, diff and readiness reports for operators
+- `ProductionPreflightService` validates runtime prerequisites before and after deploy
+- `BackupService` produces database and files backups onto the configured storage disk
+- `PruneService` enforces retention on preview links, smoke checks and old build artifacts
+- `BenchmarkService` measures current heavy report paths plus historical sync/build/publish timings
+- `OpsMaintenanceStatusService` aggregates backups, deploy metadata, storage usage and queue backlog for admin screens
 - `ShopControlPanelService` aggregates daily go-live state for one shop
 - `UnresolvedMappingsWorkbenchService` groups blockers into operator queues
 - `MappingPresetService` exports/imports reusable mapping presets across similar shops
@@ -220,7 +225,13 @@ app/
     KastaExportFieldNormalizer.php
     KastaExportXmlService.php
   Services/Ops/
-  Services/Admin/
+    BackupService.php
+    BenchmarkService.php
+    OpsMaintenanceStatusService.php
+    OpsRunService.php
+    ProductionPreflightService.php
+    PruneService.php
+    Services/Admin/
     CurrentAdminShopResolver.php
   Services/Shops/
     MappingPresetService.php
@@ -266,3 +277,19 @@ The live merchant execution path is:
 7. `FeedbackImportService` matches that feedback to feed items / source variants
 8. `FeedbackRemediationWorkbenchService` groups external rejection reasons into actionable operator queues
 9. the operator rebuilds and republishes intentionally until the cutover reaches `pilot_stable`
+
+## Production Deployment Flow
+
+The production deployment path is intentionally release-based rather than in-place:
+
+1. `scripts/deploy.sh` creates a new release directory
+2. shared `.env` and shared `storage` are linked into that release
+3. Composer production dependencies are installed inside the release
+4. Laravel caches are rebuilt inside the release
+5. migrations run with `--force`
+6. the `current` symlink switches atomically
+7. workers restart via `queue:restart`
+8. `ProductionPreflightService` validates runtime state
+9. deploy metadata is persisted in `ops_runs`
+
+Rollback is code-level and symlink-based. Database rollback is deliberately not abstracted away as “magic”; restore depends on the backup/restore runbook.

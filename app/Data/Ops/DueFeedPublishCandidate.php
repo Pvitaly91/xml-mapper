@@ -11,6 +11,5 @@ readonly class DueFeedPublishCandidate
         public FeedProfile $feedProfile,
         public FeedGeneration $generation,
         public string $reason,
-    ) {
-    }
+    ) {}
 }

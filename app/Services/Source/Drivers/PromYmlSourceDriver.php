@@ -19,8 +19,7 @@ class PromYmlSourceDriver extends AbstractSourceDriver
 {
     public function __construct(
         private readonly PromYmlParserInterface $parser,
-    ) {
-    }
+    ) {}
 
     public function driver(): string
     {

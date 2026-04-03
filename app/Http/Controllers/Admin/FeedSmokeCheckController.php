@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Requests\Admin\FeedReleases\FeedSmokeCheckRequest;
 use App\Models\FeedGeneration;
-use App\Models\FeedProfile;
 use App\Models\FeedGenerationSmokeCheck;
+use App\Models\FeedProfile;
 use App\Services\Feeds\FeedSmokeCheckService;
 use Illuminate\Http\RedirectResponse;
 use Throwable;

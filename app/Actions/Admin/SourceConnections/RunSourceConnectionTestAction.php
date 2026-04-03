@@ -10,8 +10,7 @@ class RunSourceConnectionTestAction
 {
     public function __construct(
         private readonly SourceConnectionTestServiceInterface $tester,
-    ) {
-    }
+    ) {}
 
     public function handle(SourceConnection $connection): SourceConnectionCheckResult
     {

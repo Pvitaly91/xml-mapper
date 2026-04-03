@@ -53,7 +53,7 @@ class KastaExportXmlService
      */
     public function renderOfferFragment(array $snapshot): string
     {
-        $writer = new XMLWriter();
+        $writer = new XMLWriter;
         $writer->openMemory();
         $writer->setIndent(true);
         $this->writeOffer($writer, $snapshot);

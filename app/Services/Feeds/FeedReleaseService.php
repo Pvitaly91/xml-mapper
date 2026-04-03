@@ -4,8 +4,8 @@ namespace App\Services\Feeds;
 
 use App\Contracts\Feeds\FeedPublishServiceInterface;
 use App\Models\FeedGeneration;
-use App\Models\FeedProfile;
 use App\Models\FeedGenerationSmokeCheck;
+use App\Models\FeedProfile;
 use App\Models\User;
 use RuntimeException;
 use Throwable;
@@ -21,8 +21,7 @@ class FeedReleaseService
         private readonly FeedSignoffService $signoffService,
         private readonly FeedCutoverService $cutoverService,
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
-    ) {
-    }
+    ) {}
 
     public function markCandidate(FeedGeneration $generation, ?User $user = null, ?string $reason = null): FeedGeneration
     {
@@ -189,7 +188,7 @@ class FeedReleaseService
 
     public function rollback(
         FeedProfile $feedProfile,
-        ?FeedGeneration $targetGeneration = null,
+        ?FeedGeneration $targetGeneration,
         string $reason,
         ?User $user = null
     ): FeedGeneration {

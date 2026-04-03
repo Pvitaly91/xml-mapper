@@ -14,8 +14,7 @@ class FeedPilotReadinessService
 {
     public function __construct(
         private readonly FeedPublishGuardService $publishGuardService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

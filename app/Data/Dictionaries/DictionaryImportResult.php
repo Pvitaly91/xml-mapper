@@ -14,6 +14,5 @@ readonly class DictionaryImportResult
         public int $skippedCount,
         public int $deactivatedCount,
         public array $metadata = [],
-    ) {
-    }
+    ) {}
 }

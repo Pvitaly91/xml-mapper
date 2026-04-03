@@ -10,6 +10,5 @@ readonly class ParsedSourceCategoryData
         public string $name,
         public ?string $rzId = null,
         public array $rawPayload = [],
-    ) {
-    }
+    ) {}
 }

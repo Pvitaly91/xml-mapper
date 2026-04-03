@@ -2,11 +2,12 @@
 
 namespace App\Services\Feeds;
 
+use App\Models\FeedbackRecord;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
-use App\Models\FeedbackRecord;
 use App\Models\SourceConnection;
 use App\Models\SyncLog;
+use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
 
 class FeedOperationsService
@@ -16,9 +17,9 @@ class FeedOperationsService
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
         private readonly FeedPublishWindowService $publishWindowService,
         private readonly OpsStatusService $opsStatusService,
+        private readonly OpsMaintenanceStatusService $opsMaintenanceStatusService,
         private readonly FeedReleaseReadinessService $readinessService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -38,6 +39,7 @@ class FeedOperationsService
         $latestPreviewEvent = $feedProfile->releaseEvents()->where('action', 'preview_link_created')->latest('occurred_at')->first();
         $latestRollback = $feedProfile->releaseEvents()->where('action', 'rolled_back')->latest('occurred_at')->first();
         $ops = $this->opsStatusService->snapshot($feedProfile->shop);
+        $maintenance = $this->opsMaintenanceStatusService->summarize($feedProfile->shop, $feedProfile);
         $cutover = $this->cutoverService->summarize($feedProfile, $latestGeneration);
         $firstPull = $this->firstPullVerificationService->summarize($feedProfile);
 
@@ -62,6 +64,7 @@ class FeedOperationsService
                 SourceConnection::CHECK_STATUS_CONFIG_ERROR,
             ], true),
             'failed_jobs_count' => $ops['failed_jobs']['count'] ?? 0,
+            'maintenance' => $maintenance,
             'feedback_summary' => [
                 'imports' => $feedProfile->feedbackImports()->count(),
                 'accepted' => $feedProfile->feedbackRecords()->where('status', FeedbackRecord::STATUS_ACCEPTED)->count(),

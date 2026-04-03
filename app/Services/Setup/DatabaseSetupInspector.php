@@ -34,6 +34,7 @@ class DatabaseSetupInspector
         'notifications',
         'sync_logs',
         'dictionary_imports',
+        'ops_runs',
     ];
 
     private const DASHBOARD_REQUIRED_TABLES = self::ADMIN_REQUIRED_TABLES;

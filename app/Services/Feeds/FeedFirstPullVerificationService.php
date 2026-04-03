@@ -16,8 +16,7 @@ class FeedFirstPullVerificationService
         private readonly FeedCutoverService $cutoverService,
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
-    ) {
-    }
+    ) {}
 
     public function run(
         FeedProfile $feedProfile,

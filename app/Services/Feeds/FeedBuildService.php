@@ -23,8 +23,7 @@ class FeedBuildService implements FeedBuildServiceInterface
         private readonly FeedPublishGuardService $publishGuardService,
         private readonly PilotNotificationService $notificationService,
         private readonly ProcessLockService $lockService,
-    ) {
-    }
+    ) {}
 
     public function build(FeedProfile $feedProfile, ?int $sourceImportId = null): FeedGeneration
     {
@@ -56,12 +55,12 @@ class FeedBuildService implements FeedBuildServiceInterface
                 ]);
 
                 try {
-                    $validFeedItemIds = [];
                     $usedCategories = [];
                     $itemsTotal = 0;
                     $validItems = 0;
                     $invalidItems = 0;
                     $excludedItems = 0;
+                    $startedAt = microtime(true);
                     $statusCounters = [
                         FeedItem::STATUS_INVALID_SOURCE => 0,
                         FeedItem::STATUS_INVALID_MAPPING => 0,
@@ -74,10 +73,9 @@ class FeedBuildService implements FeedBuildServiceInterface
                         ->where('source_connection_id', $feedProfile->source_connection_id)
                         ->where('is_enabled', true)
                         ->orderBy('id')
-                        ->chunk(250, function ($variants) use (
+                        ->chunk((int) config('feed_mediator.performance.build_variant_chunk_size', 250), function ($variants) use (
                             $feedProfile,
                             $generation,
-                            &$validFeedItemIds,
                             &$usedCategories,
                             &$itemsTotal,
                             &$validItems,
@@ -137,15 +135,16 @@ class FeedBuildService implements FeedBuildServiceInterface
                                     continue;
                                 }
 
-                                $validFeedItemIds[] = $feedItem->id;
                                 $usedCategories[$analysis['normalized_export_snapshot']['category_id']] = $analysis['normalized_export_snapshot']['category_name'];
                                 $validItems++;
                             }
                         });
 
-                    $path = $this->buildXmlFile($feedProfile, $generation, $validFeedItemIds, $usedCategories);
+                    $path = $this->buildXmlFile($feedProfile, $generation, $usedCategories);
                     $builtAt = now();
                     $checksum = hash_file('sha256', Storage::disk(config('feed_mediator.storage_disk'))->path($path)) ?: null;
+                    $buildDurationMs = (int) round((microtime(true) - $startedAt) * 1000);
+                    $peakMemoryMb = round(memory_get_peak_usage(true) / 1024 / 1024, 2);
 
                     $generation->forceFill([
                         'items_total' => $itemsTotal,
@@ -184,6 +183,10 @@ class FeedBuildService implements FeedBuildServiceInterface
                             'summary' => $summary,
                             'diff' => $diff,
                             'publish_guard' => $guard,
+                            'metrics' => [
+                                'build_duration_ms' => $buildDurationMs,
+                                'peak_memory_mb' => $peakMemoryMb,
+                            ],
                         ],
                     ]);
 
@@ -237,10 +240,9 @@ class FeedBuildService implements FeedBuildServiceInterface
     }
 
     /**
-     * @param  list<int>  $validFeedItemIds
      * @param  array<string, string>  $usedCategories
      */
-    private function buildXmlFile(FeedProfile $feedProfile, FeedGeneration $generation, array $validFeedItemIds, array $usedCategories): string
+    private function buildXmlFile(FeedProfile $feedProfile, FeedGeneration $generation, array $usedCategories): string
     {
         $relativePath = trim(config('feed_mediator.builds_directory'), '/').'/shop-'.$feedProfile->shop_id.'/feed-'.$feedProfile->id.'/generation-'.$generation->id.'.xml';
         $absolutePath = Storage::disk(config('feed_mediator.storage_disk'))->path($relativePath);
@@ -249,7 +251,7 @@ class FeedBuildService implements FeedBuildServiceInterface
             mkdir(dirname($absolutePath), 0777, true);
         }
 
-        $writer = new XMLWriter();
+        $writer = new XMLWriter;
 
         if (! $writer->openUri($absolutePath)) {
             throw new RuntimeException(sprintf('Failed to open XMLWriter for [%s].', $absolutePath));
@@ -285,36 +287,36 @@ class FeedBuildService implements FeedBuildServiceInterface
         $writer->endElement();
         $writer->startElement('offers');
 
-        if ($validFeedItemIds !== []) {
-            FeedItem::query()
-                ->with(['sourceProduct.sourceCategory', 'sourceVariant'])
-                ->whereIn('id', $validFeedItemIds)
-                ->orderBy('id')
-                ->chunk(250, function ($feedItems) use ($feedProfile, $writer): void {
-                    foreach ($feedItems as $feedItem) {
-                        $variant = $feedItem->sourceVariant;
-                        $product = $feedItem->sourceProduct;
+        FeedItem::query()
+            ->with(['sourceProduct.sourceCategory', 'sourceVariant'])
+            ->where('feed_profile_id', $feedProfile->id)
+            ->where('last_built_generation_id', $generation->id)
+            ->where('status', FeedItem::STATUS_READY)
+            ->orderBy('id')
+            ->chunk((int) config('feed_mediator.performance.xml_write_chunk_size', 250), function ($feedItems) use ($feedProfile, $writer): void {
+                foreach ($feedItems as $feedItem) {
+                    $variant = $feedItem->sourceVariant;
+                    $product = $feedItem->sourceProduct;
 
-                        if ($variant === null || $product === null) {
-                            continue;
-                        }
-
-                        $analysis = $this->diagnosticsService->analyze($feedProfile, $product, $variant, $feedItem);
-
-                        if ($analysis['status'] !== FeedItem::STATUS_READY) {
-                            continue;
-                        }
-
-                        $snapshot = $analysis['normalized_export_snapshot'];
-
-                        if (blank($snapshot['category_id'] ?? null)) {
-                            continue;
-                        }
-
-                        $this->xmlService->writeOffer($writer, $snapshot);
+                    if ($variant === null || $product === null) {
+                        continue;
                     }
-                });
-        }
+
+                    $analysis = $this->diagnosticsService->analyze($feedProfile, $product, $variant, $feedItem);
+
+                    if ($analysis['status'] !== FeedItem::STATUS_READY) {
+                        continue;
+                    }
+
+                    $snapshot = $analysis['normalized_export_snapshot'];
+
+                    if (blank($snapshot['category_id'] ?? null)) {
+                        continue;
+                    }
+
+                    $this->xmlService->writeOffer($writer, $snapshot);
+                }
+            });
 
         $writer->endElement();
         $writer->endElement();

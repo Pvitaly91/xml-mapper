@@ -19,8 +19,7 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
         private readonly SourceDriverRegistry $drivers,
         private readonly ProductNormalizerInterface $normalizer,
         private readonly SourceConnectionStateService $stateService,
-    ) {
-    }
+    ) {}
 
     public function prepare(SourceConnection $connection): SourceImport
     {
@@ -32,10 +31,19 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
         $import->loadMissing('sourceConnection');
         $connection = $import->sourceConnection;
         $driver = $this->drivers->forConnection($connection);
+        $startedAt = microtime(true);
 
         try {
             $feedData = $driver->loadFeedData($connection, $import);
             $summary = $this->normalizer->normalize($connection, $import, $feedData);
+            $import->forceFill([
+                'meta' => array_merge($import->meta ?? [], [
+                    'metrics' => [
+                        'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                        'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+                    ],
+                ]),
+            ])->save();
 
             $this->stateService->recordSyncSuccess($connection, $import, $summary);
 
@@ -54,6 +62,12 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
                 'status' => SourceImport::STATUS_FAILED,
                 'finished_at' => now(),
                 'error_message' => $exception->getMessage(),
+                'meta' => array_merge($import->meta ?? [], [
+                    'metrics' => [
+                        'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                        'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+                    ],
+                ]),
             ]);
 
             $this->stateService->recordSyncFailure($connection, $exception);

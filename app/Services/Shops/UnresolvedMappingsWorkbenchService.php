@@ -129,7 +129,7 @@ class UnresolvedMappingsWorkbenchService
                 });
             })
             ->orderByDesc('id')
-            ->paginate(20)
+            ->paginate((int) config('feed_mediator.performance.workbench_page_size', 20))
             ->withQueryString();
     }
 

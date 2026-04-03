@@ -19,8 +19,7 @@ class PilotEventNotification extends Notification
         private readonly string $message,
         private readonly array $context = [],
         private readonly string $severity = 'info',
-    ) {
-    }
+    ) {}
 
     /**
      * @return list<string>
@@ -46,7 +45,7 @@ class PilotEventNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage())
+        return (new MailMessage)
             ->subject($this->title)
             ->line($this->message);
     }

@@ -9,8 +9,7 @@ class OverrideFeedItemAction
 {
     public function __construct(
         private readonly RevalidateFeedItemsAction $revalidateAction,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{is_enabled:bool,excluded_reason:?string}  $payload

@@ -10,8 +10,7 @@ class BuildFeedProfileAction
 {
     public function __construct(
         private readonly FeedBuildServiceInterface $feedBuildService,
-    ) {
-    }
+    ) {}
 
     public function handle(FeedProfile $feedProfile): FeedGeneration
     {

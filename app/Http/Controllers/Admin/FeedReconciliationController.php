@@ -38,7 +38,7 @@ class FeedReconciliationController extends AdminController
             $csv = $service->csvReport($feedProfile, $generation);
 
             return response()->streamDownload(
-                static fn () => print($csv),
+                static fn () => print ($csv),
                 'feed-profile-'.$feedProfile->id.'-reconciliation.csv',
                 ['Content-Type' => 'text/csv; charset=UTF-8']
             );
@@ -47,7 +47,7 @@ class FeedReconciliationController extends AdminController
         $payload = $service->jsonReport($feedProfile, $generation);
 
         return response()->streamDownload(
-            static fn () => print($payload),
+            static fn () => print ($payload),
             'feed-profile-'.$feedProfile->id.'-reconciliation.json',
             ['Content-Type' => 'application/json; charset=UTF-8']
         );

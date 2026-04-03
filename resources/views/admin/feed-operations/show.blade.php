@@ -28,6 +28,7 @@
         <div class="stat"><span class="muted">Feedback rejected</span><strong>{{ $panel['feedback_summary']['rejected'] }}</strong></div>
         <div class="stat"><span class="muted">Feedback warnings</span><strong>{{ $panel['feedback_summary']['warnings'] }}</strong></div>
         <div class="stat"><span class="muted">Feedback open</span><strong>{{ $panel['feedback_summary']['open'] }}</strong></div>
+        <div class="stat"><span class="muted">Last benchmark</span><strong>{{ optional($panel['maintenance']['last_benchmark']?->started_at)->format('H:i') ?: 'n/a' }}</strong></div>
     </div>
 
     <div class="grid cols-2">
@@ -77,6 +78,35 @@
         </section>
     </div>
 
+    <div class="grid cols-2">
+        <section class="panel">
+            <h2>Maintenance</h2>
+            <div class="detail-list">
+                <div class="detail-row"><strong>Last preflight</strong><div>{{ optional($panel['maintenance']['last_preflight']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last DB backup</strong><div>{{ optional($panel['maintenance']['last_backup_db']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last files backup</strong><div>{{ optional($panel['maintenance']['last_backup_files']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last prune</strong><div>{{ optional($panel['maintenance']['last_prune']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last deploy</strong><div>{{ optional($panel['maintenance']['last_deploy']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Storage used</strong><div>{{ number_format(($panel['maintenance']['storage']['total_bytes'] ?? 0) / 1024 / 1024, 2) }} MB</div></div>
+            </div>
+        </section>
+        <section class="panel">
+            <h2>Queue / Retention</h2>
+            <div class="detail-list">
+                @foreach(($panel['maintenance']['queue_backlog'] ?? []) as $queue => $size)
+                    <div class="detail-row"><strong>{{ $queue }}</strong><div>{{ $size ?? 'n/a' }}</div></div>
+                @endforeach
+            </div>
+            @if(($panel['maintenance']['retention_warnings'] ?? []) !== [])
+                <ul class="error-list" style="margin-top: 14px;">
+                    @foreach($panel['maintenance']['retention_warnings'] as $warning)
+                        <li>{{ $warning }}</li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+    </div>
+
     <section class="panel">
         <h2>Direct Actions</h2>
         <div class="toolbar">
@@ -89,6 +119,10 @@
             <form method="POST" action="{{ route('admin.feed-profiles.build', $feedProfile) }}">
                 @csrf
                 <button class="button secondary" type="submit">Build candidate</button>
+            </form>
+            <form method="POST" action="{{ route('admin.feed-profiles.benchmark', $feedProfile) }}">
+                @csrf
+                <button class="button secondary" type="submit">Run benchmark</button>
             </form>
             @if($latestGeneration)
                 <form method="POST" action="{{ route('admin.feed-profiles.generations.preview-links.store', [$feedProfile, $latestGeneration]) }}">

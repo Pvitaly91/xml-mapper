@@ -10,8 +10,7 @@ class RunSourceConnectionSyncAction
 {
     public function __construct(
         private readonly SourceSyncWorkflowServiceInterface $workflow,
-    ) {
-    }
+    ) {}
 
     public function handle(SourceConnection $connection): SourceImport
     {

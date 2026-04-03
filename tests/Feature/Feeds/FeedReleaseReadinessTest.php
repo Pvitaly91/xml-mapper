@@ -4,10 +4,10 @@ namespace Tests\Feature\Feeds;
 
 use App\Contracts\Feeds\FeedBuildServiceInterface;
 use App\Notifications\PilotEventNotification;
-use App\Services\Ops\HeartbeatService;
 use App\Services\Feeds\FeedReleaseReadinessService;
 use App\Services\Feeds\FeedReleaseService;
 use App\Services\Feeds\FeedSmokeCheckService;
+use App\Services\Ops\HeartbeatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;

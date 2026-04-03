@@ -11,13 +11,19 @@ class DictionaryImport extends Model
     use HasFactory;
 
     public const TYPE_KASTA_CATEGORIES = 'kasta_categories';
+
     public const TYPE_KASTA_ATTRIBUTES = 'kasta_attributes';
+
     public const TYPE_KASTA_ATTRIBUTE_VALUES = 'kasta_attribute_values';
+
     public const TYPE_SIZE_GRIDS = 'size_grids';
 
     public const STATUS_RUNNING = 'running';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_SKIPPED = 'skipped';
+
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [

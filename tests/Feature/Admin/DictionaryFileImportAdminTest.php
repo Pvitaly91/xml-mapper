@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\DictionaryImport;
+use App\Models\KastaCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\CreatesAdminContext;
@@ -53,7 +54,7 @@ class DictionaryFileImportAdminTest extends TestCase
         ])->assertRedirect();
 
         $this->assertDatabaseCount('kasta_categories', 3);
-        \App\Models\KastaCategory::query()->delete();
+        KastaCategory::query()->delete();
 
         $response = $this->actingAs($admin)->post(route('admin.dictionary-imports.reimport'), [
             'type' => DictionaryImport::TYPE_KASTA_CATEGORIES,

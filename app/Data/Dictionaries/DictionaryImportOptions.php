@@ -13,6 +13,5 @@ readonly class DictionaryImportOptions
         public bool $allowDuplicateChecksum = false,
         public ?int $initiatedByUserId = null,
         public ?string $originalFilename = null,
-    ) {
-    }
+    ) {}
 }

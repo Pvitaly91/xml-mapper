@@ -14,8 +14,7 @@ class SourceImportService implements SourceImportServiceInterface
         private readonly ProcessLockService $lockService,
         private readonly SourceDriverRegistry $drivers,
         private readonly SourceConnectionStateService $stateService,
-    ) {
-    }
+    ) {}
 
     public function sync(SourceConnection $connection): SourceImport
     {

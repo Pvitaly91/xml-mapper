@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Actions\Ops\ResolveDueFeedPublishesAction;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
+use App\Services\Feeds\FeedReleaseService;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -42,11 +43,10 @@ class PublishFeedJob implements ShouldQueue
     }
 
     public function handle(
-        \App\Services\Feeds\FeedReleaseService $feedReleaseService,
+        FeedReleaseService $feedReleaseService,
         ResolveDueFeedPublishesAction $resolveDueFeedPublishes,
         ProcessLockService $lockService,
-    ): void
-    {
+    ): void {
         try {
             $feedProfile = FeedProfile::findOrFail($this->feedProfileId);
             $generation = $this->feedGenerationId ? FeedGeneration::findOrFail($this->feedGenerationId) : null;

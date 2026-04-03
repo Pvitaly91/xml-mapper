@@ -22,8 +22,7 @@ class FeedSignoffService
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
-    ) {
-    }
+    ) {}
 
     public function current(FeedGeneration $generation): ?FeedGenerationSignoff
     {

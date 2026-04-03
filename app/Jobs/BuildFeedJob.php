@@ -46,8 +46,7 @@ class BuildFeedJob implements ShouldQueue
         ResolveDueFeedBuildsAction $resolveDueFeedBuilds,
         FeedReleaseService $feedReleaseService,
         ProcessLockService $lockService,
-    ): void
-    {
+    ): void {
         try {
             $feedProfile = FeedProfile::findOrFail($this->feedProfileId);
 

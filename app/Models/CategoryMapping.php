@@ -11,6 +11,7 @@ class CategoryMapping extends Model
     use HasFactory;
 
     public const STRATEGY_MANUAL = 'manual';
+
     public const STRATEGY_RZ_ID = 'rz_id';
 
     protected $fillable = [

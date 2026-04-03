@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Contracts\Feeds\FeedBuildServiceInterface;
+use App\Models\AttributeMapping;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\CreatesAdminContext;
@@ -60,7 +61,7 @@ class UnresolvedMappingsWorkbenchTest extends TestCase
         $kastaAttribute = $this->createKastaAttribute($kastaCategory, 'Color', 'color', true, false);
         $kastaValue = $this->createKastaAttributeValue($kastaAttribute, 'Black');
 
-        \App\Models\AttributeMapping::create([
+        AttributeMapping::create([
             'shop_id' => $feedProfile->shop_id,
             'source_connection_id' => $feedProfile->source_connection_id,
             'feed_profile_id' => $feedProfile->id,
@@ -68,7 +69,7 @@ class UnresolvedMappingsWorkbenchTest extends TestCase
             'source_attribute_id' => $sourceAttribute->id,
             'kasta_category_id' => $kastaCategory->id,
             'kasta_attribute_id' => $kastaAttribute->id,
-            'mapping_strategy' => \App\Models\AttributeMapping::STRATEGY_MANUAL,
+            'mapping_strategy' => AttributeMapping::STRATEGY_MANUAL,
             'is_required' => true,
             'use_variant_value' => true,
         ]);

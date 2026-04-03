@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Health;
 
-use App\Models\SourceConnection;
 use App\Models\Shop;
+use App\Models\SourceConnection;
 use App\Services\Ops\HeartbeatService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;

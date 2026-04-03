@@ -2,14 +2,14 @@
 
 namespace App\Providers;
 
+use App\Contracts\Dictionaries\KastaDictionaryImportServiceInterface;
 use App\Contracts\Feeds\FeedBuildServiceInterface;
 use App\Contracts\Feeds\FeedPublishServiceInterface;
-use App\Contracts\Dictionaries\KastaDictionaryImportServiceInterface;
 use App\Contracts\Mappings\AttributeMappingServiceInterface;
 use App\Contracts\Mappings\CategoryMappingServiceInterface;
 use App\Contracts\Mappings\ValueMappingServiceInterface;
-use App\Contracts\Source\PromApiClientInterface;
 use App\Contracts\Source\ProductNormalizerInterface;
+use App\Contracts\Source\PromApiClientInterface;
 use App\Contracts\Source\PromYmlParserInterface;
 use App\Contracts\Source\SourceConnectionTestServiceInterface;
 use App\Contracts\Source\SourceImportServiceInterface;
@@ -22,21 +22,24 @@ use App\Services\Feeds\FeedPublishService;
 use App\Services\Mappings\AttributeMappingService;
 use App\Services\Mappings\CategoryMappingService;
 use App\Services\Mappings\ValueMappingService;
+use App\Services\Ops\HeartbeatService;
+use App\Services\Source\Drivers\PromApiSourceDriver;
+use App\Services\Source\Drivers\PromYmlSourceDriver;
 use App\Services\Source\ProductNormalizer;
 use App\Services\Source\PromApiClient;
 use App\Services\Source\PromYmlParser;
-use App\Services\Source\Drivers\PromApiSourceDriver;
-use App\Services\Source\Drivers\PromYmlSourceDriver;
 use App\Services\Source\SourceConnectionTestService;
 use App\Services\Source\SourceDriverRegistry;
 use App\Services\Source\SourceImportService;
 use App\Services\Source\SourceSyncWorkflowService;
-use App\Services\Ops\HeartbeatService;
 use App\Services\Validation\ValidationService;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -77,6 +80,16 @@ class AppServiceProvider extends ServiceProvider
 
         Authenticate::redirectUsing(static fn () => route('login'));
         RedirectIfAuthenticated::redirectUsing(static fn () => route('admin.dashboard'));
+
+        RateLimiter::for('admin-login', function (Request $request): Limit {
+            return Limit::perMinute((int) config('feed_mediator.security.rate_limits.admin_login_per_minute', 5))
+                ->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip());
+        });
+
+        RateLimiter::for('admin-sensitive', function (Request $request): Limit {
+            return Limit::perMinute((int) config('feed_mediator.security.rate_limits.admin_sensitive_per_minute', 20))
+                ->by((string) ($request->user()?->id ?: $request->ip()));
+        });
 
         Queue::looping(static function (): void {
             app(HeartbeatService::class)->recordWorkerHeartbeat();

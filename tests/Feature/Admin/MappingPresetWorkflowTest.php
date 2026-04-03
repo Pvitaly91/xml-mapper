@@ -3,7 +3,6 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\AttributeMapping;
-use App\Models\CategoryMapping;
 use App\Models\SourceCategory;
 use App\Models\ValueMapping;
 use App\Services\Shops\MappingPresetService;

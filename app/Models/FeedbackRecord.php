@@ -11,14 +11,21 @@ class FeedbackRecord extends Model
     use HasFactory;
 
     public const STATUS_ACCEPTED = 'accepted';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_WARNING = 'warning';
+
     public const STATUS_UNKNOWN = 'unknown';
 
     public const RESOLUTION_OPEN = 'open';
+
     public const RESOLUTION_IN_PROGRESS = 'in_progress';
+
     public const RESOLUTION_FIXED = 'fixed';
+
     public const RESOLUTION_WONT_FIX = 'wont_fix';
+
     public const RESOLUTION_EXCLUDED = 'excluded';
 
     protected $fillable = [

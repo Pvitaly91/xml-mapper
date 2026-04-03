@@ -23,7 +23,7 @@ class FeedReleaseReportController extends AdminController
             $payload = json_encode($reportService->invalidItemsReport($feedProfile, $generation), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
             return response()->streamDownload(
-                static fn () => print($payload),
+                static fn () => print ($payload),
                 'feed-profile-'.$feedProfile->id.'-invalid-items.json',
                 ['Content-Type' => 'application/json; charset=UTF-8']
             );
@@ -32,7 +32,7 @@ class FeedReleaseReportController extends AdminController
         $csv = $reportService->invalidItemsCsv($feedProfile, $generation);
 
         return response()->streamDownload(
-            static fn () => print($csv),
+            static fn () => print ($csv),
             'feed-profile-'.$feedProfile->id.'-invalid-items.csv',
             ['Content-Type' => 'text/csv; charset=UTF-8']
         );
@@ -50,7 +50,7 @@ class FeedReleaseReportController extends AdminController
         $payload = json_encode($reportService->generationDiffReport($feedProfile, $feedGeneration), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
         return response()->streamDownload(
-            static fn () => print($payload),
+            static fn () => print ($payload),
             'generation-'.$feedGeneration->id.'-diff.json',
             ['Content-Type' => 'application/json; charset=UTF-8']
         );
@@ -68,7 +68,7 @@ class FeedReleaseReportController extends AdminController
         $payload = json_encode($reportService->readinessReport($feedProfile, $feedGeneration), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
         return response()->streamDownload(
-            static fn () => print($payload),
+            static fn () => print ($payload),
             'generation-'.$feedGeneration->id.'-readiness.json',
             ['Content-Type' => 'application/json; charset=UTF-8']
         );

@@ -5,8 +5,8 @@ namespace App\Services\Feeds;
 use App\Models\FeedGeneration;
 use App\Models\FeedGenerationPreviewLink;
 use App\Models\User;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -15,8 +15,7 @@ class FeedPreviewLinkService
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
-    ) {
-    }
+    ) {}
 
     public function create(FeedGeneration $generation, int $ttlMinutes = 1440, ?User $user = null, ?string $reason = null): FeedGenerationPreviewLink
     {

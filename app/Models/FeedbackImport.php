@@ -12,7 +12,9 @@ class FeedbackImport extends Model
     use HasFactory;
 
     public const STATUS_IMPORTED = 'imported';
+
     public const STATUS_DRY_RUN = 'dry_run';
+
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [

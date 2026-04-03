@@ -2,14 +2,13 @@
 
 namespace App\Actions\Admin\Dashboard;
 
-use App\Models\FeedGeneration;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
 use App\Models\Shop;
-use App\Models\SourceImport;
 use App\Models\SourceProduct;
 use App\Models\SourceVariant;
 use App\Models\ValidationError;
+use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Setup\DatabaseSetupInspector;
 
@@ -17,9 +16,9 @@ class BuildDashboardMetricsAction
 {
     public function __construct(
         private readonly OpsStatusService $opsStatusService,
+        private readonly OpsMaintenanceStatusService $opsMaintenanceStatusService,
         private readonly DatabaseSetupInspector $databaseSetupInspector,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -28,6 +27,7 @@ class BuildDashboardMetricsAction
     {
         $schema = $this->databaseSetupInspector->dashboardReport();
         $ops = $this->opsStatusService->snapshot($shop);
+        $maintenance = $this->opsMaintenanceStatusService->summarize($shop);
 
         if (! $schema['schema_ready'] || $shop === null) {
             return [
@@ -43,6 +43,7 @@ class BuildDashboardMetricsAction
                 'last_publish' => $ops['last_successful_publish'],
                 'active_feed_profiles' => 0,
                 'ops' => $ops,
+                'maintenance' => $maintenance,
                 'ops_status' => 'setup_required',
                 'schema' => $schema,
                 'setup_required' => $schema['setup_required'] || ! $schema['database_connected'],
@@ -63,6 +64,7 @@ class BuildDashboardMetricsAction
             'last_publish' => $ops['last_successful_publish'],
             'active_feed_profiles' => FeedProfile::query()->where('shop_id', $shop->id)->where('status', FeedProfile::STATUS_ACTIVE)->count(),
             'ops' => $ops,
+            'maintenance' => $maintenance,
             'ops_status' => $this->opsStatusService->overallStatus($shop),
             'schema' => $schema,
             'setup_required' => false,

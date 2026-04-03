@@ -18,8 +18,7 @@ class PromApiSourceDriver extends AbstractSourceDriver
 {
     public function __construct(
         private readonly PromApiClientInterface $client,
-    ) {
-    }
+    ) {}
 
     public function driver(): string
     {

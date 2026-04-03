@@ -13,8 +13,7 @@ class DashboardController extends AdminController
         Request $request,
         BuildDashboardMetricsAction $action,
         DatabaseSetupInspector $databaseSetupInspector
-    ): View
-    {
+    ): View {
         $shop = null;
 
         if ($databaseSetupInspector->hasAllTables(['shops']) && $request->user()?->shop_id !== null) {

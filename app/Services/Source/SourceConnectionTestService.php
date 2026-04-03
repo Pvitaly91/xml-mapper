@@ -12,8 +12,7 @@ class SourceConnectionTestService implements SourceConnectionTestServiceInterfac
     public function __construct(
         private readonly SourceDriverRegistry $drivers,
         private readonly SourceConnectionStateService $stateService,
-    ) {
-    }
+    ) {}
 
     public function test(SourceConnection $connection): SourceConnectionCheckResult
     {

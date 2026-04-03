@@ -12,11 +12,17 @@ class FeedItem extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_INVALID_SOURCE = 'invalid_source';
+
     public const STATUS_INVALID_MAPPING = 'invalid_mapping';
+
     public const STATUS_INVALID_CONFORMANCE = 'invalid_conformance';
+
     public const STATUS_READY = 'ready';
+
     public const STATUS_EXCLUDED = 'excluded';
+
     public const STATUS_PUBLISHED = 'published';
 
     protected $attributes = [

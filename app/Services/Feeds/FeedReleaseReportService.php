@@ -13,8 +13,7 @@ class FeedReleaseReportService
         private readonly FeedItemDiagnosticsService $diagnosticsService,
         private readonly FeedGenerationDiffService $diffService,
         private readonly FeedReleaseReadinessService $readinessService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

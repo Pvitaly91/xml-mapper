@@ -1,0 +1,41 @@
+name: Production Release Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or tag to package
+        default: main
+        required: true
+
+jobs:
+  build-release-artifact:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv
+          coverage: none
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Create release archive
+        run: |
+          RELEASE_NAME="xml-mapper-${GITHUB_SHA::7}"
+          tar --exclude=.git --exclude=node_modules --exclude=tests -czf "${RELEASE_NAME}.tar.gz" .
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RELEASE_NAME }}
+          path: ${{ env.RELEASE_NAME }}.tar.gz

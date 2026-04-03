@@ -12,17 +12,27 @@ class FeedGeneration extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_BUILDING = 'building';
+
     public const STATUS_BUILT = 'built';
+
     public const STATUS_PUBLISHED = 'published';
+
     public const STATUS_FAILED = 'failed';
 
     public const RELEASE_STATUS_BUILT = 'built';
+
     public const RELEASE_STATUS_CANDIDATE = 'candidate';
+
     public const RELEASE_STATUS_APPROVED = 'approved';
+
     public const RELEASE_STATUS_PUBLISHED = 'published';
+
     public const RELEASE_STATUS_SUPERSEDED = 'superseded';
+
     public const RELEASE_STATUS_ROLLED_BACK = 'rolled_back';
+
     public const RELEASE_STATUS_PUBLISH_FAILED = 'publish_failed';
 
     protected $attributes = [

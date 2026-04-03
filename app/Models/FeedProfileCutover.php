@@ -12,15 +12,25 @@ class FeedProfileCutover extends Model
     use HasFactory;
 
     public const STATUS_ONBOARDING_COMPLETE = 'onboarding_complete';
+
     public const STATUS_SYNC_VERIFIED = 'sync_verified';
+
     public const STATUS_MAPPINGS_RECONCILED = 'mappings_reconciled';
+
     public const STATUS_CANDIDATE_READY = 'candidate_ready';
+
     public const STATUS_SIGNOFF_COMPLETE = 'signoff_complete';
+
     public const STATUS_CUTOVER_SCHEDULED = 'cutover_scheduled';
+
     public const STATUS_CUTOVER_PUBLISHED = 'cutover_published';
+
     public const STATUS_FIRST_PULL_VERIFIED = 'first_pull_verified';
+
     public const STATUS_ACCEPTANCE_IN_PROGRESS = 'acceptance_in_progress';
+
     public const STATUS_PILOT_STABLE = 'pilot_stable';
+
     public const STATUS_CUTOVER_BLOCKED = 'cutover_blocked';
 
     protected $fillable = [

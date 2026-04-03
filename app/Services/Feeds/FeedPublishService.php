@@ -17,8 +17,7 @@ class FeedPublishService implements FeedPublishServiceInterface
     public function __construct(
         private readonly FeedPublishGuardService $publishGuardService,
         private readonly ProcessLockService $lockService,
-    ) {
-    }
+    ) {}
 
     public function publish(FeedProfile $feedProfile, ?FeedGeneration $generation = null, bool $force = false): FeedGeneration
     {
@@ -47,6 +46,7 @@ class FeedPublishService implements FeedPublishServiceInterface
 
     private function publishGeneration(FeedProfile $feedProfile, FeedGeneration $generation, bool $force): FeedGeneration
     {
+        $startedAt = microtime(true);
         $disk = Storage::disk(config('feed_mediator.storage_disk'));
         $currentPublished = $feedProfile->publishedGeneration;
 
@@ -80,6 +80,10 @@ class FeedPublishService implements FeedPublishServiceInterface
             'forced' => $force,
             'published_at' => $publishedAt->toIso8601String(),
         ]);
+        $meta['publish_metrics'] = [
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+        ];
 
         $generation->update([
             'status' => FeedGeneration::STATUS_PUBLISHED,

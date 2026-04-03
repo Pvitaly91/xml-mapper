@@ -20,7 +20,7 @@ class UpsertCategoryMappingAction
 
         $kastaCategory = KastaCategory::query()->findOrFail($payload['kasta_category_id']);
 
-        $mapping ??= new CategoryMapping();
+        $mapping ??= new CategoryMapping;
         $mapping->fill([
             'shop_id' => $feedProfile->shop_id,
             'source_connection_id' => $feedProfile->source_connection_id,

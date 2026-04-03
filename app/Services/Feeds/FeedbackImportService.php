@@ -2,11 +2,11 @@
 
 namespace App\Services\Feeds;
 
+use App\Models\FeedbackImport;
+use App\Models\FeedbackRecord;
 use App\Models\FeedGeneration;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
-use App\Models\FeedbackImport;
-use App\Models\FeedbackRecord;
 use App\Models\SourceVariant;
 use App\Models\User;
 use App\Support\Canonicalizer;
@@ -19,8 +19,7 @@ class FeedbackImportService
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
         private readonly FeedCutoverService $cutoverService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

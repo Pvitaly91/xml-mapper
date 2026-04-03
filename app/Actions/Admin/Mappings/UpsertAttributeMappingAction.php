@@ -15,7 +15,7 @@ class UpsertAttributeMappingAction
     {
         $kastaAttribute = KastaAttribute::query()->findOrFail($payload['kasta_attribute_id']);
 
-        $mapping ??= new AttributeMapping();
+        $mapping ??= new AttributeMapping;
         $mapping->fill([
             'shop_id' => $feedProfile->shop_id,
             'source_connection_id' => $feedProfile->source_connection_id,

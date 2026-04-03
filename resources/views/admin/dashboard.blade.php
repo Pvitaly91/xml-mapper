@@ -90,6 +90,51 @@
             @endif
         </section>
         <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Maintenance</h2>
+                <form method="POST" action="{{ route('admin.ops.preflight') }}">
+                    @csrf
+                    <button class="button secondary" type="submit">Run preflight</button>
+                </form>
+                <form method="POST" action="{{ route('admin.ops.backup-db') }}">
+                    @csrf
+                    <button class="button secondary" type="submit">Backup DB</button>
+                </form>
+                <form method="POST" action="{{ route('admin.ops.backup-files') }}">
+                    @csrf
+                    <button class="button secondary" type="submit">Backup files</button>
+                </form>
+                <form method="POST" action="{{ route('admin.ops.prune') }}">
+                    @csrf
+                    <button class="button warning" type="submit">Run prune</button>
+                </form>
+            </div>
+            <div class="detail-list">
+                <div class="detail-row">
+                    <strong>Last preflight</strong>
+                    <div>
+                        {{ optional($metrics['maintenance']['last_preflight']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}
+                        @if($metrics['maintenance']['last_preflight'])
+                            @php($preflightBadgeStatus = $metrics['maintenance']['last_preflight']->status === 'succeeded' ? 'ok' : ($metrics['maintenance']['last_preflight']->status === 'warning' ? 'setup_required' : 'failed'))
+                            <span class="badge {{ $badgeClass($preflightBadgeStatus) }}">{{ $metrics['maintenance']['last_preflight']->status }}</span>
+                        @endif
+                    </div>
+                </div>
+                <div class="detail-row"><strong>Last DB backup</strong><div>{{ optional($metrics['maintenance']['last_backup_db']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last files backup</strong><div>{{ optional($metrics['maintenance']['last_backup_files']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last prune</strong><div>{{ optional($metrics['maintenance']['last_prune']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Last deploy</strong><div>{{ optional($metrics['maintenance']['last_deploy']?->started_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
+                <div class="detail-row"><strong>Storage used</strong><div>{{ number_format(($metrics['maintenance']['storage']['total_bytes'] ?? 0) / 1024 / 1024, 2) }} MB</div></div>
+            </div>
+            @if(($metrics['maintenance']['retention_warnings'] ?? []) !== [])
+                <ul class="error-list" style="margin-top: 14px;">
+                    @foreach($metrics['maintenance']['retention_warnings'] as $warning)
+                        <li>{{ $warning }}</li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+        <section class="panel">
             <h2>Last Sync</h2>
             @if($metrics['last_sync'])
                 <div class="detail-list">
@@ -148,4 +193,16 @@
             </p>
         </section>
     </div>
+
+    <section class="panel">
+        <h2>Queue Backlog</h2>
+        <div class="stats">
+            @foreach($metrics['maintenance']['queue_backlog'] ?? [] as $queue => $size)
+                <div class="stat">
+                    <span class="muted">{{ $queue }}</span>
+                    <strong>{{ $size ?? 'n/a' }}</strong>
+                </div>
+            @endforeach
+        </div>
+    </section>
 @endsection

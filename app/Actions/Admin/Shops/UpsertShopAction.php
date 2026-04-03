@@ -11,8 +11,7 @@ class UpsertShopAction
 {
     public function __construct(
         private readonly ShopOnboardingStateService $onboardingStateService,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -20,7 +19,7 @@ class UpsertShopAction
     public function handle(User $user, array $payload, ?Shop $shop = null): Shop
     {
         $shop ??= $user->shop;
-        $shop ??= new Shop();
+        $shop ??= new Shop;
 
         $shop->fill([
             'name' => $payload['name'],

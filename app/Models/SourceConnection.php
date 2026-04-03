@@ -13,18 +13,27 @@ class SourceConnection extends Model
     use HasFactory;
 
     public const DRIVER_PROM_YML = 'prom_yml';
+
     public const DRIVER_PROM_API = 'prom_api';
 
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_PAUSED = 'paused';
 
     public const CHECK_STATUS_OK = 'ok';
+
     public const CHECK_STATUS_AUTH_FAILED = 'auth_failed';
+
     public const CHECK_STATUS_RATE_LIMITED = 'rate_limited';
+
     public const CHECK_STATUS_NETWORK_ERROR = 'network_error';
+
     public const CHECK_STATUS_INVALID_PAYLOAD = 'invalid_payload';
+
     public const CHECK_STATUS_REMOTE_ERROR = 'remote_error';
+
     public const CHECK_STATUS_CONFIG_ERROR = 'config_error';
+
     public const CHECK_STATUS_FAILED = 'failed';
 
     protected $fillable = [

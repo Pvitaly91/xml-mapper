@@ -2,8 +2,8 @@
 
 namespace App\Services\Feeds;
 
-use App\Models\FeedProfile;
 use App\Models\FeedbackRecord;
+use App\Models\FeedProfile;
 use App\Models\User;
 
 class FeedbackRemediationWorkbenchService
@@ -20,7 +20,7 @@ class FeedbackRemediationWorkbenchService
             ->latest('id');
 
         $query = $this->applyFilters($query, $filters);
-        $records = $query->paginate(20)->withQueryString();
+        $records = $query->paginate((int) config('feed_mediator.performance.workbench_page_size', 20))->withQueryString();
         $base = FeedbackRecord::query()->where('feed_profile_id', $feedProfile->id);
         $groupedReasons = (clone $base)
             ->selectRaw('coalesce(rejection_reason_code, ?) as reason_code, coalesce(rejection_reason_message, ?) as reason_message, count(*) as aggregate', ['n/a', 'No reason'])

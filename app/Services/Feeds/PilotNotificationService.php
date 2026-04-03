@@ -7,6 +7,7 @@ use App\Models\FeedProfile;
 use App\Models\Shop;
 use App\Models\SourceConnection;
 use App\Models\SyncLog;
+use App\Models\User;
 use App\Notifications\PilotEventNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
@@ -73,7 +74,7 @@ class PilotNotificationService
     }
 
     /**
-     * @return Collection<int, \App\Models\User>
+     * @return Collection<int, User>
      */
     private function activeAdmins(Shop $shop): Collection
     {

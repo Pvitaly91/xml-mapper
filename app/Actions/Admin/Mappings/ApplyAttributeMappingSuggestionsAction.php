@@ -10,8 +10,7 @@ class ApplyAttributeMappingSuggestionsAction
 {
     public function __construct(
         private readonly PreviewAttributeMappingSuggestionsAction $previewAction,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<int>  $sourceAttributeIds
@@ -50,6 +49,7 @@ class ApplyAttributeMappingSuggestionsAction
 
                 if ($exists) {
                     $summary['skipped']++;
+
                     continue;
                 }
 

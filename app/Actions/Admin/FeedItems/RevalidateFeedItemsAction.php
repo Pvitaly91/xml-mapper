@@ -11,8 +11,7 @@ class RevalidateFeedItemsAction
 {
     public function __construct(
         private readonly FeedItemDiagnosticsService $diagnosticsService,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  iterable<int, FeedItem>  $feedItems

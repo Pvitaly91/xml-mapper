@@ -11,8 +11,7 @@ class FeedPublishGuardService
     public function __construct(
         private readonly FeedSignoffService $signoffService,
         private readonly FeedPublishWindowService $publishWindowService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

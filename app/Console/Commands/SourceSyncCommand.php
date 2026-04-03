@@ -19,8 +19,7 @@ class SourceSyncCommand extends Command
         ResolveDueSourceConnectionsAction $resolveDueSourceConnections,
         ProcessLockService $lockService,
         SourceSyncWorkflowServiceInterface $workflow
-    ): int
-    {
+    ): int {
         $connections = $this->resolveConnections($resolveDueSourceConnections);
 
         if ($connections->isEmpty()) {

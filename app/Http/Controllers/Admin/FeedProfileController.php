@@ -46,7 +46,7 @@ class FeedProfileController extends AdminController
         $shop = $this->adminShop($request);
 
         return view('admin.feed-profiles.form', [
-            'feedProfile' => new FeedProfile(),
+            'feedProfile' => new FeedProfile,
             'sourceConnections' => SourceConnection::query()->where('shop_id', $shop->id)->orderBy('name')->get(),
             'pageTitle' => 'Create Feed Profile',
         ]);

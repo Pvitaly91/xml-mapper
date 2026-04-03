@@ -6,15 +6,15 @@ use App\Data\Ops\DueFeedPublishCandidate;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Models\Shop;
+use App\Services\Feeds\FeedPublishWindowService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class ResolveDueFeedPublishesAction
 {
     public function __construct(
-        private readonly \App\Services\Feeds\FeedPublishWindowService $publishWindowService,
-    ) {
-    }
+        private readonly FeedPublishWindowService $publishWindowService,
+    ) {}
 
     /**
      * @return Collection<int, DueFeedPublishCandidate>

@@ -33,11 +33,13 @@ class RunCategoryAutomapAction
 
                 if ($existing?->mapping_strategy === CategoryMapping::STRATEGY_MANUAL && $existing->is_active) {
                     $summary['skipped']++;
+
                     continue;
                 }
 
                 if (blank($category->rz_id)) {
                     $summary['skipped']++;
+
                     continue;
                 }
 
@@ -48,6 +50,7 @@ class RunCategoryAutomapAction
 
                 if ($kastaCategory === null) {
                     $summary['skipped']++;
+
                     continue;
                 }
 

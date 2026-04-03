@@ -19,8 +19,7 @@ class FeedAcceptanceService
         private readonly FeedPreviewLinkService $previewLinkService,
         private readonly FeedCutoverService $cutoverService,
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

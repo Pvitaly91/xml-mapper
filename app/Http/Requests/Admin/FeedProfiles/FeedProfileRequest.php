@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Admin\FeedProfiles;
 
-use App\Models\FeedProfile;
 use App\Models\FeedGenerationSignoff;
+use App\Models\FeedProfile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 

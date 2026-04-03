@@ -42,8 +42,7 @@ class SyncSourceJob implements ShouldQueue
         SourceSyncWorkflowServiceInterface $workflow,
         ResolveDueSourceConnectionsAction $resolveDueSourceConnections,
         ProcessLockService $lockService,
-    ): void
-    {
+    ): void {
         try {
             $connection = SourceConnection::findOrFail($this->sourceConnectionId);
 

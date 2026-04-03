@@ -31,6 +31,62 @@ return [
         'heartbeat_stale_after_seconds' => (int) env('FEED_MEDIATOR_HEARTBEAT_STALE_AFTER_SECONDS', 180),
         'failed_jobs_degraded_threshold' => (int) env('FEED_MEDIATOR_FAILED_JOBS_DEGRADED_THRESHOLD', 1),
     ],
+    'preflight' => [
+        'require_redis' => (bool) env('FEED_MEDIATOR_PREFLIGHT_REQUIRE_REDIS', true),
+        'required_directories' => array_values(array_filter([
+            trim((string) env('FEED_MEDIATOR_IMPORTS_DIRECTORY', 'imports/prom'), '/'),
+            trim((string) env('FEED_MEDIATOR_BUILDS_DIRECTORY', 'feeds/builds'), '/'),
+            trim((string) env('FEED_MEDIATOR_PUBLISHED_DIRECTORY', 'feeds/published'), '/'),
+            trim((string) env('FEED_MEDIATOR_FEEDBACK_DIRECTORY', 'imports/feedback'), '/'),
+            trim((string) env('FEED_MEDIATOR_RUNBOOKS_DIRECTORY', 'feeds/runbooks'), '/'),
+            trim((string) env('FEED_MEDIATOR_KASTA_DICTIONARY_STORAGE_DIRECTORY', 'imports/dictionaries'), '/'),
+            trim((string) env('FEED_MEDIATOR_BACKUPS_DB_DIRECTORY', 'ops/backups/db'), '/'),
+            trim((string) env('FEED_MEDIATOR_BACKUPS_FILES_DIRECTORY', 'ops/backups/files'), '/'),
+        ])),
+    ],
+    'backups' => [
+        'db_directory' => env('FEED_MEDIATOR_BACKUPS_DB_DIRECTORY', 'ops/backups/db'),
+        'files_directory' => env('FEED_MEDIATOR_BACKUPS_FILES_DIRECTORY', 'ops/backups/files'),
+    ],
+    'retention' => [
+        'generation_artifacts_days' => (int) env('FEED_MEDIATOR_RET_GEN_DAYS', 14),
+        'preview_links_days' => (int) env('FEED_MEDIATOR_RET_PREVIEW_DAYS', 7),
+        'smoke_checks_days' => (int) env('FEED_MEDIATOR_RET_SMOKE_DAYS', 30),
+        'feedback_artifacts_days' => (int) env('FEED_MEDIATOR_RET_FEEDBACK_DAYS', 30),
+        'qa_bundles_days' => (int) env('FEED_MEDIATOR_RET_QA_BUNDLES_DAYS', 14),
+        'runbooks_days' => (int) env('FEED_MEDIATOR_RET_RUNBOOKS_DAYS', 30),
+        'ops_runs_days' => (int) env('FEED_MEDIATOR_RET_OPS_RUNS_DAYS', 45),
+    ],
+    'performance' => [
+        'build_variant_chunk_size' => (int) env('FEED_MEDIATOR_BUILD_CHUNK_SIZE', 250),
+        'xml_write_chunk_size' => (int) env('FEED_MEDIATOR_XML_CHUNK_SIZE', 250),
+        'workbench_page_size' => (int) env('FEED_MEDIATOR_WORKBENCH_PAGE_SIZE', 20),
+        'reconciliation_breakdown_limit' => (int) env('FEED_MEDIATOR_RECON_BREAKDOWN_LIMIT', 250),
+        'storage_warning_bytes' => (int) env('FEED_MEDIATOR_STORAGE_WARN_BYTES', 2147483648),
+    ],
+    'security' => [
+        'headers_enabled' => (bool) env('FEED_MEDIATOR_SEC_HEADERS_ENABLED', true),
+        'content_security_policy' => env(
+            'FEED_MEDIATOR_CONTENT_SECURITY_POLICY',
+            "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'"
+        ),
+        'x_frame_options' => env('FEED_MEDIATOR_X_FRAME_OPTIONS', 'DENY'),
+        'x_content_type_options' => env('FEED_MEDIATOR_X_CONTENT_TYPE_OPTIONS', 'nosniff'),
+        'referrer_policy' => env('FEED_MEDIATOR_REFERRER_POLICY', 'strict-origin-when-cross-origin'),
+        'rate_limits' => [
+            'admin_login_per_minute' => (int) env('FEED_MEDIATOR_ADMIN_LOGIN_PER_MINUTE', 5),
+            'admin_sensitive_per_minute' => (int) env('FEED_MEDIATOR_ADMIN_SENSITIVE_PER_MINUTE', 20),
+        ],
+    ],
+    'deploy' => [
+        'health_url' => env('FEED_MEDIATOR_DEPLOY_HEALTH_URL', '/health'),
+        'smoke_feed_profile_id' => env('FEED_MEDIATOR_DEPLOY_SMOKE_FEED_PROFILE_ID'),
+    ],
+    'schedule' => [
+        'backup_db_at' => env('FEED_MEDIATOR_BACKUP_DB_AT', '02:30'),
+        'backup_files_at' => env('FEED_MEDIATOR_BACKUP_FILES_AT', '03:00'),
+        'prune_at' => env('FEED_MEDIATOR_PRUNE_AT', '03:30'),
+    ],
     'smoke_checks' => [
         'timeout_seconds' => (int) env('FEED_MEDIATOR_SMOKE_TIMEOUT_SECONDS', 15),
         'latency_warning_ms' => (int) env('FEED_MEDIATOR_SMOKE_LAT_WARN_MS', 3000),

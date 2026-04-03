@@ -11,8 +11,7 @@ class FeedReleaseNotesService
 {
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
-    ) {
-    }
+    ) {}
 
     public function add(
         FeedGeneration $generation,

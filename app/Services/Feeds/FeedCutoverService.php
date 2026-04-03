@@ -2,11 +2,11 @@
 
 namespace App\Services\Feeds;
 
+use App\Models\FeedbackRecord;
 use App\Models\FeedFirstPullVerification;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Models\FeedProfileCutover;
-use App\Models\FeedbackRecord;
 use App\Models\User;
 use App\Services\Shops\ShopOnboardingService;
 use Illuminate\Support\Carbon;
@@ -19,8 +19,7 @@ class FeedCutoverService
         private readonly FeedSignoffService $signoffService,
         private readonly ShopOnboardingService $onboardingService,
         private readonly FeedReleaseAuditService $auditService,
-    ) {
-    }
+    ) {}
 
     public function current(FeedProfile $feedProfile): ?FeedProfileCutover
     {

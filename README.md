@@ -830,8 +830,192 @@ Deploy artifacts:
 
 - cron example: [`deploy/cron/schedule-run.cron`](deploy/cron/schedule-run.cron)
 - supervisor worker config: [`deploy/supervisor/xml-mapper-worker.conf`](deploy/supervisor/xml-mapper-worker.conf)
+- supervisor scheduler config: [`deploy/supervisor/xml-mapper-scheduler.conf`](deploy/supervisor/xml-mapper-scheduler.conf)
 - systemd worker unit: [`deploy/systemd/xml-mapper-worker.service`](deploy/systemd/xml-mapper-worker.service)
 - systemd scheduler unit: [`deploy/systemd/xml-mapper-schedule-work.service`](deploy/systemd/xml-mapper-schedule-work.service)
+- nginx vhost: [`deploy/nginx/xml-mapper.conf`](deploy/nginx/xml-mapper.conf)
+- PHP-FPM pool example: [`deploy/php-fpm/www.conf.example`](deploy/php-fpm/www.conf.example)
+- release-based deploy script: [`scripts/deploy.sh`](scripts/deploy.sh)
+- rollback script: [`scripts/rollback.sh`](scripts/rollback.sh)
+
+## Production Deploy Topology
+
+Recommended server layout:
+
+- `nginx` terminates HTTPS and forwards PHP requests to `php-fpm`
+- `php-fpm` serves Blade admin, public feed XML and CLI commands
+- `MySQL` stores all catalog, mapping, release and ops state
+- `Redis` backs cache, locks and queues
+- queue workers consume `imports,normalization,feeds,dictionaries`
+- scheduler runs `schedule:run` via cron or `schedule:work` under systemd/supervisor
+- feed artifacts, preview bundles, backups and runbooks stay on the configured Laravel storage disk
+
+Release layout expected by the deploy scripts:
+
+- `/var/www/xml-mapper/releases/<timestamp-sha>`
+- `/var/www/xml-mapper/shared/.env`
+- `/var/www/xml-mapper/shared/storage`
+- `/var/www/xml-mapper/current -> releases/<active>`
+
+## Zero-Downtime Deploy And Rollback
+
+Server-side deploy:
+
+```bash
+APP_BASE=/var/www/xml-mapper \
+DEPLOY_REPO_URL=git@github.com:Pvitaly91/xml-mapper.git \
+DEPLOY_BRANCH=main \
+APP_URL=https://xml-mapper.example.com \
+bash scripts/deploy.sh
+```
+
+What the deploy script does:
+
+1. clones the selected branch into a new release directory
+2. links shared `storage` and shared `.env`
+3. installs production Composer dependencies
+4. runs `php artisan migrate --force`
+5. rebuilds Laravel caches
+6. switches the `current` symlink
+7. restarts queue workers with `queue:restart`
+8. runs `ops:preflight-production`
+9. hits `/health`
+10. optionally runs `feed:smoke-check` if `FEED_MEDIATOR_DEPLOY_SMOKE_FEED_PROFILE_ID` is configured
+11. records deploy metadata via `ops:record-deploy`
+
+Rollback:
+
+```bash
+APP_BASE=/var/www/xml-mapper \
+APP_URL=https://xml-mapper.example.com \
+bash scripts/rollback.sh
+```
+
+Important limitation:
+
+- code rollback is safe and automated
+- database rollback is not automatic
+- if a destructive migration shipped, database restore is a manual restore-from-backup operation and must be treated explicitly in the runbook
+
+## Production Preflight
+
+Run before and after deploy:
+
+```bash
+php artisan ops:preflight-production
+```
+
+The command checks:
+
+- DB connection
+- Redis connection
+- required tables/schema readiness
+- writable storage directories
+- queue readiness
+- scheduler heartbeat hints
+- `APP_KEY`
+- environment sanity (`APP_ENV`, `APP_DEBUG`)
+- critical config keys
+
+Each run is persisted in `ops_runs` and surfaced on the admin dashboard and profile operations screen.
+
+## Backup, Restore And Retention
+
+Commands:
+
+```bash
+php artisan ops:backup-db
+php artisan ops:backup-files
+php artisan ops:prune
+```
+
+Backups:
+
+- DB backup creates an SQL dump on the configured storage disk
+- files backup creates a ZIP archive with builds, published feeds, imports, feedback artifacts, dictionaries and runbooks
+- every run is persisted in `ops_runs` with path, size and status
+
+Restore notes:
+
+- database restore: import the saved SQL dump into MySQL or SQLite before bringing workers back
+- file restore: unpack the ZIP onto the shared storage disk, then rerun `ops:preflight-production`
+
+Retention currently prunes:
+
+- old non-published generation XML artifacts
+- expired/revoked preview links
+- old smoke-check history while keeping the latest row per generation
+- old feedback import source files
+- old QA bundle ZIPs
+- old runbook snapshots
+- old preflight/benchmark `ops_runs`
+
+Retention is configurable through `.env` knobs such as `FEED_MEDIATOR_RET_*`.
+
+## Benchmark And Performance Workflow
+
+Command:
+
+```bash
+php artisan ops:benchmark-feed {feedProfileId}
+```
+
+It records:
+
+- latest sync duration from `source_imports.meta.metrics`
+- latest build duration from `feed_generations.meta.metrics`
+- latest publish duration from `feed_generations.meta.publish_metrics`
+- latest smoke-check duration
+- current probe timings for reconciliation, feedback workbench, unresolved workbench and operations summary
+- peak memory usage
+
+Performance hardening added in this step:
+
+- configurable build chunk sizes
+- configurable workbench page size
+- reconciliation summary no longer loads all feed items into memory just to count statuses
+- XML build no longer accumulates all ready feed item IDs in memory
+- explicit indexes for heavy reconciliation/workbench paths
+
+## Security Hardening Notes
+
+HTTP protections now include:
+
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- conservative CSP for HTML admin pages
+- HSTS on secure requests
+
+Rate limiting:
+
+- admin login: `throttle:admin-login`
+- release/ops-sensitive POST actions: `throttle:admin-sensitive`
+
+Secret handling:
+
+- Prom API tokens stay encrypted in the database
+- `api_token` is excluded from flashed validation input
+- preview and release-sensitive actions remain auth + shop-scoped
+- token rotation should be handled by updating the source connection and rerunning `source:test`
+
+## Daily / Weekly Ops Checklist
+
+Daily:
+
+1. open `/admin`
+2. confirm ops status, last preflight and backup timestamps
+3. check failed jobs and queue backlog
+4. review broken Prom API auth indicators
+5. review retention warnings and run `ops:prune` if needed
+
+Weekly:
+
+1. run `ops:preflight-production`
+2. verify DB and files backups can be downloaded
+3. run `ops:benchmark-feed` for the busiest profile
+4. review storage growth and stale preview/build artifacts
+5. rotate any stale source credentials or tokens deliberately
 
 Detailed ops runbook: [docs/operations.md](docs/operations.md)
 

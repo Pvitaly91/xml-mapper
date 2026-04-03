@@ -12,6 +12,5 @@ readonly class ParsedSourceFeedData
         public array $categories,
         public array $offers,
         public ?string $shopName = null,
-    ) {
-    }
+    ) {}
 }

@@ -22,8 +22,7 @@ class FeedPublishWindowService
 
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

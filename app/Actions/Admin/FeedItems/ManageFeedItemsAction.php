@@ -11,8 +11,7 @@ class ManageFeedItemsAction
 {
     public function __construct(
         private readonly RevalidateFeedItemsAction $revalidateAction,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<int>  $feedItemIds

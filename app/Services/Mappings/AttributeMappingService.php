@@ -18,8 +18,7 @@ class AttributeMappingService implements AttributeMappingServiceInterface
 {
     public function __construct(
         private readonly ValueMappingServiceInterface $valueMappingService,
-    ) {
-    }
+    ) {}
 
     public function resolveMappedAttributes(
         FeedProfile $feedProfile,

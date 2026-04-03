@@ -34,8 +34,7 @@ class BootstrapShopForPilotAction
         private readonly FeedReleaseService $feedReleaseService,
         private readonly SourceSyncWorkflowServiceInterface $sourceSyncWorkflow,
         private readonly ShopOnboardingStateService $stateService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

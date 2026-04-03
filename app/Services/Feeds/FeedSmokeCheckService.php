@@ -20,8 +20,7 @@ class FeedSmokeCheckService
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
         private readonly FeedPreviewLinkService $previewLinkService,
-    ) {
-    }
+    ) {}
 
     public function run(
         FeedProfile $feedProfile,
@@ -165,6 +164,7 @@ class FeedSmokeCheckService
             'meta' => array_merge([
                 'url' => $url,
                 'reason' => $reason,
+                'duration_ms' => $response['duration_ms'],
             ], $meta),
         ]);
 
@@ -180,6 +180,7 @@ class FeedSmokeCheckService
                     'offers_total' => $smokeCheck->offers_total,
                     'categories_total' => $smokeCheck->categories_total,
                     'response_checksum' => $smokeCheck->response_checksum,
+                    'duration_ms' => $response['duration_ms'],
                     'errors' => $errors,
                     'warnings' => $warnings,
                 ],
@@ -223,7 +224,7 @@ class FeedSmokeCheckService
     }
 
     /**
-     * @return array{status:int,content_type:?string,body:string,latency_ms:int}
+     * @return array{status:int,content_type:?string,body:string,latency_ms:int,duration_ms:int}
      */
     private function fetch(string $url): array
     {
@@ -250,6 +251,7 @@ class FeedSmokeCheckService
                 'content_type' => $response->headers->get('Content-Type'),
                 'body' => $body,
                 'latency_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ];
 
             $this->kernel->terminate($request, $response);
@@ -266,6 +268,7 @@ class FeedSmokeCheckService
             'content_type' => $response->header('Content-Type'),
             'body' => $response->body(),
             'latency_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
         ];
     }
 }

@@ -6,14 +6,14 @@ use App\Data\Source\SourceConnectionCheckResult;
 use App\Exceptions\Source\SourceDriverException;
 use App\Models\SourceConnection;
 use App\Models\SourceImport;
+use App\Services\Feeds\PilotNotificationService;
 use Throwable;
 
 class SourceConnectionStateService
 {
     public function __construct(
-        private readonly \App\Services\Feeds\PilotNotificationService $notificationService,
-    ) {
-    }
+        private readonly PilotNotificationService $notificationService,
+    ) {}
 
     public function recordConnectionCheck(SourceConnection $connection, SourceConnectionCheckResult $result): void
     {

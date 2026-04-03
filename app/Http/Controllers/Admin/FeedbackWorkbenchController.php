@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Requests\Admin\Feedback\FeedbackResolutionRequest;
-use App\Models\FeedProfile;
 use App\Models\FeedbackRecord;
+use App\Models\FeedProfile;
 use App\Services\Feeds\FeedbackRemediationWorkbenchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

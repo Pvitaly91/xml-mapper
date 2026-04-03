@@ -11,11 +11,15 @@ class FeedGenerationSmokeCheck extends Model
     use HasFactory;
 
     public const STATUS_OK = 'ok';
+
     public const STATUS_WARNING = 'warning';
+
     public const STATUS_FAILED = 'failed';
 
     public const TRIGGER_AUTOMATIC = 'automatic';
+
     public const TRIGGER_MANUAL = 'manual';
+
     public const TRIGGER_COMMAND = 'command';
 
     protected $fillable = [

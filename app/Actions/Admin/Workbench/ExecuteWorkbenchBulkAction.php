@@ -13,8 +13,7 @@ class ExecuteWorkbenchBulkAction
     public function __construct(
         private readonly ManageFeedItemsAction $manageFeedItemsAction,
         private readonly BootstrapShopForPilotAction $bootstrapShopForPilotAction,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<int>  $feedItemIds

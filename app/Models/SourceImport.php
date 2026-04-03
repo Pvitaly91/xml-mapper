@@ -12,8 +12,11 @@ class SourceImport extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_FETCHED = 'fetched';
+
     public const STATUS_NORMALIZED = 'normalized';
+
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [

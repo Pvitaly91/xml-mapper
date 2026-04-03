@@ -9,8 +9,7 @@ class ReimportLatestDictionaryAction
 {
     public function __construct(
         private readonly KastaDictionaryImportServiceInterface $service,
-    ) {
-    }
+    ) {}
 
     public function handle(string $type, bool $dryRun = false, bool $deactivateMissing = false, ?int $initiatedByUserId = null): DictionaryImport
     {

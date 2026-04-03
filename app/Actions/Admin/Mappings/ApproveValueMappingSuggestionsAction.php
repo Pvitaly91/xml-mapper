@@ -10,8 +10,7 @@ class ApproveValueMappingSuggestionsAction
 {
     public function __construct(
         private readonly PreviewValueMappingSuggestionsAction $previewAction,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<int>  $sourceAttributeValueIds

@@ -22,8 +22,7 @@ class OpsStatusService
         private readonly ResolveDueFeedBuildsAction $resolveDueFeedBuilds,
         private readonly ResolveDueFeedPublishesAction $resolveDueFeedPublishes,
         private readonly DatabaseSetupInspector $databaseSetupInspector,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

@@ -2,8 +2,8 @@
 
 namespace App\Actions\Admin\FeedProfiles;
 
-use App\Models\FeedProfile;
 use App\Models\FeedGenerationSignoff;
+use App\Models\FeedProfile;
 use App\Models\User;
 
 class UpsertFeedProfileAction
@@ -59,7 +59,7 @@ class UpsertFeedProfileAction
             'settings' => $settings,
         ];
 
-        $feedProfile ??= new FeedProfile();
+        $feedProfile ??= new FeedProfile;
         $feedProfile->fill($attributes);
 
         if ($feedProfile->status === FeedProfile::STATUS_ACTIVE && $feedProfile->next_build_at === null) {

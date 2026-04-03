@@ -11,8 +11,7 @@ class PublishFeedProfileAction
 {
     public function __construct(
         private readonly FeedReleaseService $feedReleaseService,
-    ) {
-    }
+    ) {}
 
     public function handle(
         FeedProfile $feedProfile,
@@ -20,8 +19,7 @@ class PublishFeedProfileAction
         bool $force = false,
         ?string $reason = null,
         ?User $user = null
-    ): FeedGeneration
-    {
+    ): FeedGeneration {
         return $this->feedReleaseService->publish($feedProfile, $generation, $force, $reason, $user);
     }
 }

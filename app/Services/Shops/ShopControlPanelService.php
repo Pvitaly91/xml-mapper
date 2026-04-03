@@ -15,8 +15,7 @@ class ShopControlPanelService
         private readonly FeedPilotReadinessService $pilotReadinessService,
         private readonly FeedReleaseReadinessService $releaseReadinessService,
         private readonly ShopOnboardingService $onboardingService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

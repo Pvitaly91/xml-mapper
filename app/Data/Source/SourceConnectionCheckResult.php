@@ -11,6 +11,5 @@ readonly class SourceConnectionCheckResult
         public string $status,
         public string $message,
         public array $meta = [],
-    ) {
-    }
+    ) {}
 }

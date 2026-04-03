@@ -19,8 +19,7 @@ class KastaExportConformanceService
         private readonly AttributeMappingServiceInterface $attributeMappingService,
         private readonly KastaExportFieldNormalizer $fieldNormalizer,
         private readonly FeedProfileOverrideService $overrideService,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<array{code:string,message:string,payload:array<string,mixed>}>  $sourceErrors
