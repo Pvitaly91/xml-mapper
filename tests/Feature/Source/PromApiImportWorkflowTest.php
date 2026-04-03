@@ -118,6 +118,29 @@ class PromApiImportWorkflowTest extends TestCase
                 'size' => '42',
             ]);
 
+        $this->fakePromApiCatalog();
+        $thirdImport = app(SourceSyncWorkflowServiceInterface::class)->run($connection->fresh(), false);
+
+        $this->assertSame(SourceImport::STATUS_NORMALIZED, $thirdImport->status);
+        $this->assertDatabaseHas('source_variants', [
+            'source_connection_id' => $connection->id,
+            'external_offer_id' => '5002',
+            'color' => 'Red',
+            'size' => 'M',
+        ]);
+        $this->assertDatabaseHas('source_variants', [
+            'source_connection_id' => $connection->id,
+            'external_offer_id' => '5001',
+            'color' => 'Black',
+            'size' => 'S',
+        ]);
+        $this->assertDatabaseHas('source_variants', [
+            'source_connection_id' => $connection->id,
+            'external_offer_id' => '5003',
+            'color' => 'White',
+            'size' => '42',
+        ]);
+
         $feedProfile = $this->createFeedProfile($connection, $admin, [
             'code' => 'prom-api-feed',
             'status' => FeedProfile::STATUS_ACTIVE,
@@ -155,7 +178,7 @@ class PromApiImportWorkflowTest extends TestCase
             'is_active' => true,
         ]);
 
-        $generation = app(FeedBuildServiceInterface::class)->build($feedProfile, $secondImport->id);
+        $generation = app(FeedBuildServiceInterface::class)->build($feedProfile, $thirdImport->id);
         $published = app(FeedPublishServiceInterface::class)->publish($feedProfile->fresh(), $generation);
 
         $this->assertSame(FeedGeneration::STATUS_BUILT, $generation->status);

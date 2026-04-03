@@ -8,6 +8,7 @@
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
+            <a class="button secondary" href="{{ route('admin.pilot-runs.index') }}">Pilot center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
@@ -48,6 +49,23 @@
                 <button class="button warning" type="submit">{{ $publishWindow['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
             </form>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Pilot Execution</h2>
+            <span class="badge {{ ($pilotScore['status'] ?? 'not_ready') === 'stable_after_launch' || ($pilotScore['status'] ?? 'not_ready') === 'ready' ? 'ok' : (($pilotScore['status'] ?? 'not_ready') === 'needs_attention' ? 'warn' : 'err') }}">{{ $pilotScore['status'] ?? 'not_ready' }}</span>
+            @if($latestPilotRun)
+                <a class="button secondary" href="{{ route('admin.pilot-runs.show', $latestPilotRun) }}">Open latest run</a>
+            @endif
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Latest pilot run</strong><div>{{ $latestPilotRun?->id ? '#'.$latestPilotRun->id : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>State</strong><div>{{ $latestPilotRun?->state ?: 'not started' }}</div></div>
+            <div class="detail-row"><strong>Next step</strong><div>{{ data_get($latestPilotRun?->summary, 'execution.next_step_label', 'n/a') }}</div></div>
+            <div class="detail-row"><strong>Pilot score</strong><div>{{ $pilotScore['score'] ?? 0 }}/100</div></div>
+            <div class="detail-row"><strong>Blocking reasons</strong><div>{{ implode(' ', $pilotScore['blocking_reasons'] ?? []) ?: 'none' }}</div></div>
         </div>
     </section>
 

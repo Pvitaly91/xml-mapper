@@ -38,6 +38,7 @@ The application stores normalized source data locally, validates exportability, 
 - operator alerts/incidents with acknowledge, resolve, false-positive and escalation flow
 - unified live timeline, daily digest, shift handoff and silence windows
 - staging-to-production promotion snapshots, drift detection, dry-run/apply, secret-safe rebinding and config rollback history
+- persisted pilot execution workflow with operator state/history, evidence pack export, readiness score, pilot center and fixture-backed proof tests
 
 ## Local Setup
 
@@ -476,6 +477,152 @@ Recommended first pilot run:
 14. Review the automatic smoke-check result on the generation details page.
 15. If publish is blocked, fix the listed issues or use force publish only with an explicit operator reason.
 16. If the published URL fails smoke checks, use rollback intentionally and record the rollback reason.
+
+## First Real Merchant Pilot Execution
+
+The system now has a dedicated persisted pilot run layer for the real merchant path:
+
+`merchant selected -> staging rehearsal -> promotion dry-run -> production config apply -> secret rebind -> sync -> candidate build -> QA/sign-off -> publish -> smoke -> first-pull -> feedback import -> remediation -> hypercare evidence/closeout`
+
+Operator entry point:
+
+- `/admin/pilot-runs`
+
+What a pilot run persists:
+
+- owner / initiator
+- environment context
+- shop / feed profile / source snapshot / generation references
+- current state and current step
+- started / finished timestamps
+- blocker reason, note, summary and meta
+- step history, operator notes, incidents and overrides
+
+Pilot states:
+
+- `planned`
+- `staging_rehearsal_pending`
+- `staging_rehearsal_passed`
+- `promotion_pending`
+- `promotion_applied`
+- `secret_rebind_pending`
+- `source_verified`
+- `initial_sync_completed`
+- `candidate_built`
+- `qa_ready`
+- `signoff_completed`
+- `publish_pending`
+- `published`
+- `first_pull_verified`
+- `feedback_review_active`
+- `hypercare_active`
+- `completed`
+- `blocked`
+- `failed`
+- `aborted`
+
+Failure / resume rules:
+
+- `blocked`: operator action is required, the run keeps its evidence and exposes the next safe step plus blocker code.
+- `failed`: a system step failed; the run can be resumed only from the explicitly stored retry state.
+- `aborted`: execution stops intentionally; history and downloadable evidence stay available.
+- safe resume is stateful, not ad hoc: the run stores `resume.allowed`, `resume.retry_state`, `resume.step`, safe retry steps and reset-sensitive areas.
+
+Admin Pilot Center actions:
+
+- plan a run
+- execute next step
+- resume blocked/failed run
+- abort with reason
+- add note / incident / override
+- open rehearsal / promotion / release center / feedback remediation / hypercare
+- download evidence pack and pilot reports
+
+## Pilot Commands
+
+```bash
+php artisan pilot:plan {feedProfileId} --note="..."
+php artisan pilot:run {feedProfileId} --with-sync --with-build --with-publish --with-feedback-fixtures
+php artisan pilot:resume {pilotRunId} --with-sync --with-build --with-publish --with-feedback-fixtures
+php artisan pilot:abort {pilotRunId} --reason="..."
+php artisan pilot:evidence {pilotRunId}
+php artisan pilot:status {pilotRunId}
+```
+
+Command output is JSON-first so operators can archive or script the result.
+
+## Pilot Evidence Pack
+
+`pilot:evidence` and `/admin/pilot-runs/{id}/evidence` generate one ZIP bundle per run.
+
+Included artifacts:
+
+- execution summary
+- state history
+- readiness summary
+- rehearsal summary
+- promotion summary
+- secret rebind status
+- source verification result
+- candidate generation summary
+- preview / QA / sign-off summary
+- publish summary
+- smoke check result
+- first-pull verification result
+- feedback import summary
+- remediation summary
+- hypercare summary
+- links / checksums
+- operator notes
+- incident summary
+- `index.html` plus JSON payloads and the candidate XML when available
+
+Pilot reports are also downloadable separately from the Pilot Center:
+
+- summary report
+- blocker report
+- execution log
+- readiness report
+
+## Pilot Fixture Library
+
+Reproducible proof fixtures live under:
+
+- `database/samples/pilot/sources/prom_yml`
+- `database/samples/pilot/sources/prom_api`
+- `database/samples/pilot/kasta-dictionaries`
+- `database/samples/pilot/feedback`
+- `database/samples/pilot/expected`
+
+The fixture library covers:
+
+- sample `prom_yml` feed
+- paginated `prom_api` responses
+- Kasta dictionary inputs
+- feedback CSV and JSON
+- expected mapping snapshots
+- expected XML fragments
+- expected publish / smoke / first-pull summaries
+
+Use these fixtures for integration-proof runs and regression-safe pilot verification. Tests do not call real external services.
+
+## Operator Proof Checklist
+
+For a real merchant pilot, collect and retain:
+
+1. pilot run ID and final state from `/admin/pilot-runs`
+2. rehearsal result
+3. promotion dry-run/apply summary
+4. secret rebind validation evidence
+5. source sync result
+6. candidate checksum and preview/QA bundle references
+7. sign-off result
+8. publish summary
+9. smoke-check result
+10. first-pull verification result
+11. feedback import and remediation summary
+12. hypercare status or closeout report
+13. the generated Pilot Evidence Pack ZIP
 
 ## Dictionary Import
 

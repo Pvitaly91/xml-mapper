@@ -44,6 +44,7 @@ use App\Http\Controllers\Admin\MappingPresetController;
 use App\Http\Controllers\Admin\OpsMaintenanceController;
 use App\Http\Controllers\Admin\OpsAlertController;
 use App\Http\Controllers\Admin\OpsSilenceWindowController;
+use App\Http\Controllers\Admin\PilotRunController;
 use App\Http\Controllers\Admin\ShopControlPanelController;
 use App\Http\Controllers\Admin\ShopOnboardingController;
 use App\Http\Controllers\Admin\SourceConnectionController;
@@ -84,6 +85,15 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/onboarding/candidate', [ShopOnboardingController::class, 'buildCandidate'])->name('onboarding.candidate');
         Route::post('/onboarding/bootstrap', [ShopOnboardingController::class, 'bootstrap'])->name('onboarding.bootstrap');
         Route::get('/shop/control-panel', [ShopControlPanelController::class, 'show'])->name('shop-control.show');
+        Route::get('/pilot-runs', [PilotRunController::class, 'index'])->name('pilot-runs.index');
+        Route::post('/pilot-runs', [PilotRunController::class, 'store'])->name('pilot-runs.store');
+        Route::get('/pilot-runs/{pilot_run}', [PilotRunController::class, 'show'])->name('pilot-runs.show');
+        Route::post('/pilot-runs/{pilot_run}/next', [PilotRunController::class, 'next'])->middleware('throttle:admin-sensitive')->name('pilot-runs.next');
+        Route::post('/pilot-runs/{pilot_run}/resume', [PilotRunController::class, 'resume'])->middleware('throttle:admin-sensitive')->name('pilot-runs.resume');
+        Route::post('/pilot-runs/{pilot_run}/abort', [PilotRunController::class, 'abort'])->middleware('throttle:admin-sensitive')->name('pilot-runs.abort');
+        Route::post('/pilot-runs/{pilot_run}/events', [PilotRunController::class, 'event'])->name('pilot-runs.events.store');
+        Route::get('/pilot-runs/{pilot_run}/evidence', [PilotRunController::class, 'evidence'])->name('pilot-runs.evidence');
+        Route::get('/pilot-runs/{pilot_run}/reports/{type}', [PilotRunController::class, 'report'])->name('pilot-runs.reports.show');
 
         Route::resource('source-connections', SourceConnectionController::class)->except(['destroy']);
         Route::post('/source-connections/{source_connection}/test', [SourceConnectionTestController::class, 'store'])->middleware('throttle:admin-sensitive')->name('source-connections.test');

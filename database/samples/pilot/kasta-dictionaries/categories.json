@@ -1,0 +1,14 @@
+[
+  {
+    "external_id": "KASTA-DRESSES",
+    "name": "Dresses",
+    "full_path": "Apparel > Dresses",
+    "rz_id": "2001"
+  },
+  {
+    "external_id": "KASTA-SHOES",
+    "name": "Shoes",
+    "full_path": "Footwear > Shoes",
+    "rz_id": "2002"
+  }
+]

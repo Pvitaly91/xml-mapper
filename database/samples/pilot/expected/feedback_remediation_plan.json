@@ -1,0 +1,14 @@
+{
+  "resolutions": [
+    {
+      "offer_id": "ofr_test_001",
+      "resolution_status": "fixed",
+      "note": "Fixture remediation confirms image issue was resolved."
+    },
+    {
+      "offer_id": "missing-offer",
+      "resolution_status": "wont_fix",
+      "note": "Fixture remediation marks unmatched feedback for manual backlog follow-up."
+    }
+  ]
+}

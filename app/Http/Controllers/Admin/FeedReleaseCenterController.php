@@ -8,6 +8,7 @@ use App\Services\Feeds\FeedCutoverService;
 use App\Services\Feeds\FeedPublishWindowService;
 use App\Services\Feeds\FeedRehearsalService;
 use App\Services\Feeds\FeedReleaseReadinessService;
+use App\Services\Pilot\PilotReadinessScoreService;
 use App\Services\Promotion\PromotionStatusService;
 use App\Services\Shops\ShopOnboardingService;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class FeedReleaseCenterController extends AdminController
         FeedCutoverService $cutoverService,
         FeedRehearsalService $rehearsalService,
         PromotionStatusService $promotionStatusService,
+        PilotReadinessScoreService $pilotReadinessScoreService,
     ): View {
         $this->ensureShopOwned($request, $feedProfile);
         $onboardingService->markReleaseCenterOpened($request->user());
@@ -35,6 +37,7 @@ class FeedReleaseCenterController extends AdminController
             ->paginate(15)
             ->withQueryString();
         $latestGeneration = $feedProfile->latestGeneration;
+        $latestPilotRun = $feedProfile->pilotRuns()->latest('id')->first();
 
         return view('admin.feed-releases.show', [
             'feedProfile' => $feedProfile,
@@ -53,6 +56,8 @@ class FeedReleaseCenterController extends AdminController
             'cutoverSummary' => $cutoverService->summarize($feedProfile, $latestGeneration),
             'rehearsalSummary' => $rehearsalService->summarize($feedProfile),
             'promotionStatus' => $promotionStatusService->summarize($feedProfile),
+            'latestPilotRun' => $latestPilotRun,
+            'pilotScore' => $pilotReadinessScoreService->score($feedProfile, $latestPilotRun),
         ]);
     }
 }

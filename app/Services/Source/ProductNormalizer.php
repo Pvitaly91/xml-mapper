@@ -208,6 +208,7 @@ class ProductNormalizer implements ProductNormalizerInterface
         }
 
         $existing = SourceVariant::query()->where($lookup)->first();
+        $preserveAxisValues = $connection->driver === SourceConnection::DRIVER_PROM_API;
 
         return SourceVariant::updateOrCreate(
             $lookup,
@@ -225,8 +226,8 @@ class ProductNormalizer implements ProductNormalizerInterface
                 'currency' => $offer->currency,
                 'quantity' => $offer->quantity,
                 'is_available' => $offer->available,
-                'color' => $color,
-                'size' => $size,
+                'color' => $color ?? ($preserveAxisValues ? $existing?->color : null),
+                'size' => $size ?? ($preserveAxisValues ? $existing?->size : null),
                 'images_json' => $offer->images,
                 'attributes_snapshot' => $offer->params,
                 'raw_payload' => $offer->rawPayload,

@@ -8,6 +8,7 @@ use App\Models\Shop;
 use App\Models\ValidationError;
 use App\Services\Feeds\FeedPilotReadinessService;
 use App\Services\Feeds\FeedReleaseReadinessService;
+use App\Services\Pilot\PilotReadinessScoreService;
 
 class ShopControlPanelService
 {
@@ -15,6 +16,7 @@ class ShopControlPanelService
         private readonly FeedPilotReadinessService $pilotReadinessService,
         private readonly FeedReleaseReadinessService $releaseReadinessService,
         private readonly ShopOnboardingService $onboardingService,
+        private readonly PilotReadinessScoreService $pilotReadinessScoreService,
     ) {}
 
     /**
@@ -39,10 +41,13 @@ class ShopControlPanelService
         $releaseReadiness = ($feedProfile && $latestGeneration)
             ? $this->releaseReadinessService->evaluate($feedProfile, $latestGeneration)
             : null;
+        $latestPilotRun = $feedProfile?->pilotRuns()->latest('id')->first();
 
         return [
             'source_connection' => $sourceConnection,
             'feed_profile' => $feedProfile,
+            'latest_pilot_run' => $latestPilotRun,
+            'pilot_score' => $feedProfile ? $this->pilotReadinessScoreService->score($feedProfile, $latestPilotRun) : null,
             'latest_candidate_generation' => $this->latestGenerationByStatus($shop, FeedGeneration::RELEASE_STATUS_CANDIDATE),
             'latest_approved_generation' => $this->latestGenerationByStatus($shop, FeedGeneration::RELEASE_STATUS_APPROVED),
             'latest_published_generation' => $publishedGeneration,

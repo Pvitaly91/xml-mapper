@@ -1,0 +1,20 @@
+{
+  "categories": [
+    {
+      "source": "T-Shirts",
+      "target": "KASTA-TSHIRTS"
+    }
+  ],
+  "attributes": [
+    {
+      "source": "Color",
+      "target": "color"
+    }
+  ],
+  "values": [
+    {
+      "source": "Black",
+      "target": "Black"
+    }
+  ]
+}

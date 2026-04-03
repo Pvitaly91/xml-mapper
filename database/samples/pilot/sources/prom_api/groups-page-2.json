@@ -1,0 +1,9 @@
+{
+  "groups": [
+    {
+      "id": 1,
+      "name": "Shoes",
+      "parent_group_id": null
+    }
+  ]
+}

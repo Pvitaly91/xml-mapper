@@ -67,6 +67,16 @@ class User extends Authenticatable
         return $this->hasMany(FeedProfile::class);
     }
 
+    public function initiatedPilotRuns(): HasMany
+    {
+        return $this->hasMany(PilotRun::class, 'initiated_by_user_id');
+    }
+
+    public function ownedPilotRuns(): HasMany
+    {
+        return $this->hasMany(PilotRun::class, 'owner_user_id');
+    }
+
     public function isAdmin(): bool
     {
         return $this->is_active && $this->role === self::ROLE_ADMIN;

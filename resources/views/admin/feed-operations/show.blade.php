@@ -14,6 +14,7 @@
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
+            <a class="button secondary" href="{{ route('admin.pilot-runs.index') }}">Pilot center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
@@ -37,7 +38,25 @@
         <div class="stat"><span class="muted">Environment</span><strong>{{ $panel['environment']['label'] }}</strong></div>
         <div class="stat"><span class="muted">SLO</span><strong>{{ $panel['slo']['status'] ?? 'healthy' }}</strong></div>
         <div class="stat"><span class="muted">Promotion</span><strong>{{ $panel['promotion']['status'] }}</strong></div>
+        <div class="stat"><span class="muted">Pilot</span><strong>{{ $panel['latest_pilot_run']?->state ?: 'n/a' }}</strong></div>
+        <div class="stat"><span class="muted">Pilot score</span><strong>{{ $panel['pilot_score']['score'] ?? 0 }}</strong></div>
     </div>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Pilot Readiness</h2>
+            <span class="badge {{ ($panel['pilot_score']['status'] ?? 'not_ready') === 'stable_after_launch' || ($panel['pilot_score']['status'] ?? 'not_ready') === 'ready' ? 'ok' : (($panel['pilot_score']['status'] ?? 'not_ready') === 'needs_attention' ? 'warn' : 'err') }}">{{ $panel['pilot_score']['status'] ?? 'not_ready' }}</span>
+            @if($panel['latest_pilot_run'])
+                <a class="button secondary" href="{{ route('admin.pilot-runs.show', $panel['latest_pilot_run']) }}">Open pilot run</a>
+            @endif
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Latest run</strong><div>{{ $panel['latest_pilot_run']?->id ? '#'.$panel['latest_pilot_run']->id : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Current step</strong><div>{{ data_get($panel['latest_pilot_run']?->summary, 'execution.current_step_label', 'n/a') }}</div></div>
+            <div class="detail-row"><strong>Next step</strong><div>{{ data_get($panel['latest_pilot_run']?->summary, 'execution.next_step_label', 'n/a') }}</div></div>
+            <div class="detail-row"><strong>Blockers</strong><div>{{ implode(' ', $panel['pilot_score']['blocking_reasons'] ?? []) ?: 'none' }}</div></div>
+        </div>
+    </section>
 
     <div class="grid cols-2">
         <section class="panel">

@@ -1,0 +1,12 @@
+[
+  {
+    "offer_id": "ofr_test_001",
+    "status": "accepted"
+  },
+  {
+    "offer_id": "missing-offer",
+    "status": "rejected",
+    "reason_code": "MAP_01",
+    "reason_message": "Missing mapping on candidate verification"
+  }
+]

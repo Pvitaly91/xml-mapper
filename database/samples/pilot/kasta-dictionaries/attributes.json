@@ -1,0 +1,18 @@
+[
+  {
+    "category_external_id": "KASTA-DRESSES",
+    "external_id": "color",
+    "name": "Color",
+    "code": "color",
+    "data_type": "string",
+    "is_required": false
+  },
+  {
+    "category_external_id": "KASTA-DRESSES",
+    "external_id": "size",
+    "name": "Size",
+    "code": "size",
+    "data_type": "string",
+    "is_required": false
+  }
+]

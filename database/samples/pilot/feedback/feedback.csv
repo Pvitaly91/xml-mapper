@@ -1,0 +1,3 @@
+offer_id,status,rejection_reason_code,rejection_reason_message
+ofr_test_001,rejected,IMG_01,Image issue on first merchant pull
+missing-offer,warning,MAP_01,Missing mapping on candidate verification

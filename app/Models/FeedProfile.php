@@ -163,6 +163,11 @@ class FeedProfile extends Model
         return $this->hasMany(OpsRun::class);
     }
 
+    public function pilotRuns(): HasMany
+    {
+        return $this->hasMany(PilotRun::class);
+    }
+
     public function promotionSnapshots(): HasMany
     {
         return $this->hasMany(PromotionSnapshot::class);

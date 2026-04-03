@@ -52,6 +52,29 @@ class FeedbackImportService
             throw new RuntimeException('Unable to read feedback file.');
         }
 
+        return $this->importContent(
+            $feedProfile,
+            $format,
+            $content,
+            $file->getClientOriginalName(),
+            $dryRun,
+            $user,
+            $generation
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function importContent(
+        FeedProfile $feedProfile,
+        string $format,
+        string $content,
+        string $originalFilename,
+        bool $dryRun = false,
+        ?User $user = null,
+        ?FeedGeneration $generation = null
+    ): array {
         $plan = $this->plan($feedProfile, $format, $content, $generation);
 
         if ($dryRun) {
@@ -62,11 +85,29 @@ class FeedbackImportService
             ];
         }
 
+        $checksum = hash('sha256', $content);
+        $existingImport = FeedbackImport::query()
+            ->where('feed_profile_id', $feedProfile->id)
+            ->where('feed_generation_id', $generation?->id ?? $feedProfile->published_generation_id)
+            ->where('format', $format)
+            ->where('checksum', $checksum)
+            ->latest('id')
+            ->first();
+
+        if ($existingImport instanceof FeedbackImport) {
+            return [
+                'dry_run' => false,
+                'import' => $existingImport,
+                'summary' => $plan['summary'],
+                'rows' => $plan['rows'],
+            ];
+        }
+
         $disk = Storage::disk(config('feed_mediator.storage_disk'));
         $relativePath = trim(config('feed_mediator.feedback_directory'), '/')
             .'/shop-'.$feedProfile->shop_id
             .'/feed-'.$feedProfile->id
-            .'/'.now()->format('YmdHis').'-'.$file->hashName();
+            .'/'.now()->format('YmdHis').'-'.preg_replace('/[^a-z0-9\.\-_]+/i', '-', $originalFilename);
 
         $disk->put($relativePath, $content);
 
@@ -77,9 +118,9 @@ class FeedbackImportService
             'user_id' => $user?->id,
             'format' => $format,
             'status' => FeedbackImport::STATUS_IMPORTED,
-            'original_filename' => $file->getClientOriginalName(),
+            'original_filename' => $originalFilename,
             'source_path' => $relativePath,
-            'checksum' => hash('sha256', $content),
+            'checksum' => $checksum,
             'matched_total' => $plan['summary']['matched'],
             'unmatched_total' => $plan['summary']['unmatched'],
             'accepted_total' => $plan['summary']['accepted'],
@@ -118,7 +159,7 @@ class FeedbackImportService
             $generation ?? $feedProfile->publishedGeneration,
             'feedback_imported',
             $user,
-            $file->getClientOriginalName(),
+            $originalFilename,
             [
                 'feedback_import_id' => $import->id,
                 'format' => $format,

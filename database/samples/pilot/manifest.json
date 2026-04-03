@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "sources": {
+    "prom_yml": [
+      "sources/prom_yml/pilot-feed.yml"
+    ],
+    "prom_api": [
+      "sources/prom_api/groups-page-1.json",
+      "sources/prom_api/groups-page-2.json",
+      "sources/prom_api/products-page-1.json",
+      "sources/prom_api/products-page-2.json"
+    ]
+  },
+  "dictionaries": [
+    "kasta-dictionaries/categories.json",
+    "kasta-dictionaries/attributes.json",
+    "kasta-dictionaries/values.json"
+  ],
+  "feedback": [
+    "feedback/feedback.csv",
+    "feedback/feedback.json"
+  ],
+  "expected": [
+    "expected/mapping-snapshot.json",
+    "expected/candidate-fragment.xml",
+    "expected/publish-summary.json",
+    "expected/smoke-summary.json",
+    "expected/first-pull-summary.json",
+    "expected/feedback_remediation_plan.json"
+  ]
+}

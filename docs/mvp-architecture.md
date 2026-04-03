@@ -21,6 +21,10 @@ Operator flow:
 
 `ShopOnboardingService` -> onboarding wizard -> `BootstrapShopForPilotAction` -> default feed profile + initial mapping suggestions + first candidate -> `ShopControlPanelService` -> unresolved workbench -> release center
 
+Pilot execution flow:
+
+`PilotExecutionService` -> `PilotRunStateMachine` -> persisted `pilot_runs` / `pilot_run_events` -> rehearsal -> promotion -> source verification -> sync -> build -> QA/sign-off -> publish -> smoke / first-pull -> feedback remediation -> hypercare -> evidence pack / reports
+
 Driver paths:
 
 - `prom_yml`:
@@ -69,6 +73,13 @@ Feed-item export lifecycle:
 - `PromotionService` owns compare, dry-run, apply, rollback and promotion audit/history persistence
 - `PromotionStatusService` surfaces promotion parity state into readiness, rehearsal, acceptance, release and operations views
 - `PromotionReportService` exports markdown/JSON artifacts for runs and snapshots
+- `PilotExecutionService` orchestrates one persisted pilot run without duplicating release/promotion/feedback logic
+- `PilotRunStateMachine` owns pilot states, steps and next-step labels
+- `PilotCenterService` assembles the admin operator view for pilot runs
+- `PilotEvidencePackService` exports a ZIP/HTML+JSON proof bundle for one run
+- `PilotReportService` exports summary, blocker, execution-log and readiness reports
+- `PilotReadinessScoreService` computes `not_ready`, `needs_attention`, `ready`, `stable_after_launch`
+- `PilotFixtureLibrary` resolves golden fixtures for proof-grade integration tests
 - `FeedOperationsService` aggregates the production operations screen for one profile
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
@@ -257,6 +268,14 @@ app/
     PromotionService.php
     PromotionSnapshotService.php
     PromotionStatusService.php
+  Services/Pilot/
+    PilotCenterService.php
+    PilotEvidencePackService.php
+    PilotExecutionService.php
+    PilotFixtureLibrary.php
+    PilotReadinessScoreService.php
+    PilotReportService.php
+    PilotRunStateMachine.php
   Services/Ops/
     BackupService.php
     BenchmarkService.php
@@ -318,6 +337,98 @@ The live merchant execution path is:
 12. `FeedHypercareDashboardService` exposes the live war room for operators
 13. `FeedStabilityService` decides whether the merchant is `stable`, `watch`, `degraded`, or `unstable`
 14. the operator rebuilds and republishes intentionally until hypercare can close cleanly
+
+## Pilot Execution State Machine
+
+Persisted pilot state is stored in `pilot_runs`, while operator-visible history is stored in `pilot_run_events`.
+
+States:
+
+- `planned`
+- `staging_rehearsal_pending`
+- `staging_rehearsal_passed`
+- `promotion_pending`
+- `promotion_applied`
+- `secret_rebind_pending`
+- `source_verified`
+- `initial_sync_completed`
+- `candidate_built`
+- `qa_ready`
+- `signoff_completed`
+- `publish_pending`
+- `published`
+- `first_pull_verified`
+- `feedback_review_active`
+- `hypercare_active`
+- `completed`
+- `blocked`
+- `failed`
+- `aborted`
+
+Operational semantics:
+
+- `blocked` means the system knows the current blocker code and the next safe operator action.
+- `failed` means a service/action step threw or returned a hard failure and the run stores an explicit retry state.
+- `aborted` preserves history/evidence and intentionally stops the run without pretending a rollback happened.
+- terminal states are `completed`, `failed`, and `aborted`.
+
+## Pilot Orchestration Rules
+
+`PilotExecutionService` is a one-run orchestrator, not a duplicate domain module. It reuses:
+
+- `FeedRehearsalService`
+- `PromotionService`
+- `SourceConnectionTestService`
+- `SourceSyncWorkflowService`
+- `FeedBuildService`
+- `FeedQaBundleService`
+- `FeedPreviewLinkService`
+- `FeedSignoffService`
+- `FeedReleaseService`
+- `FeedReleaseReadinessService`
+- `FeedFirstPullVerificationService`
+- `FeedbackImportService`
+- `FeedbackRemediationWorkbenchService`
+- `FeedHypercareService`
+
+Resume / retry contract:
+
+- blocked and failed runs store `resume.allowed`, `resume.retry_state`, `resume.step`, `safe_retry_steps`, and reset-sensitive areas.
+- publish-window, promotion-drift, secret-rebind, smoke and first-pull blockers remain part of persisted pilot state rather than free-form UI messages.
+- the orchestrator can pause intentionally at `publish_pending` when manual publish confirmation is required.
+
+## Pilot Fixture And Proof Layer
+
+Golden fixtures live in `database/samples/pilot` and are accessed only through `PilotFixtureLibrary`.
+
+Fixture groups:
+
+- `sources/prom_yml`
+- `sources/prom_api`
+- `kasta-dictionaries`
+- `feedback`
+- `expected`
+
+This keeps high-confidence pilot proof tests deterministic for:
+
+- `prom_yml` merchant flow
+- `prom_api` merchant flow
+- promotion + secret rebind pending path
+- publish + smoke + first-pull path
+- feedback import / remediation / hypercare path
+
+## Pilot Evidence And Reporting Layer
+
+`PilotEvidencePackService` produces one ZIP bundle per run with JSON payloads, HTML index and candidate XML when available.
+
+`PilotReportService` exposes smaller operator exports:
+
+- summary
+- blockers
+- execution-log
+- readiness
+
+The evidence layer is intended to answer “did this merchant pilot really complete?” without forcing an operator to manually reconstruct the story from several screens.
 
 ## Production Deployment Flow
 

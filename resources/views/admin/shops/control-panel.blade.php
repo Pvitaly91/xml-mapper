@@ -33,6 +33,7 @@
                 <a class="button secondary" href="{{ route('admin.feed-profiles.workbench.index', $feedProfile) }}">Open unresolved workbench</a>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Open release center</a>
                 <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
+                <a class="button secondary" href="{{ route('admin.pilot-runs.index') }}">Pilot center</a>
             @endif
         </div>
     </section>
@@ -44,6 +45,7 @@
         <div class="stat"><span class="muted">Missing categories</span><strong>{{ $panel['unresolved_counts']['missing_category_mapping'] }}</strong></div>
         <div class="stat"><span class="muted">Missing attributes</span><strong>{{ $panel['unresolved_counts']['missing_attribute_mapping'] }}</strong></div>
         <div class="stat"><span class="muted">Missing values</span><strong>{{ $panel['unresolved_counts']['missing_value_mapping'] }}</strong></div>
+        <div class="stat"><span class="muted">Pilot score</span><strong>{{ $panel['pilot_score']['score'] ?? 0 }}</strong></div>
     </div>
 
     <div class="grid cols-2">
@@ -120,4 +122,20 @@
             @endif
         </section>
     </div>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Pilot Status</h2>
+            <span class="badge {{ ($panel['pilot_score']['status'] ?? 'not_ready') === 'stable_after_launch' || ($panel['pilot_score']['status'] ?? 'ready') === 'ready' ? 'ok' : (($panel['pilot_score']['status'] ?? 'not_ready') === 'needs_attention' ? 'warn' : 'err') }}">{{ $panel['pilot_score']['status'] ?? 'not_ready' }}</span>
+            @if($panel['latest_pilot_run'])
+                <a class="button secondary" href="{{ route('admin.pilot-runs.show', $panel['latest_pilot_run']) }}">Open pilot run</a>
+            @endif
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Latest run</strong><div>{{ $panel['latest_pilot_run']?->id ? '#'.$panel['latest_pilot_run']->id : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>State</strong><div>{{ $panel['latest_pilot_run']?->state ?: 'not started' }}</div></div>
+            <div class="detail-row"><strong>Current step</strong><div>{{ data_get($panel['latest_pilot_run']?->summary, 'execution.current_step_label', 'n/a') }}</div></div>
+            <div class="detail-row"><strong>Blocking reasons</strong><div>{{ implode(' ', $panel['pilot_score']['blocking_reasons'] ?? []) ?: 'none' }}</div></div>
+        </div>
+    </section>
 @endsection

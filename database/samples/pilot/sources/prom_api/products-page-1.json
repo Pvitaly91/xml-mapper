@@ -1,0 +1,64 @@
+{
+  "products": [
+    {
+      "id": 5003,
+      "name": "Pilot Sneaker White 42",
+      "sku": "PILOT-SHOE-WHT-42",
+      "description": "Standalone sneaker for the pilot merchant.",
+      "presence": "available",
+      "status": "on_display",
+      "selling_type": "retail",
+      "currency": "UAH",
+      "price": 2199,
+      "quantity_in_stock": 4,
+      "measure_unit": "pcs",
+      "main_image": "https://cdn.example.test/pilot-shoe-white-1.jpg",
+      "images": [
+        {
+          "url": "https://cdn.example.test/pilot-shoe-white-2.jpg"
+        }
+      ],
+      "group": {
+        "id": 1,
+        "name": "Shoes"
+      },
+      "category": {
+        "id": 1,
+        "caption": "Shoes"
+      }
+    },
+    {
+      "id": 5002,
+      "name": "Pilot Dress Red M",
+      "sku": "PILOT-DRS-RED-M",
+      "description": "Red variation for the pilot merchant.",
+      "presence": "available",
+      "status": "on_display",
+      "selling_type": "retail",
+      "currency": "UAH",
+      "price": 1199,
+      "quantity_in_stock": 5,
+      "measure_unit": "pcs",
+      "variation_group_id": 9001,
+      "variation_base_id": 5001,
+      "discount": {
+        "type": "percent",
+        "value": 10
+      },
+      "main_image": "https://cdn.example.test/pilot-dress-red-1.jpg",
+      "images": [
+        {
+          "url": "https://cdn.example.test/pilot-dress-red-2.jpg"
+        }
+      ],
+      "group": {
+        "id": 2,
+        "name": "Dresses"
+      },
+      "category": {
+        "id": 2,
+        "caption": "Dresses"
+      }
+    }
+  ]
+}

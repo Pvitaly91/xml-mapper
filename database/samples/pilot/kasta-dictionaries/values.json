@@ -1,0 +1,22 @@
+[
+  {
+    "attribute_external_id": "color",
+    "external_id": "black",
+    "value": "Black"
+  },
+  {
+    "attribute_external_id": "color",
+    "external_id": "red",
+    "value": "Red"
+  },
+  {
+    "attribute_external_id": "size",
+    "external_id": "s",
+    "value": "S"
+  },
+  {
+    "attribute_external_id": "size",
+    "external_id": "m",
+    "value": "M"
+  }
+]

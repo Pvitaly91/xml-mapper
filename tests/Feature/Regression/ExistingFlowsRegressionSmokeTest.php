@@ -38,6 +38,9 @@ class ExistingFlowsRegressionSmokeTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.shop-control.show'))
             ->assertOk();
+        $this->actingAs($admin)
+            ->get(route('admin.pilot-runs.index'))
+            ->assertOk();
 
         $this->get(route('feeds.public', $feedProfile->public_token))
             ->assertOk()

@@ -48,6 +48,11 @@ class Shop extends Model
         return $this->hasMany(OpsRun::class);
     }
 
+    public function pilotRuns(): HasMany
+    {
+        return $this->hasMany(PilotRun::class);
+    }
+
     public function hypercareWindows(): HasMany
     {
         return $this->hasMany(FeedHypercareWindow::class);

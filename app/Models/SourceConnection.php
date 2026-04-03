@@ -186,7 +186,20 @@ class SourceConnection extends Model
             return 'missing';
         }
 
+        $appliedAt = data_get($this->promotionMeta(), 'applied_at');
+        $validatedAt = data_get($this->promotionMeta(), 'validated_at');
+
         if ($this->last_connection_check_status === self::CHECK_STATUS_OK) {
+            if (
+                is_string($appliedAt)
+                && is_string($validatedAt)
+                && strtotime($validatedAt) !== false
+                && strtotime($appliedAt) !== false
+                && strtotime($validatedAt) < strtotime($appliedAt)
+            ) {
+                return 'not_validated';
+            }
+
             return 'validated';
         }
 

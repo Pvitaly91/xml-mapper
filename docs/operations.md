@@ -108,6 +108,12 @@ php artisan promotion:diff {sourceFeedProfileId} {targetFeedProfileId} --source-
 php artisan promotion:dry-run {sourceFeedProfileId} {targetFeedProfileId} --strategy=safe_merge
 php artisan promotion:apply {sourceFeedProfileId} {targetFeedProfileId} --strategy=safe_merge --reason="approved staging config"
 php artisan promotion:rollback {promotionRunId} --reason="restore production baseline"
+php artisan pilot:plan {feedProfileId} --note="merchant pilot"
+php artisan pilot:run {feedProfileId} --with-sync --with-build --with-publish --with-feedback-fixtures
+php artisan pilot:resume {pilotRunId} --with-sync --with-build --with-publish --with-feedback-fixtures
+php artisan pilot:abort {pilotRunId} --reason="operator abort"
+php artisan pilot:evidence {pilotRunId}
+php artisan pilot:status {pilotRunId}
 php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
 php artisan feedback:reconcile {feedProfileId}
 php artisan feed:runbook {feedProfileId}
@@ -386,6 +392,165 @@ Before the first real Kasta publish for a feed profile:
 15. Publish normally. Use force publish only after confirming the blocked reasons are understood and accepted, and always record the reason.
 16. Review the automatic smoke check on the generation details page.
 17. If the smoke check fails, inspect the failure details first. Roll back only by explicit operator decision.
+
+## Pilot Center
+
+Use `/admin/pilot-runs` as the operator control point for the first real merchant pilot.
+
+Available actions:
+
+- plan a pilot run for a feed profile
+- open pilot details with current state, next step and blockers
+- run next step
+- resume a blocked or failed run
+- abort with reason
+- add note / incident / override
+- open rehearsal, promotion, release center, feedback remediation and hypercare screens
+- download pilot reports and evidence pack
+
+The Pilot Center is intentionally Blade/server-rendered and delegates all workflow logic to service classes.
+
+## Pilot States And Resume Rules
+
+Persisted pilot states:
+
+- `planned`
+- `staging_rehearsal_pending`
+- `staging_rehearsal_passed`
+- `promotion_pending`
+- `promotion_applied`
+- `secret_rebind_pending`
+- `source_verified`
+- `initial_sync_completed`
+- `candidate_built`
+- `qa_ready`
+- `signoff_completed`
+- `publish_pending`
+- `published`
+- `first_pull_verified`
+- `feedback_review_active`
+- `hypercare_active`
+- `completed`
+- `blocked`
+- `failed`
+- `aborted`
+
+How to interpret them:
+
+- `blocked`: an operator step is required. Read the blocker code and next-step guidance from `pilot:status` or the Pilot Center.
+- `failed`: the system step failed; use `pilot:resume` only after fixing the concrete cause.
+- `aborted`: execution is intentionally stopped; evidence and history remain downloadable.
+
+Common blocker classes:
+
+- promotion drift
+- secret rebind missing
+- sign-off missing
+- publish window blocked
+- critical conformance errors
+- smoke failure
+- first-pull failure
+
+Resume safety:
+
+- only the persisted `resume.retry_state` and `resume.step` are considered safe retry points
+- publish, smoke and first-pull are never silently replayed by guessing
+- blocked/failed state keeps operator-visible next steps in the run summary
+
+## First Real Merchant Pilot Runbook
+
+Recommended end-to-end path for a real merchant:
+
+1. Select the merchant feed profile and create a pilot run with `pilot:plan` or `/admin/pilot-runs`.
+2. Run staging rehearsal and review the generated rehearsal summary, preview URL and QA bundle.
+3. Run promotion dry-run, then apply production-safe config promotion.
+4. Rebind and validate target source secrets when the run enters `secret_rebind_pending`.
+5. Run source sync and build the candidate generation.
+6. Review QA, preview and sign-off readiness.
+7. Publish from the pilot flow or continue after a deliberate manual publish pause.
+8. Confirm smoke check and first-pull verification.
+9. Import merchant feedback, work the remediation queue, and clear backlog.
+10. Keep hypercare active until the merchant is stable enough for closeout.
+11. Generate the evidence pack and archive it with the merchant launch notes.
+
+This workflow is designed to prove a practical merchant launch path, not merely a one-off dry feature demo.
+
+## Pilot Evidence Pack And Reports
+
+Generate with:
+
+```bash
+php artisan pilot:evidence {pilotRunId}
+```
+
+Or download from `/admin/pilot-runs/{pilotRunId}/evidence`.
+
+The evidence ZIP includes:
+
+- execution summary
+- state history
+- readiness summary
+- rehearsal summary
+- promotion summary
+- secret rebind status
+- source verification result
+- candidate generation summary
+- preview / QA / sign-off summary
+- publish summary
+- smoke check result
+- first-pull verification result
+- feedback import summary
+- remediation summary
+- hypercare summary
+- links / checksums
+- operator notes
+- incident summary
+- HTML index and JSON files
+
+Also downloadable from pilot details:
+
+- summary report
+- blocker report
+- execution log
+- readiness report
+
+## Pilot Fixture Library And Proof Testing
+
+Golden proof fixtures live in `database/samples/pilot`.
+
+Contents:
+
+- `sources/prom_yml`
+- `sources/prom_api`
+- `kasta-dictionaries`
+- `feedback`
+- `expected`
+
+Use them when you need deterministic pilot verification without calling live external services. The feature/integration suite covers:
+
+- `prom_yml` happy path
+- `prom_api` happy path
+- promotion + secret rebind pending path
+- publish + smoke + first-pull path
+- feedback import / remediation / hypercare path
+
+## What To Collect As Proof Of Success
+
+For a real merchant pilot, retain:
+
+1. pilot run ID and final state
+2. rehearsal result
+3. promotion dry-run/apply summary
+4. secret rebind validation result
+5. source sync result
+6. candidate checksum and preview / QA references
+7. sign-off result
+8. publish summary
+9. smoke-check result
+10. first-pull verification result
+11. feedback import and remediation summary
+12. hypercare status or closeout report
+13. Pilot Evidence Pack ZIP
 
 ## Onboarding Wizard
 

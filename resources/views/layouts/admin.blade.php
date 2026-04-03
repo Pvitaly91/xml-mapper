@@ -36,6 +36,7 @@
             <a href="{{ route('admin.onboarding.show') }}" class="{{ request()->routeIs('admin.onboarding.*') ? 'active' : '' }}">Onboarding</a>
             @if($currentShop)
                 <a href="{{ route('admin.shop-control.show') }}" class="{{ request()->routeIs('admin.shop-control.*') ? 'active' : '' }}">Go-Live Control</a>
+                <a href="{{ route('admin.pilot-runs.index') }}" class="{{ request()->routeIs('admin.pilot-runs.*') ? 'active' : '' }}">Pilot Center</a>
                 <a href="{{ route('admin.source-connections.index') }}" class="{{ request()->routeIs('admin.source-connections.*') ? 'active' : '' }}">Source Connections</a>
                 <a href="{{ route('admin.feed-profiles.index') }}" class="{{ request()->routeIs('admin.feed-profiles.*') ? 'active' : '' }}">Feed Profiles</a>
             @endif

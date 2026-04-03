@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="2026-04-03 10:00">
+    <shop>
+        <name>Pilot Merchant</name>
+        <company>Pilot Merchant LLC</company>
+        <url>https://pilot.example.test</url>
+        <currencies>
+            <currency id="UAH" rate="1" />
+        </currencies>
+        <categories>
+            <category id="101">Dresses</category>
+            <category id="102">Shoes</category>
+        </categories>
+        <offers>
+            <offer id="pilot-dress-black-s" available="true">
+                <name>Pilot Dress Black S</name>
+                <price>1299</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>101</categoryId>
+                <vendor>Pilot Brand</vendor>
+                <vendorCode>PILOT-DRS-BLK-S</vendorCode>
+                <description>Merchant pilot dress in black.</description>
+                <picture>https://cdn.example.test/pilot-dress-black-1.jpg</picture>
+                <picture>https://cdn.example.test/pilot-dress-black-2.jpg</picture>
+                <param name="Color">Black</param>
+                <param name="Size">S</param>
+            </offer>
+            <offer id="pilot-shoe-white-42" available="true">
+                <name>Pilot Sneaker White 42</name>
+                <price>2199</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>102</categoryId>
+                <vendor>Pilot Brand</vendor>
+                <vendorCode>PILOT-SHOE-WHT-42</vendorCode>
+                <description>Merchant pilot sneaker.</description>
+                <picture>https://cdn.example.test/pilot-shoe-white-1.jpg</picture>
+                <param name="Color">White</param>
+                <param name="Size">42</param>
+            </offer>
+        </offers>
+    </shop>
+</yml_catalog>

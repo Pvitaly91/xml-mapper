@@ -1,0 +1,33 @@
+{
+  "products": [
+    {
+      "id": 5001,
+      "name": "Pilot Dress Black S",
+      "sku": "PILOT-DRS-BLK-S",
+      "description": "Black variation for the pilot merchant.",
+      "presence": "available",
+      "status": "on_display",
+      "selling_type": "retail",
+      "currency": "UAH",
+      "price": 1299,
+      "quantity_in_stock": 7,
+      "measure_unit": "pcs",
+      "variation_group_id": 9001,
+      "variation_base_id": 5001,
+      "main_image": "https://cdn.example.test/pilot-dress-black-1.jpg",
+      "images": [
+        {
+          "url": "https://cdn.example.test/pilot-dress-black-2.jpg"
+        }
+      ],
+      "group": {
+        "id": 2,
+        "name": "Dresses"
+      },
+      "category": {
+        "id": 2,
+        "caption": "Dresses"
+      }
+    }
+  ]
+}

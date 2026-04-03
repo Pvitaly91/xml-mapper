@@ -1,0 +1,14 @@
+{
+  "groups": [
+    {
+      "id": 3,
+      "name": "Catalog",
+      "parent_group_id": null
+    },
+    {
+      "id": 2,
+      "name": "Dresses",
+      "parent_group_id": 3
+    }
+  ]
+}

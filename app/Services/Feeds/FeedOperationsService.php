@@ -12,6 +12,7 @@ use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\RestoreDrillService;
 use App\Services\Ops\SloSummaryService;
+use App\Services\Pilot\PilotReadinessScoreService;
 use App\Services\Promotion\PromotionStatusService;
 
 class FeedOperationsService
@@ -28,6 +29,7 @@ class FeedOperationsService
         private readonly SloSummaryService $sloSummaryService,
         private readonly EnvironmentContextService $environmentContextService,
         private readonly PromotionStatusService $promotionStatusService,
+        private readonly PilotReadinessScoreService $pilotReadinessScoreService,
     ) {}
 
     /**
@@ -51,6 +53,7 @@ class FeedOperationsService
         $maintenance = $this->opsMaintenanceStatusService->summarize($feedProfile->shop, $feedProfile);
         $cutover = $this->cutoverService->summarize($feedProfile, $latestGeneration);
         $firstPull = $this->firstPullVerificationService->summarize($feedProfile);
+        $latestPilotRun = $feedProfile->pilotRuns()->latest('id')->first();
 
         return [
             'feed_profile' => $feedProfile,
@@ -76,6 +79,8 @@ class FeedOperationsService
             'maintenance' => $maintenance,
             'environment' => $this->environmentContextService->summary(),
             'promotion' => $this->promotionStatusService->summarize($feedProfile),
+            'latest_pilot_run' => $latestPilotRun,
+            'pilot_score' => $this->pilotReadinessScoreService->score($feedProfile, $latestPilotRun),
             'rehearsal' => $this->rehearsalService->summarize($feedProfile),
             'restore_drill' => $this->restoreDrillService->summarize($feedProfile),
             'slo' => $this->sloSummaryService->summarize($feedProfile->shop, $feedProfile),
