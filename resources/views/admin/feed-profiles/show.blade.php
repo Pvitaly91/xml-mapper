@@ -5,6 +5,7 @@
 @section('content')
     @php($latestSummary = $pilotReadiness['generation_summary'])
     @php($latestGuard = $pilotReadiness['publish_guard'])
+    @php($currentHypercare = $hypercareSummary['current'])
 
     <section class="panel">
         <div class="toolbar">
@@ -17,6 +18,7 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <form method="POST" action="{{ route('admin.feed-profiles.status', $feedProfile) }}">
@@ -35,6 +37,7 @@
             <div class="detail-row"><strong>Publish guard</strong><div>{{ $feedProfile->publishGuardEnabled() ? 'Enabled' : 'Disabled' }}</div></div>
             <div class="detail-row"><strong>Last build status</strong><div>{{ $feedProfile->latestGeneration?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Published generation</strong><div>{{ $feedProfile->publishedGeneration?->id ? '#'.$feedProfile->publishedGeneration->id : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Hypercare</strong><div>{{ $currentHypercare?->status ?: 'inactive' }}</div></div>
             <div class="detail-row"><strong>Public feed URL</strong><div>{{ $publicFeedUrl ?: 'n/a' }}</div></div>
         </div>
     </section>

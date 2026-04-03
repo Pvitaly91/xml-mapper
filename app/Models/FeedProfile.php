@@ -131,6 +131,33 @@ class FeedProfile extends Model
         return $this->hasMany(FeedbackRecord::class);
     }
 
+    public function hypercareWindows(): HasMany
+    {
+        return $this->hasMany(FeedHypercareWindow::class);
+    }
+
+    public function currentHypercareWindow(): HasOne
+    {
+        return $this->hasOne(FeedHypercareWindow::class)
+            ->whereIn('status', FeedHypercareWindow::openStatuses())
+            ->latestOfMany();
+    }
+
+    public function opsAlerts(): HasMany
+    {
+        return $this->hasMany(OpsAlert::class);
+    }
+
+    public function opsPolicyResults(): HasMany
+    {
+        return $this->hasMany(OpsPolicyResult::class);
+    }
+
+    public function silenceWindows(): HasMany
+    {
+        return $this->hasMany(OpsSilenceWindow::class);
+    }
+
     public function opsRuns(): HasMany
     {
         return $this->hasMany(OpsRun::class);
@@ -276,5 +303,25 @@ class FeedProfile extends Model
     public function freezeModeActive(): bool
     {
         return (bool) ($this->exportSettings()['freeze_mode'] ?? false);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function hypercareSettings(): array
+    {
+        return array_merge([
+            'target_sla_minutes' => (int) config('feed_mediator.hypercare.default_target_sla_minutes', 240),
+            'monitoring_cadence_minutes' => (int) config('feed_mediator.hypercare.default_monitoring_cadence_minutes', 60),
+            'policy_overrides' => [],
+        ], $this->exportSettings()['hypercare'] ?? []);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function hypercarePolicyOverrides(): array
+    {
+        return (array) ($this->hypercareSettings()['policy_overrides'] ?? []);
     }
 }

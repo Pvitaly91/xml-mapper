@@ -6,7 +6,9 @@ use App\Contracts\Feeds\FeedPublishServiceInterface;
 use App\Models\FeedGeneration;
 use App\Models\FeedGenerationSmokeCheck;
 use App\Models\FeedProfile;
+use App\Models\OpsAlert;
 use App\Models\User;
+use App\Services\Ops\OpsAlertService;
 use RuntimeException;
 use Throwable;
 
@@ -21,6 +23,8 @@ class FeedReleaseService
         private readonly FeedSignoffService $signoffService,
         private readonly FeedCutoverService $cutoverService,
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
+        private readonly FeedHypercareService $hypercareService,
+        private readonly OpsAlertService $alertService,
     ) {}
 
     public function markCandidate(FeedGeneration $generation, ?User $user = null, ?string $reason = null): FeedGeneration
@@ -138,6 +142,18 @@ class FeedReleaseService
                 'error',
                 $generation
             );
+            $this->alertService->raiseForProfile(
+                $feedProfile,
+                OpsAlert::SOURCE_PUBLISH_FAILURE,
+                OpsAlert::SEVERITY_CRITICAL,
+                'Feed publish failed',
+                $exception->getMessage(),
+                [
+                    'exception' => $exception::class,
+                    'force' => $force,
+                ],
+                $generation
+            );
 
             throw $exception;
         }
@@ -159,6 +175,7 @@ class FeedReleaseService
             'info',
             $published
         );
+        $this->alertService->resolveFingerprint($feedProfile, OpsAlert::SOURCE_PUBLISH_FAILURE, 'Publish succeeded.');
 
         if ($previousPublished && $previousPublished->id !== $published->id) {
             $this->signoffService->supersedeCurrent($previousPublished, $user, 'Published generation was superseded.');
@@ -166,6 +183,9 @@ class FeedReleaseService
 
         $smokeCheck = $this->smokeCheckService->run($feedProfile->fresh(), $published->fresh(), FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC);
         $this->cutoverService->markPublished($feedProfile->fresh(), $published->fresh(), $user, $reason);
+        if ((bool) config('feed_mediator.hypercare.auto_start_on_publish', true)) {
+            $this->hypercareService->ensureActiveAfterPublish($feedProfile->fresh(['publishedGeneration', 'latestGeneration']), $published->fresh(), $user, $reason);
+        }
 
         try {
             $this->firstPullVerificationService->recordFromSmokeCheck(
@@ -250,6 +270,21 @@ class FeedReleaseService
 
         $this->smokeCheckService->run($feedProfile->fresh(), $rolledBack->fresh(), FeedGenerationSmokeCheck::TRIGGER_AUTOMATIC);
         $this->cutoverService->syncState($feedProfile->fresh(), $rolledBack->fresh(), $user, 'Rollback executed.');
+        if ($feedProfile->fresh()->currentHypercareWindow) {
+            $this->alertService->raiseForProfile(
+                $feedProfile->fresh(),
+                OpsAlert::SOURCE_PUBLISH_FAILURE,
+                OpsAlert::SEVERITY_WARNING,
+                'Rollback executed during hypercare',
+                'A rollback was executed while hypercare is active.',
+                [
+                    'from_generation_id' => $currentPublished->id,
+                    'to_generation_id' => $rolledBack->id,
+                ],
+                $rolledBack->fresh(),
+                $feedProfile->fresh()->currentHypercareWindow
+            );
+        }
 
         return $rolledBack->fresh();
     }

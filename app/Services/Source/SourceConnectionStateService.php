@@ -6,13 +6,16 @@ use App\Data\Source\SourceConnectionCheckResult;
 use App\Exceptions\Source\SourceDriverException;
 use App\Models\SourceConnection;
 use App\Models\SourceImport;
+use App\Models\OpsAlert;
 use App\Services\Feeds\PilotNotificationService;
+use App\Services\Ops\OpsAlertService;
 use Throwable;
 
 class SourceConnectionStateService
 {
     public function __construct(
         private readonly PilotNotificationService $notificationService,
+        private readonly OpsAlertService $alertService,
     ) {}
 
     public function recordConnectionCheck(SourceConnection $connection, SourceConnectionCheckResult $result): void
@@ -26,6 +29,25 @@ class SourceConnectionStateService
         ])->save();
 
         $this->notifyBrokenAuthIfNeeded($connection->fresh(), $result->status, $previousStatus, 'Source connection test reported broken authentication.');
+
+        if ($result->status === SourceConnection::CHECK_STATUS_AUTH_FAILED) {
+            $this->alertService->syncConnectionAlert(
+                $connection->fresh(),
+                OpsAlert::SOURCE_SOURCE_AUTH_BROKEN,
+                OpsAlert::SEVERITY_CRITICAL,
+                'Source authentication failed',
+                $result->message ?: 'Source connection test reported broken authentication.',
+                ['connection_check' => true]
+            );
+        } else {
+            $this->alertService->syncConnectionAlert(
+                $connection->fresh(),
+                OpsAlert::SOURCE_SOURCE_AUTH_BROKEN,
+                null,
+                'Source authentication recovered',
+                'Source connection authentication recovered.',
+            );
+        }
     }
 
     /**
@@ -41,6 +63,24 @@ class SourceConnectionStateService
                 'finished_at' => now()->toIso8601String(),
             ]),
         ])->save();
+
+        $this->alertService->syncConnectionAlert(
+            $connection->fresh(),
+            OpsAlert::SOURCE_SYNC_FAILURE,
+            null,
+            'Source sync recovered',
+            'Source sync completed successfully.'
+        );
+
+        if ($connection->last_connection_check_status !== SourceConnection::CHECK_STATUS_AUTH_FAILED) {
+            $this->alertService->syncConnectionAlert(
+                $connection->fresh(),
+                OpsAlert::SOURCE_SOURCE_AUTH_BROKEN,
+                null,
+                'Source authentication recovered',
+                'Source connection authentication recovered.'
+            );
+        }
     }
 
     public function recordSyncFailure(SourceConnection $connection, Throwable $exception): void
@@ -55,6 +95,26 @@ class SourceConnectionStateService
         ])->save();
 
         $this->notifyBrokenAuthIfNeeded($connection->fresh(), $status, $previousStatus, 'Source sync reported broken authentication.');
+
+        $this->alertService->syncConnectionAlert(
+            $connection->fresh(),
+            OpsAlert::SOURCE_SYNC_FAILURE,
+            $status === SourceConnection::CHECK_STATUS_AUTH_FAILED ? OpsAlert::SEVERITY_CRITICAL : OpsAlert::SEVERITY_WARNING,
+            'Source sync failed',
+            $exception->getMessage(),
+            ['exception' => $exception::class]
+        );
+
+        if ($status === SourceConnection::CHECK_STATUS_AUTH_FAILED) {
+            $this->alertService->syncConnectionAlert(
+                $connection->fresh(),
+                OpsAlert::SOURCE_SOURCE_AUTH_BROKEN,
+                OpsAlert::SEVERITY_CRITICAL,
+                'Source authentication failed',
+                $exception->getMessage(),
+                ['exception' => $exception::class]
+            );
+        }
     }
 
     public function statusForThrowable(Throwable $exception): string

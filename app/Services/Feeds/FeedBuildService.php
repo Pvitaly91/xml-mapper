@@ -6,8 +6,10 @@ use App\Contracts\Feeds\FeedBuildServiceInterface;
 use App\Models\FeedGeneration;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
+use App\Models\OpsAlert;
 use App\Models\SourceVariant;
 use App\Models\SyncLog;
+use App\Services\Ops\OpsAlertService;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -22,6 +24,7 @@ class FeedBuildService implements FeedBuildServiceInterface
         private readonly FeedGenerationDiffService $diffService,
         private readonly FeedPublishGuardService $publishGuardService,
         private readonly PilotNotificationService $notificationService,
+        private readonly OpsAlertService $alertService,
         private readonly ProcessLockService $lockService,
     ) {}
 
@@ -201,6 +204,7 @@ class FeedBuildService implements FeedBuildServiceInterface
                         'invalid_items' => $invalidItems,
                         'excluded_items' => $excludedItems,
                     ]);
+                    $this->alertService->resolveFingerprint($feedProfile, OpsAlert::SOURCE_BUILD_FAILURE, 'Build succeeded.');
 
                     if (
                         (($summary['invalid_conformance'] ?? 0) > 0)
@@ -232,6 +236,15 @@ class FeedBuildService implements FeedBuildServiceInterface
                     $this->log($feedProfile, $generation, 'error', 'feed.build_failed', $exception->getMessage(), [
                         'exception' => $exception::class,
                     ]);
+                    $this->alertService->raiseForProfile(
+                        $feedProfile,
+                        OpsAlert::SOURCE_BUILD_FAILURE,
+                        OpsAlert::SEVERITY_WARNING,
+                        'Feed build failed',
+                        $exception->getMessage(),
+                        ['exception' => $exception::class],
+                        $generation
+                    );
 
                     throw $exception;
                 }

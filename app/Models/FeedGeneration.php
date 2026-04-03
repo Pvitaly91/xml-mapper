@@ -148,6 +148,21 @@ class FeedGeneration extends Model
         return $this->hasMany(FeedbackRecord::class);
     }
 
+    public function hypercareWindows(): HasMany
+    {
+        return $this->hasMany(FeedHypercareWindow::class);
+    }
+
+    public function opsAlerts(): HasMany
+    {
+        return $this->hasMany(OpsAlert::class);
+    }
+
+    public function opsPolicyResults(): HasMany
+    {
+        return $this->hasMany(OpsPolicyResult::class);
+    }
+
     /**
      * @return list<string>
      */

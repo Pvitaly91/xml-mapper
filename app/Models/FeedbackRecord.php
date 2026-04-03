@@ -37,6 +37,7 @@ class FeedbackRecord extends Model
         'source_product_id',
         'source_variant_id',
         'resolution_user_id',
+        'acknowledged_by_user_id',
         'status',
         'resolution_status',
         'external_item_reference',
@@ -48,6 +49,7 @@ class FeedbackRecord extends Model
         'raw_payload',
         'resolution_note',
         'imported_at',
+        'acknowledged_at',
         'resolved_at',
     ];
 
@@ -56,6 +58,7 @@ class FeedbackRecord extends Model
         return [
             'raw_payload' => 'array',
             'imported_at' => 'datetime',
+            'acknowledged_at' => 'datetime',
             'resolved_at' => 'datetime',
         ];
     }
@@ -100,6 +103,11 @@ class FeedbackRecord extends Model
         return $this->belongsTo(User::class, 'resolution_user_id');
     }
 
+    public function acknowledgedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'acknowledged_by_user_id');
+    }
+
     /**
      * @return list<string>
      */
@@ -125,5 +133,14 @@ class FeedbackRecord extends Model
             self::RESOLUTION_WONT_FIX,
             self::RESOLUTION_EXCLUDED,
         ];
+    }
+
+    public function isResolved(): bool
+    {
+        return in_array($this->resolution_status, [
+            self::RESOLUTION_FIXED,
+            self::RESOLUTION_WONT_FIX,
+            self::RESOLUTION_EXCLUDED,
+        ], true);
     }
 }

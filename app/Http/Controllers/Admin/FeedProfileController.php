@@ -8,6 +8,7 @@ use App\Models\FeedItem;
 use App\Models\FeedProfile;
 use App\Models\SourceConnection;
 use App\Models\ValidationError;
+use App\Services\Feeds\FeedHypercareService;
 use App\Services\Feeds\FeedPilotReadinessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,7 +62,12 @@ class FeedProfileController extends AdminController
             ->with('status', 'Feed profile created.');
     }
 
-    public function show(Request $request, FeedProfile $feedProfile, FeedPilotReadinessService $pilotReadinessService): View
+    public function show(
+        Request $request,
+        FeedProfile $feedProfile,
+        FeedPilotReadinessService $pilotReadinessService,
+        FeedHypercareService $hypercareService
+    ): View
     {
         $this->ensureShopOwned($request, $feedProfile);
         $feedProfile->load(['sourceConnection', 'publishedGeneration', 'latestGeneration']);
@@ -83,6 +89,7 @@ class FeedProfileController extends AdminController
                 ->count(),
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
             'pilotReadiness' => $pilotReadiness,
+            'hypercareSummary' => $hypercareService->summarize($feedProfile),
         ]);
     }
 

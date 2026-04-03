@@ -41,6 +41,26 @@ Important env variables:
 - `FEED_MEDIATOR_ADMIN_LOGIN_PER_MINUTE=5`
 - `FEED_MEDIATOR_ADMIN_SENSITIVE_PER_MINUTE=20`
 - `FEED_MEDIATOR_DEPLOY_HEALTH_URL=/health`
+- `FEED_MEDIATOR_HYPERCARE_DEFAULT_HOURS=24`
+- `FEED_MEDIATOR_HYPERCARE_TARGET_SLA_MINUTES=240`
+- `FEED_MEDIATOR_HYPERCARE_MONITORING_CADENCE_MINUTES=60`
+- `FEED_MEDIATOR_HYPERCARE_AUTO_START_ON_PUBLISH=true`
+- `FEED_MEDIATOR_ALERT_ESCALATE_MINUTES=15`
+- `FEED_MEDIATOR_ALERT_MAIL_ENABLED=false`
+- `FEED_MEDIATOR_HYPERCARE_24H_SMOKE_CADENCE=60`
+- `FEED_MEDIATOR_HYPERCARE_24H_FIRST_PULL_CADENCE=180`
+- `FEED_MEDIATOR_HYPERCARE_72H_SMOKE_CADENCE=180`
+- `FEED_MEDIATOR_HYPERCARE_72H_FIRST_PULL_CADENCE=360`
+- `FEED_MEDIATOR_PUBLISH_DELTA_WARN_PCT=15`
+- `FEED_MEDIATOR_PUBLISH_DELTA_CRIT_PCT=30`
+- `FEED_MEDIATOR_READY_DROP_WARN_PCT=10`
+- `FEED_MEDIATOR_READY_DROP_CRIT_PCT=20`
+- `FEED_MEDIATOR_QUEUE_WARN_FAILED_JOBS=1`
+- `FEED_MEDIATOR_QUEUE_CRIT_FAILED_JOBS=3`
+- `FEED_MEDIATOR_LATENCY_WARN_MS=3000`
+- `FEED_MEDIATOR_LATENCY_CRIT_MS=6000`
+- `FEED_MEDIATOR_FEEDBACK_BACKLOG_WARN=10`
+- `FEED_MEDIATOR_FEEDBACK_BACKLOG_CRIT=25`
 
 ## Scheduler
 
@@ -79,9 +99,17 @@ php artisan feed:rollback {feedProfileId} --to-generation={generationId} --reaso
 php artisan feed:smoke-check {feedProfileId?} {generationId?} --latest-published
 php artisan feed:cutover-status {feedProfileId}
 php artisan feed:first-pull-verify {feedProfileId} --generation={generationId}
+php artisan feed:hypercare:start {feedProfileId} --hours=24 --note="launch window"
+php artisan feed:hypercare:status {feedProfileId}
+php artisan feed:hypercare:close {feedProfileId} --reason="merchant stable"
 php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
 php artisan feedback:reconcile {feedProfileId}
 php artisan feed:runbook {feedProfileId}
+php artisan ops:alerts:review --shop={shopId} --profile={feedProfileId}
+php artisan ops:digest {feedProfileId} --date=2026-04-03
+php artisan ops:handoff {feedProfileId}
+php artisan ops:silence {feedProfileId} --from="2026-04-03 23:00" --to="2026-04-04 01:00" --severity=warning --reason="planned maintenance"
+php artisan ops:silence:clear {feedProfileId}
 php artisan ops:preflight-production
 php artisan ops:backup-db
 php artisan ops:backup-files
@@ -452,6 +480,140 @@ It centralizes:
 
 This page is the fastest way to answer “what happened after go-live?” for one merchant.
 
+## Hypercare War Room
+
+Use `/admin/feed-profiles/{profile}/hypercare` immediately after the first live publish.
+
+This screen is the operator war room for the first `24h` / `72h` and shows:
+
+- current hypercare state
+- current risk state
+- time since publish and planned end
+- next required checks
+- blocking incidents and all open alerts
+- latest smoke / first-pull / sync status
+- feedback SLA summary and grouped rejections
+- readiness / SLO / queue status
+- active silence window details
+- recent live timeline events
+
+Primary actions from the war room:
+
+- rerun smoke check
+- rerun first-pull verification
+- import feedback
+- open remediation workbench
+- acknowledge / resolve / false-positive alerts
+- extend, close or abort hypercare
+- freeze / unfreeze the feed
+- rollback
+- add manual operator notes
+- start or clear a silence window
+
+## Hypercare States And Closeout Rules
+
+Persisted states:
+
+- `planned`
+- `armed`
+- `active`
+- `degraded`
+- `extended`
+- `completed`
+- `aborted`
+
+Operational rules:
+
+- `feed:hypercare:start` can open a manual window before the first publish
+- successful live publish auto-activates hypercare when auto-start is enabled
+- critical incidents immediately move the open window into `degraded`
+- unresolved critical incidents block clean closeout
+- `feed:hypercare:close` stores a markdown closeout report in the runbooks directory
+
+## Post-Launch Monitoring Policies
+
+Policies are evaluated against the current profile and hypercare window. Results are persisted as `ok`, `warning`, or `critical`.
+
+Checks covered:
+
+- smoke check cadence
+- first-pull verification cadence
+- source sync freshness
+- publish delta anomaly
+- broken source auth
+- rejection spike
+- ready-items drop
+- queue backlog / failed jobs
+- feed URL latency
+- unresolved feedback backlog
+
+Cadence is phase-aware:
+
+- first `24h`
+- first `72h`
+- steady state after `72h`
+
+Use per-profile overrides only when the merchant needs different operational thresholds than the global defaults in `config/feed_mediator.php`.
+
+## Alerts / Escalation / Silence
+
+Alert severities:
+
+- `info`
+- `warning`
+- `critical`
+
+Alert states:
+
+- `raised`
+- `acknowledged`
+- `silenced`
+- `escalated`
+- `resolved`
+- `false_positive`
+
+Escalation:
+
+- run `php artisan ops:alerts:review` from the scheduler or on demand
+- raised alerts escalate after `FEED_MEDIATOR_ALERT_ESCALATE_MINUTES` if nobody acknowledged them
+- critical alerts always remain visible and also degrade hypercare
+
+Silence windows:
+
+- are profile-scoped
+- store `active_from`, `active_to`, severity threshold, note and actor
+- silence only lower-severity noise; critical alerts still persist normally
+- can be started from the war room or via `ops:silence`
+- can be cleared from the war room or via `ops:silence:clear`
+
+## Unified Live Timeline
+
+Timeline screen:
+
+- `/admin/feed-profiles/{profile}/hypercare/timeline`
+
+The unified timeline combines:
+
+- sync/build/publish logs
+- release actions and overrides
+- smoke checks
+- first-pull verifications
+- alert raise/acknowledge/resolve/escalate events
+- feedback remediation notes
+- freeze toggles
+- rollback
+- relevant deploy / restore-drill / rehearsal / secret-rotation ops runs
+
+Filters:
+
+- event type
+- severity
+- date range
+
+Downloads:
+
+- CSV from the timeline page for incident review or handoff
+
 ## Candidate Preview And QA Bundle
 
 Candidate preview:
@@ -586,18 +748,16 @@ Rollback is always manual. The system records the operator, reason and from/to g
 
 ## Incident Journal
 
-`feed_release_events` is the pilot incident journal. It records:
+The incident journal is now a unified layer rather than one release-only log.
 
-- blocked publish
-- publish failed
-- preview link created or revoked
-- QA bundle generated
-- sign-off transitions
-- freeze enabled or disabled
-- smoke-check reruns and failures
-- rollback
+Persistence used by the operator workflow:
 
-Use the release center audit table as the operator-friendly history for who did what and why.
+- `ops_alerts` for alert/incident state
+- `feed_release_events` for audit and manual operator actions
+- `sync_logs` for structured runtime log events
+- `ops_runs` for deploy, rehearsal, restore-drill and secret-rotation events
+
+Use `/admin/feed-profiles/{profile}/hypercare/timeline` as the main operator-facing incident history. The release center audit table still remains the best focused view for publish/rollback/sign-off actions.
 
 ## Reconciliation Report
 
@@ -654,6 +814,32 @@ Typical operator loop:
 5. rebuild the candidate
 6. republish intentionally when fixes are ready
 
+## Feedback SLA / Rejection Follow-Up
+
+During hypercare, track not only the rejection count but the reaction speed.
+
+The feedback SLA summary includes:
+
+- unmatched feedback count
+- open rejected items
+- in-progress remediation
+- fixed
+- `wont_fix`
+- excluded
+- average time to acknowledge
+- average time to resolve
+- grouped rejection reasons
+- per-day reason trends
+- unresolved backlog
+
+Use the war room links to jump directly from backlog or rejection spikes into the remediation workbench.
+
+Warning signs:
+
+- rejection spike after publish or republish
+- unresolved backlog growing across handoffs
+- slow acknowledge / resolve times despite stable sync/build signals
+
 ## Merchant-Specific Overrides
 
 Feed profile settings now include merchant-local export rules:
@@ -678,6 +864,37 @@ Generate a merchant go-live checklist snapshot with:
 - `php artisan feed:runbook {feedProfileId}`
 
 The generated Markdown snapshot includes source state, mappings, candidate readiness, sign-off, publish window, first-pull verification and feedback follow-up.
+
+## Daily Digest And Shift Handoff
+
+Admin:
+
+- `/admin/feed-profiles/{profile}/hypercare/digest`
+- `/admin/feed-profiles/{profile}/hypercare/handoff`
+
+CLI:
+
+- `php artisan ops:digest {feedProfileId} --date=YYYY-MM-DD`
+- `php artisan ops:handoff {feedProfileId}`
+
+Daily digest covers:
+
+- sync / build / publish summary
+- smoke / first-pull summary
+- alert summary
+- feedback / rejection summary
+- unresolved blockers
+- recent manual actions
+
+Shift handoff covers:
+
+- current hypercare status
+- open incidents
+- pending actions
+- next checks due
+- stability score and recommended next steps
+
+Reports are generated as Markdown and can be downloaded directly from admin.
 
 ## Reports
 
@@ -896,6 +1113,22 @@ Overall states:
 - `warning`
 - `degraded`
 
+Hypercare stability score adds launch-specific factors on top of those summaries:
+
+- sync / build / publish success rates
+- smoke / first-pull success rates
+- feedback rejection volume
+- unresolved backlog
+- open critical incidents
+- rollback during the window
+
+Result states:
+
+- `stable`
+- `watch`
+- `degraded`
+- `unstable`
+
 ## First Merchant Launch Pack
 
 Generate from:
@@ -913,3 +1146,22 @@ The markdown pack includes:
 - cutover / rollback / first-pull plan
 - feedback import plan
 - operator notes
+
+## Practical First 24h / 72h Operator Runbook After Go-Live
+
+First `24h`:
+
+1. Publish only an approved generation.
+2. Confirm hypercare is active and the war room is open.
+3. Review smoke check, first-pull verification and source sync freshness.
+4. Keep `ops:alerts:review` running so raised alerts escalate instead of silently aging.
+5. Import merchant feedback quickly and acknowledge remediation ownership.
+6. Use rollback only with an explicit reason and after understanding the incident details.
+
+First `72h`:
+
+1. Use the daily digest before the first shift and the handoff report before operator changeover.
+2. Watch rejection spikes, ready-item drops and publish deltas after each remediation publish.
+3. Start a silence window only for planned maintenance and only at the needed severity threshold.
+4. Extend hypercare when stability is still `watch`, `degraded`, or `unstable`.
+5. Close hypercare only after critical blockers are cleared and the remaining risks are understood.

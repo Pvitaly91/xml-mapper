@@ -34,7 +34,7 @@ class FeedRehearsalWorkflowTest extends TestCase
         config()->set('queue.default', 'redis');
 
         Redis::shouldReceive('connection->ping')->once()->andReturn('PONG');
-        Queue::shouldReceive('size')->times(count((array) config('feed_mediator.queues')))->andReturn(0);
+        Queue::shouldReceive('size')->atLeast()->times(count((array) config('feed_mediator.queues')))->andReturn(0);
         app(HeartbeatService::class)->recordSchedulerHeartbeat(CarbonImmutable::now());
 
         ['admin' => $admin, 'feedProfile' => $feedProfile, 'variant' => $variant] = $this->seedBuildableCatalog();

@@ -29,6 +29,12 @@ Schedule::command('feed:publish --due --queue')
     ->onOneServer()
     ->withoutOverlapping();
 
+Schedule::command('ops:alerts:review')
+    ->name('ops:alerts-review')
+    ->everyFifteenMinutes()
+    ->onOneServer()
+    ->withoutOverlapping();
+
 Schedule::command('ops:backup-db')
     ->name('ops:backup-db')
     ->dailyAt((string) config('feed_mediator.schedule.backup_db_at'))

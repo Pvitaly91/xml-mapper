@@ -113,6 +113,69 @@ return [
         'warning_rate' => (float) env('FEED_MEDIATOR_SLO_WARNING_RATE', 0.90),
         'history_windows_hours' => [24, 168],
     ],
+    'hypercare' => [
+        'default_hours' => (int) env('FEED_MEDIATOR_HYPERCARE_DEFAULT_HOURS', 24),
+        'default_target_sla_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_TARGET_SLA_MINUTES', 240),
+        'default_monitoring_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_MONITORING_CADENCE_MINUTES', 60),
+        'auto_start_on_publish' => (bool) env('FEED_MEDIATOR_HYPERCARE_AUTO_START_ON_PUBLISH', true),
+        'alerts' => [
+            'escalate_after_minutes' => (int) env('FEED_MEDIATOR_ALERT_ESCALATE_MINUTES', 15),
+            'mail_enabled' => (bool) env('FEED_MEDIATOR_ALERT_MAIL_ENABLED', false),
+        ],
+        'phases' => [
+            'first_24h' => [
+                'smoke_checks_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_SMOKE_CADENCE', 60),
+                'first_pull_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_FIRST_PULL_CADENCE', 180),
+                'sync_warning_after_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_SYNC_WARN', 120),
+                'sync_critical_after_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_SYNC_CRIT', 240),
+                'feedback_spike_window_hours' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_FEEDBACK_WINDOW', 6),
+                'feedback_spike_warning_count' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_FEEDBACK_WARN', 5),
+                'feedback_spike_critical_count' => (int) env('FEED_MEDIATOR_HYPERCARE_24H_FEEDBACK_CRIT', 10),
+            ],
+            'first_72h' => [
+                'smoke_checks_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_SMOKE_CADENCE', 180),
+                'first_pull_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_FIRST_PULL_CADENCE', 360),
+                'sync_warning_after_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_SYNC_WARN', 240),
+                'sync_critical_after_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_SYNC_CRIT', 480),
+                'feedback_spike_window_hours' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_FEEDBACK_WINDOW', 12),
+                'feedback_spike_warning_count' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_FEEDBACK_WARN', 10),
+                'feedback_spike_critical_count' => (int) env('FEED_MEDIATOR_HYPERCARE_72H_FEEDBACK_CRIT', 20),
+            ],
+            'steady' => [
+                'smoke_checks_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_SMOKE_CADENCE', 360),
+                'first_pull_cadence_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_FIRST_PULL_CADENCE', 720),
+                'sync_warning_after_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_SYNC_WARN', 480),
+                'sync_critical_after_minutes' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_SYNC_CRIT', 960),
+                'feedback_spike_window_hours' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_FEEDBACK_WINDOW', 24),
+                'feedback_spike_warning_count' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_FEEDBACK_WARN', 12),
+                'feedback_spike_critical_count' => (int) env('FEED_MEDIATOR_HYPERCARE_STEADY_FEEDBACK_CRIT', 24),
+            ],
+        ],
+        'policies' => [
+            'publish_delta_anomaly' => [
+                'warning_pct' => (float) env('FEED_MEDIATOR_PUBLISH_DELTA_WARN_PCT', 15),
+                'critical_pct' => (float) env('FEED_MEDIATOR_PUBLISH_DELTA_CRIT_PCT', 30),
+            ],
+            'ready_items_drop' => [
+                'warning_pct' => (float) env('FEED_MEDIATOR_READY_DROP_WARN_PCT', 10),
+                'critical_pct' => (float) env('FEED_MEDIATOR_READY_DROP_CRIT_PCT', 20),
+            ],
+            'queue_lag' => [
+                'warning_failed_jobs' => (int) env('FEED_MEDIATOR_QUEUE_WARN_FAILED_JOBS', 1),
+                'critical_failed_jobs' => (int) env('FEED_MEDIATOR_QUEUE_CRIT_FAILED_JOBS', 3),
+                'warning_backlog' => (int) env('FEED_MEDIATOR_QUEUE_WARN_BACKLOG', 10),
+                'critical_backlog' => (int) env('FEED_MEDIATOR_QUEUE_CRIT_BACKLOG', 25),
+            ],
+            'feed_url_latency' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_LATENCY_WARN_MS', 3000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_LATENCY_CRIT_MS', 6000),
+            ],
+            'feedback_backlog' => [
+                'warning_count' => (int) env('FEED_MEDIATOR_FEEDBACK_BACKLOG_WARN', 10),
+                'critical_count' => (int) env('FEED_MEDIATOR_FEEDBACK_BACKLOG_CRIT', 25),
+            ],
+        ],
+    ],
     'normalization' => [
         'article_keys' => ['article', 'vendorcode', 'vendor_code', 'артикул', 'sku'],
         'size_keys' => ['size', 'розмір', 'размер'],

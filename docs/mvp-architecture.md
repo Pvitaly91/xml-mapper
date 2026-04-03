@@ -56,6 +56,14 @@ Feed-item export lifecycle:
 - `FeedReconciliationService` compares source counts, mapped counts, ready counts and published counts
 - `FeedbackImportService` imports manual acceptance/rejection CSV or JSON feedback without assuming an external API
 - `FeedbackRemediationWorkbenchService` turns imported feedback into an operator remediation queue
+- `FeedHypercareService` owns hypercare lifecycle, activation, extension, abort and closeout rules
+- `HypercarePolicyService` evaluates phase-aware post-launch monitoring policies and persists per-policy results
+- `OpsAlertService` owns alert persistence, silence handling, escalation and operator incident actions
+- `FeedLiveTimelineService` unifies release, smoke, first-pull, sync log and ops events into one operator timeline
+- `FeedHypercareDashboardService` assembles the live war room view for one merchant/profile
+- `FeedHypercareReportService` generates daily digest, shift handoff and closeout markdown reports
+- `FeedStabilityService` computes the stability score and closeout posture from launch-time signals
+- `FeedbackSlaService` aggregates rejection backlog, acknowledge/resolve timings and reason trends
 - `FeedOperationsService` aggregates the production operations screen for one profile
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
@@ -152,6 +160,10 @@ Kasta export assumptions:
 - first-pull verification history is stored in `feed_first_pull_verifications` and links back to the smoke-check row that validated the same published URL
 - manual merchant feedback imports are stored in `feedback_imports` and `feedback_records`, which keeps external acceptance/rejection history queryable and shop-scoped
 - merchant-specific export overrides stay in `feed_profiles.settings`; validation/conformance services read them centrally
+- hypercare windows are stored in `feed_hypercare_windows` and stay linked to shop, feed profile and optional live generation
+- monitoring policy results are stored in `ops_policy_results`, which keeps cadence/threshold evaluation queryable without scattering ad-hoc status flags
+- alerts/incidents are stored in `ops_alerts` and mirrored into `feed_release_events` plus `sync_logs` so operator workflow and forensic logs stay aligned
+- maintenance silence windows are stored in `ops_silence_windows` and applied centrally by the alert service instead of in controllers or Blade views
 
 ## Dictionary Import Architecture
 
@@ -203,6 +215,9 @@ app/
     FeedCutoverService.php
     FeedFirstPullVerificationService.php
     FeedGenerationDiffService.php
+    FeedHypercareDashboardService.php
+    FeedHypercareReportService.php
+    FeedHypercareService.php
     FeedItemDiagnosticsService.php
     FeedOperationsService.php
     FeedPilotReadinessService.php
@@ -217,20 +232,26 @@ app/
     FeedReleaseReportService.php
     FeedReleaseService.php
     FeedRunbookService.php
+    FeedStabilityService.php
     FeedbackImportService.php
+    FeedbackSlaService.php
     FeedbackRemediationWorkbenchService.php
     FeedSignoffService.php
     FeedSmokeCheckService.php
+    FeedLiveTimelineService.php
     KastaExportConformanceService.php
     KastaExportFieldNormalizer.php
     KastaExportXmlService.php
   Services/Ops/
     BackupService.php
     BenchmarkService.php
+    HypercarePolicyService.php
     OpsMaintenanceStatusService.php
+    OpsAlertService.php
     OpsRunService.php
     ProductionPreflightService.php
     PruneService.php
+    SilenceWindowService.php
     Services/Admin/
     CurrentAdminShopResolver.php
   Services/Shops/
@@ -271,12 +292,17 @@ The live merchant execution path is:
 1. onboarding and mapping reconciliation prepare a stable candidate generation
 2. `FeedCutoverService` starts tracking the merchant launch window and target generation
 3. `FeedReleaseService` publishes to the stable public XML URL
-4. `FeedSmokeCheckService` runs generic post-publish checks
-5. `FeedFirstPullVerificationService` records the first production pull result
-6. the merchant sends acceptance/rejection feedback manually as CSV or JSON
-7. `FeedbackImportService` matches that feedback to feed items / source variants
-8. `FeedbackRemediationWorkbenchService` groups external rejection reasons into actionable operator queues
-9. the operator rebuilds and republishes intentionally until the cutover reaches `pilot_stable`
+4. `FeedHypercareService` activates or arms the hypercare window for that live publish
+5. `FeedSmokeCheckService` runs generic post-publish checks
+6. `FeedFirstPullVerificationService` records the first production pull result
+7. `HypercarePolicyService` evaluates cadence, freshness, queue, latency, delta and rejection policies for the first `24h` and `72h`
+8. `OpsAlertService` persists incidents, applies silence windows, escalates overdue alerts and degrades hypercare on critical conditions
+9. the merchant sends acceptance/rejection feedback manually as CSV or JSON
+10. `FeedbackImportService` matches that feedback to feed items / source variants
+11. `FeedbackRemediationWorkbenchService` groups external rejection reasons into actionable operator queues
+12. `FeedHypercareDashboardService` exposes the live war room for operators
+13. `FeedStabilityService` decides whether the merchant is `stable`, `watch`, `degraded`, or `unstable`
+14. the operator rebuilds and republishes intentionally until hypercare can close cleanly
 
 ## Production Deployment Flow
 
@@ -312,5 +338,24 @@ Rollback is code-level and symlink-based. Database rollback is deliberately not 
 - `SecretsRotationService` records secret rotation metadata without storing the rotated values
 - `SloSummaryService` aggregates rolling 24h / 7d success rates for sync/build/publish/smoke/first-pull
 - `FeedLaunchPackService` exports a reusable merchant launch pack from the same acceptance / operations / reconciliation state
+
+## Hypercare / Incident Layer
+
+The first-live merchant workflow extends the existing cutover and release model rather than replacing it:
+
+1. `FeedReleaseService` remains the only publish/rollback orchestrator
+2. `FeedHypercareService` opens a scoped window around the live publish
+3. `HypercarePolicyService` evaluates phase-aware policies using existing smoke, first-pull, queue, sync and feedback data
+4. `OpsAlertService` materializes operator incidents from those policy results and direct runtime failures
+5. `FeedLiveTimelineService` merges release events, alerts, sync logs, first-pull checks, smoke checks and relevant `ops_runs`
+6. `FeedHypercareReportService` reuses that timeline plus SLA/stability data for digest, handoff and closeout reports
+
+Design choices:
+
+- no fictional Kasta feedback API is introduced; manual CSV/JSON feedback stays the source for rejection follow-up
+- controllers stay thin; lifecycle, scoring, alerting, silence and reporting logic live in services
+- the public feed endpoint and Prom ingestion paths remain untouched
+- audit trail reuse avoids maintaining multiple competing incident journals
+- per-profile overrides stay in feed-profile settings so merchant-specific monitoring does not require a second config model
 
 This keeps rehearsal, recovery, and reliability visibility attached to the current architecture instead of inventing a parallel launch subsystem.

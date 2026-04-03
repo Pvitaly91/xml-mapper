@@ -13,6 +13,7 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
@@ -25,6 +26,7 @@
 
     <div class="stats">
         <div class="stat"><span class="muted">Cutover</span><strong>{{ $cutover?->status ?: 'n/a' }}</strong></div>
+        <div class="stat"><span class="muted">Hypercare</span><strong>{{ $feedProfile->currentHypercareWindow?->status ?: 'inactive' }}</strong></div>
         <div class="stat"><span class="muted">Broken auth</span><strong>{{ $panel['broken_source_auth'] ? 'yes' : 'no' }}</strong></div>
         <div class="stat"><span class="muted">Failed jobs</span><strong>{{ $panel['failed_jobs_count'] }}</strong></div>
         <div class="stat"><span class="muted">Feedback rejected</span><strong>{{ $panel['feedback_summary']['rejected'] }}</strong></div>

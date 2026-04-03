@@ -47,4 +47,24 @@ class Shop extends Model
     {
         return $this->hasMany(OpsRun::class);
     }
+
+    public function hypercareWindows(): HasMany
+    {
+        return $this->hasMany(FeedHypercareWindow::class);
+    }
+
+    public function opsAlerts(): HasMany
+    {
+        return $this->hasMany(OpsAlert::class);
+    }
+
+    public function opsPolicyResults(): HasMany
+    {
+        return $this->hasMany(OpsPolicyResult::class);
+    }
+
+    public function silenceWindows(): HasMany
+    {
+        return $this->hasMany(OpsSilenceWindow::class);
+    }
 }

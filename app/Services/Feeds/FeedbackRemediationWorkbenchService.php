@@ -5,9 +5,15 @@ namespace App\Services\Feeds;
 use App\Models\FeedbackRecord;
 use App\Models\FeedProfile;
 use App\Models\User;
+use App\Services\Ops\HypercarePolicyService;
 
 class FeedbackRemediationWorkbenchService
 {
+    public function __construct(
+        private readonly FeedReleaseAuditService $auditService,
+        private readonly HypercarePolicyService $hypercarePolicyService,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -54,10 +60,18 @@ class FeedbackRemediationWorkbenchService
         ?string $note = null,
         ?User $user = null
     ): FeedbackRecord {
+        $acknowledgedAt = $record->acknowledged_at;
+
+        if ($acknowledgedAt === null && $resolutionStatus !== FeedbackRecord::RESOLUTION_OPEN) {
+            $acknowledgedAt = now();
+        }
+
         $record->forceFill([
             'resolution_status' => $resolutionStatus,
             'resolution_note' => $note,
             'resolution_user_id' => $user?->id,
+            'acknowledged_by_user_id' => $acknowledgedAt !== null ? ($user?->id ?? $record->acknowledged_by_user_id) : $record->acknowledged_by_user_id,
+            'acknowledged_at' => $acknowledgedAt,
             'resolved_at' => in_array($resolutionStatus, [
                 FeedbackRecord::RESOLUTION_FIXED,
                 FeedbackRecord::RESOLUTION_WONT_FIX,
@@ -65,7 +79,24 @@ class FeedbackRemediationWorkbenchService
             ], true) ? now() : null,
         ])->save();
 
-        return $record->refresh();
+        $record = $record->refresh();
+
+        $this->auditService->record(
+            $record->feedProfile,
+            $record->feedGeneration,
+            'feedback_resolution_updated',
+            $user,
+            $note,
+            [
+                'feedback_record_id' => $record->id,
+                'resolution_status' => $record->resolution_status,
+                'acknowledged_at' => $record->acknowledged_at?->toIso8601String(),
+                'resolved_at' => $record->resolved_at?->toIso8601String(),
+            ]
+        );
+        $this->hypercarePolicyService->review($record->feedProfile->fresh(), $record->feedProfile->fresh()->currentHypercareWindow);
+
+        return $record;
     }
 
     private function applyFilters($query, array $filters)

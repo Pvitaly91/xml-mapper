@@ -34,6 +34,9 @@ The application stores normalized source data locally, validates exportability, 
 - production scheduler/queue orchestration with locks
 - `/health` ops visibility and admin dashboard ops block
 - file-driven Kasta dictionary imports with history, dry-run and reimport
+- first-live hypercare windows with persisted monitoring state per feed profile
+- operator alerts/incidents with acknowledge, resolve, false-positive and escalation flow
+- unified live timeline, daily digest, shift handoff and silence windows
 
 ## Local Setup
 
@@ -672,8 +675,16 @@ New commands:
 ```bash
 php artisan feed:cutover-status {feedProfileId}
 php artisan feed:first-pull-verify {feedProfileId} --generation={generationId}
+php artisan feed:hypercare:start {feedProfileId} --hours=24 --note="launch window"
+php artisan feed:hypercare:status {feedProfileId}
+php artisan feed:hypercare:close {feedProfileId} --reason="merchant stable"
 php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
 php artisan feedback:reconcile {feedProfileId}
+php artisan ops:alerts:review --profile={feedProfileId}
+php artisan ops:digest {feedProfileId} --date=2026-04-03
+php artisan ops:handoff {feedProfileId}
+php artisan ops:silence {feedProfileId} --from="2026-04-03 23:00" --to="2026-04-04 01:00" --severity=warning --reason="planned maintenance"
+php artisan ops:silence:clear {feedProfileId}
 php artisan feed:runbook {feedProfileId}
 ```
 
@@ -800,6 +811,287 @@ It shows:
 - recent incidents and warnings
 
 Use it as the main control point between first publish and pilot stabilization.
+
+## First Live Merchant Hypercare Workflow
+
+The first real launch now opens a dedicated hypercare layer for the specific shop/feed profile and, when available, the currently published generation.
+
+Persisted hypercare states:
+
+- `planned`
+- `armed`
+- `active`
+- `degraded`
+- `extended`
+- `completed`
+- `aborted`
+
+Persisted window attributes:
+
+- `started_at`
+- `planned_end_at`
+- `actual_end_at`
+- owner and initiating operator
+- escalation level
+- operator note
+- target SLA minutes
+- monitoring cadence minutes
+
+Runtime behavior:
+
+- manual start is available from `/admin/feed-profiles/{profile}/hypercare` or `feed:hypercare:start`
+- hypercare auto-activates after a successful live publish when `FEED_MEDIATOR_HYPERCARE_AUTO_START_ON_PUBLISH=true`
+- critical alerts automatically degrade the current hypercare window
+- clean closeout is blocked while unresolved critical incidents still exist
+- closeout writes a markdown summary into the runbooks storage tree
+
+## Hypercare Policy Layer
+
+The post-launch monitoring layer reuses the existing smoke-check, first-pull, ops and SLO services instead of duplicating independent checks.
+
+Policy coverage:
+
+- smoke check cadence
+- first-pull verification cadence
+- source sync freshness
+- publish delta anomaly
+- broken source auth
+- feedback rejection spike
+- ready-items drop
+- failed jobs / queue backlog
+- feed URL latency
+- unresolved feedback backlog
+
+Policy results are persisted per feed profile / hypercare window as:
+
+- `ok`
+- `warning`
+- `critical`
+
+Thresholds come from `config/feed_mediator.php` and can be overridden per feed profile through hypercare policy settings stored on the profile.
+
+Phase-aware cadence:
+
+- first `24h`
+- first `72h`
+- steady state beyond `72h`
+
+## Hypercare War Room
+
+The operator war room lives at:
+
+- `/admin/feed-profiles/{profile}/hypercare`
+
+It shows:
+
+- current hypercare state and risk state
+- time since publish and planned end
+- next required checks
+- open warning/critical alerts
+- latest smoke, first-pull and source sync status
+- feedback SLA summary and grouped rejection reasons
+- release readiness and SLO summary
+- queue backlog and failed jobs relevant to the merchant
+- active silence window details
+- recent live timeline events
+
+Available live actions:
+
+- rerun smoke check
+- rerun first-pull verification
+- import feedback
+- open remediation workbench
+- acknowledge / resolve / false-positive alerts
+- freeze or unfreeze the feed
+- rollback
+- extend hypercare
+- close or abort hypercare
+- add operator notes
+- start or clear a silence window
+
+## Alerting And Escalation
+
+Operator alerts are now persisted and linked to the shop/feed profile/hypercare context.
+
+Alert severities:
+
+- `info`
+- `warning`
+- `critical`
+
+Alert states:
+
+- `raised`
+- `acknowledged`
+- `silenced`
+- `escalated`
+- `resolved`
+- `false_positive`
+
+Alert sources currently covered:
+
+- source auth broken
+- sync failure
+- build failure
+- publish failure
+- smoke check failure
+- first-pull verification failure
+- feedback rejection spike
+- published count delta anomaly
+- ready-items collapse
+- queue backlog issue
+
+Delivery and persistence:
+
+- database state in `ops_alerts`
+- structured log trail in `sync_logs`
+- release/audit event trail in `feed_release_events`
+- optional mail notifications when `FEED_MEDIATOR_ALERT_MAIL_ENABLED=true`
+
+Escalation:
+
+- `ops:alerts:review` escalates unacknowledged raised alerts after `FEED_MEDIATOR_ALERT_ESCALATE_MINUTES`
+- critical alerts immediately mark the current hypercare window as degraded
+- operators can acknowledge, resolve or mark false-positive directly from the admin war room
+
+## Unified Live Timeline
+
+Live timeline screen:
+
+- `/admin/feed-profiles/{profile}/hypercare/timeline`
+
+The timeline aggregates one merchant feed-profile stream across:
+
+- release and publish actions
+- smoke checks
+- first-pull verifications
+- sync/build/publish logs
+- rollback and freeze toggles
+- feedback-related remediation notes
+- alert raise/acknowledge/resolve/escalate events
+- rehearsal, restore-drill, deploy and secret-rotation ops runs
+- manual operator notes
+
+The screen supports:
+
+- event-type filters
+- severity filters
+- date-range filters
+- CSV download for handoff or incident reporting
+
+## Feedback SLA And Rejection Follow-Up
+
+The manual feedback path remains file-driven and does not assume any Kasta rejection API.
+
+Hypercare feedback SLA summary tracks:
+
+- unmatched feedback count
+- open rejected items
+- in-progress remediation
+- fixed
+- `wont_fix`
+- excluded
+- average time to acknowledge
+- average time to resolve
+- grouped rejection reasons
+- rejection reason trends
+- unresolved backlog
+
+Backlog and spike conditions feed the hypercare alert layer so the operator sees them alongside publish and platform incidents.
+
+## Stability Score And Closeout
+
+`FeedStabilityService` evaluates hypercare readiness using:
+
+- sync success rate
+- build success rate
+- publish success rate
+- smoke success rate
+- first-pull success rate
+- feedback rejection volume
+- unresolved backlog
+- open critical incidents
+- rollback occurrence during the window
+
+Result states:
+
+- `stable`
+- `watch`
+- `degraded`
+- `unstable`
+
+Hypercare closeout:
+
+- cannot complete cleanly while critical incidents are still unresolved
+- writes a markdown closeout report with timeline summary, incidents, resolutions, remaining risks and recommended next steps
+- is accessible from the war room and `feed:hypercare:close`
+
+## Daily Digest And Shift Handoff
+
+Daily digest and shift handoff reports are available both in admin and via artisan.
+
+Admin:
+
+- `/admin/feed-profiles/{profile}/hypercare/digest`
+- `/admin/feed-profiles/{profile}/hypercare/handoff`
+
+CLI:
+
+- `php artisan ops:digest {feedProfileId} --date=YYYY-MM-DD`
+- `php artisan ops:handoff {feedProfileId}`
+
+Generated markdown reports summarize:
+
+- sync/build/publish activity
+- smoke and first-pull status
+- open alerts and blockers
+- feedback/rejection backlog
+- recent manual actions
+- current hypercare status
+- pending actions
+- next checks due
+
+## Silence Windows
+
+Planned maintenance can temporarily suppress lower-severity noise per feed profile.
+
+Supported silence window fields:
+
+- `active_from`
+- `active_to`
+- severity threshold
+- note / reason
+- creating operator
+
+Behavior:
+
+- critical alerts are never discarded
+- alerts at or below the selected severity threshold can be stored as `silenced`
+- the active silence window is visible in the war room, audit trail and timeline
+
+Commands:
+
+- `php artisan ops:silence {feedProfileId} --from= --to= --severity=warning --reason="..."`
+- `php artisan ops:silence:clear {feedProfileId}`
+
+## Practical First 24h / 72h Runbook After Go-Live
+
+First `24h`:
+
+1. Publish the approved generation and confirm hypercare moved to `active`.
+2. Open `/admin/feed-profiles/{profile}/hypercare`.
+3. Confirm the automatic smoke check and first-pull verification completed.
+4. Watch source sync freshness, queue backlog, alert state and feedback imports at the war-room cadence.
+5. Acknowledge or resolve alerts explicitly instead of relying on log-only visibility.
+6. Import merchant feedback, triage open rejections and keep the remediation workbench moving.
+
+First `72h`:
+
+1. Keep reviewing the daily digest and shift handoff before operator changes.
+2. Watch publish delta, ready-item drop and rejection trends after each remedial rebuild/publish.
+3. Use silence windows only for planned maintenance, never to hide critical launch issues.
+4. Extend hypercare if the stability state is `watch`, `degraded` or `unstable`.
+5. Close hypercare only after critical incidents are resolved and the stability score is acceptable.
 
 ## Runbook Export
 

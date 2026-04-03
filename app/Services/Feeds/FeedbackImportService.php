@@ -9,6 +9,7 @@ use App\Models\FeedItem;
 use App\Models\FeedProfile;
 use App\Models\SourceVariant;
 use App\Models\User;
+use App\Services\Ops\HypercarePolicyService;
 use App\Support\Canonicalizer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -19,6 +20,7 @@ class FeedbackImportService
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
         private readonly FeedCutoverService $cutoverService,
+        private readonly HypercarePolicyService $hypercarePolicyService,
     ) {}
 
     /**
@@ -125,6 +127,7 @@ class FeedbackImportService
         );
 
         $this->cutoverService->syncState($feedProfile->fresh(), $generation?->fresh(), $user, 'Feedback imported');
+        $this->hypercarePolicyService->review($feedProfile->fresh(), $feedProfile->fresh()->currentHypercareWindow);
 
         return [
             'dry_run' => false,

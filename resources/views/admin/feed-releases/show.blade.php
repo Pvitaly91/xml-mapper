@@ -7,6 +7,7 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
@@ -31,6 +32,7 @@
             <div class="detail-row"><strong>Publish now</strong><div>{{ $publishWindow['allowed_now'] ? 'allowed' : 'blocked' }}</div></div>
             <div class="detail-row"><strong>Next allowed window</strong><div>{{ $publishWindow['next_allowed_at'] ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Cutover status</strong><div>{{ $cutoverSummary['cutover']?->status ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Hypercare</strong><div>{{ $feedProfile->currentHypercareWindow?->status ?: 'inactive' }}</div></div>
         </div>
 
         <div class="toolbar" style="margin-top: 14px;">

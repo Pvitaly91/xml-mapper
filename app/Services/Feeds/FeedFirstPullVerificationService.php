@@ -7,7 +7,9 @@ use App\Models\FeedGeneration;
 use App\Models\FeedGenerationPreviewLink;
 use App\Models\FeedGenerationSmokeCheck;
 use App\Models\FeedProfile;
+use App\Models\OpsAlert;
 use App\Models\User;
+use App\Services\Ops\OpsAlertService;
 use RuntimeException;
 
 class FeedFirstPullVerificationService
@@ -17,6 +19,7 @@ class FeedFirstPullVerificationService
         private readonly FeedCutoverService $cutoverService,
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
+        private readonly OpsAlertService $alertService,
     ) {}
 
     public function run(
@@ -225,6 +228,33 @@ class FeedFirstPullVerificationService
                 'error',
                 $generation
             );
+            $this->alertService->raiseForProfile(
+                $feedProfile,
+                OpsAlert::SOURCE_FIRST_PULL_FAILURE,
+                OpsAlert::SEVERITY_CRITICAL,
+                'First-pull verification failed',
+                $verification->errors[0] ?? 'First-pull verification failed.',
+                [
+                    'verification_id' => $verification->id,
+                    'target' => $target,
+                ],
+                $generation
+            );
+        } elseif ($verification->status === FeedFirstPullVerification::STATUS_WARNING) {
+            $this->alertService->raiseForProfile(
+                $feedProfile,
+                OpsAlert::SOURCE_FIRST_PULL_FAILURE,
+                OpsAlert::SEVERITY_WARNING,
+                'First-pull verification returned warnings',
+                $verification->warnings[0] ?? 'First-pull verification returned warnings.',
+                [
+                    'verification_id' => $verification->id,
+                    'target' => $target,
+                ],
+                $generation
+            );
+        } else {
+            $this->alertService->resolveFingerprint($feedProfile, OpsAlert::SOURCE_FIRST_PULL_FAILURE, 'First-pull verification recovered.');
         }
 
         if ($syncCutover) {

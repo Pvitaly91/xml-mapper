@@ -6,7 +6,9 @@ use App\Models\FeedGeneration;
 use App\Models\FeedGenerationPreviewLink;
 use App\Models\FeedGenerationSmokeCheck;
 use App\Models\FeedProfile;
+use App\Models\OpsAlert;
 use App\Models\User;
+use App\Services\Ops\OpsAlertService;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
@@ -20,6 +22,7 @@ class FeedSmokeCheckService
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
         private readonly FeedPreviewLinkService $previewLinkService,
+        private readonly OpsAlertService $alertService,
     ) {}
 
     public function run(
@@ -261,6 +264,33 @@ class FeedSmokeCheckService
                 'error',
                 $generation
             );
+            $this->alertService->raiseForProfile(
+                $feedProfile,
+                OpsAlert::SOURCE_SMOKE_CHECK_FAILURE,
+                OpsAlert::SEVERITY_CRITICAL,
+                'Smoke check failed',
+                $errors[0] ?? 'Smoke check failed.',
+                [
+                    'smoke_check_id' => $smokeCheck->id,
+                    'target' => $target,
+                ],
+                $generation
+            );
+        } elseif ($status === FeedGenerationSmokeCheck::STATUS_WARNING) {
+            $this->alertService->raiseForProfile(
+                $feedProfile,
+                OpsAlert::SOURCE_SMOKE_CHECK_FAILURE,
+                OpsAlert::SEVERITY_WARNING,
+                'Smoke check returned warnings',
+                $warnings[0] ?? 'Smoke check returned warnings.',
+                [
+                    'smoke_check_id' => $smokeCheck->id,
+                    'target' => $meta['target'] ?? 'published',
+                ],
+                $generation
+            );
+        } else {
+            $this->alertService->resolveFingerprint($feedProfile, OpsAlert::SOURCE_SMOKE_CHECK_FAILURE, 'Smoke checks recovered.');
         }
 
         return $smokeCheck;
