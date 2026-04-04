@@ -574,6 +574,164 @@ php artisan access:grant {user} {role} --shop= --by=
 php artisan access:revoke {user} {role} --shop= --by=
 ```
 
+## Account Lifecycle, Invites And Secure Login
+
+Internal admin access is invite-driven rather than public-registration driven.
+
+Lifecycle states:
+
+- `invited`
+- `active`
+- `suspended`
+- `locked`
+- `password_reset_required`
+
+Operational commands:
+
+```bash
+php artisan access:invite {email} {role} --shop= --by=
+php artisan access:resend-invite {inviteOrMembershipId} --by=
+php artisan access:suspend {user} --shop= --by=
+php artisan access:reactivate {user} --shop= --by=
+php artisan auth:force-password-reset {user} --by=
+```
+
+Rules:
+
+1. invite acceptance is the only normal path for a newly invited internal operator.
+2. a revoked invite cannot be used again.
+3. suspended or locked users cannot sign in even if old memberships still exist.
+4. forced password reset keeps the account active enough to complete reset, but blocks the rest of admin until the password is changed.
+
+## MFA, Recovery And Reset
+
+MFA is TOTP-based and recovery-code backed.
+
+Environment / role policy:
+
+- `platform_admin` MFA is required in production by default
+- non-production MFA enforcement is configurable
+- dangerous-action step-up can require MFA even when the normal admin shell is softer
+
+Operator commands:
+
+```bash
+php artisan auth:mfa:reset {user} --shop= --by=
+```
+
+Operator expectations:
+
+1. complete MFA enrollment immediately after invite acceptance for production-facing roles.
+2. store recovery codes once; they are not displayed again after issuance.
+3. use MFA reset only when the user truly lost the authenticator, and record the reason.
+
+## Re-Auth And Dangerous Actions
+
+RBAC and approvals are not enough for high-risk operations.
+
+The governed-action layer now checks:
+
+- recent password confirmation
+- recent MFA confirmation where policy requires it
+- approval requirement / four-eyes / environment sensitivity
+
+If a sensitive action is blocked, the operator will see one of:
+
+- `password_reauth_required`
+- `mfa_reauth_required`
+- `blocked_by_policy`
+- `approval_required`
+
+Typical action families covered:
+
+- force publish
+- rollback
+- freeze toggle
+- promotion apply / rollback
+- secret rebind / rotation
+- emergency tuning
+- destructive ops actions
+
+## Session Governance
+
+Use `/admin/access/sessions` to inspect and control active admin sessions.
+
+Tracked fields:
+
+- created time
+- last seen time
+- IP
+- device label / user agent
+- MFA verification time
+- break-glass state
+- revoked state
+
+CLI:
+
+```bash
+php artisan auth:sessions:list {user}
+php artisan auth:sessions:revoke {user} --all --by=
+```
+
+Behavior:
+
+- password change revokes other sessions by default
+- operators can revoke one session, other sessions, or all sessions
+- revoked session reuse attempts are recorded in auth audit
+
+## Break-Glass Rules
+
+Break-glass is a temporary emergency mode, not a hidden superuser bypass.
+
+Rules:
+
+1. `platform_admin` only
+2. explicit reason required
+3. recent auth required first
+4. optional MFA requirement by policy
+5. TTL enforced automatically
+6. start/end events are visible in auth audit and session history
+
+Use it only during urgent production recovery when the normal operator flow is insufficiently fast, and always close it explicitly after the incident.
+
+## Auth Audit And Compliance Reports
+
+Auth governance events are stored in the same persisted audit trail with category `auth`.
+
+Recorded events include:
+
+- invite create / resend / revoke / accept
+- login success / failure
+- account lock / unlock
+- password reset required / password changed
+- MFA enrolled / verified / failed / reset
+- session revoke / reuse blocked
+- re-auth challenge / success / failure
+- break-glass start / end
+
+Review paths:
+
+- `/admin/access/auth-audit`
+- `/admin/access/compliance`
+
+CLI export:
+
+```bash
+php artisan auth:audit:report --shop= --user= --from= --to=
+php artisan compliance:report --shop= --user= --from= --to=
+```
+
+## Practical Secure Access Guidance
+
+For production operators and admins:
+
+1. prefer invite-based onboarding over ad-hoc password sharing.
+2. keep platform-wide access rare; use shop-scoped roles where possible.
+3. enforce MFA before go-live, promotion, source-secret or destructive ops work.
+4. if a step-up prompt appears, complete it; do not try to work around it with another browser session.
+5. revoke stale sessions after credential resets, team changes or incident response.
+6. review auth audit during security follow-up, merchant incident review and compliance reporting.
+
 ## Approval Queue And Four-Eyes Rule
 
 Sensitive and high-risk actions flow through a persisted approval queue.

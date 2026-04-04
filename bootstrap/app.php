@@ -3,6 +3,7 @@
 use App\Http\Middleware\SecureHeadersMiddleware;
 use App\Http\Middleware\CorrelationIdMiddleware;
 use App\Http\Middleware\EnsureAdminPermissionMiddleware;
+use App\Http\Middleware\EnsureAdminSecurityMiddleware;
 use App\Http\Middleware\ResolveAdminShopContextMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin.permission' => EnsureAdminPermissionMiddleware::class,
+            'admin.security' => EnsureAdminSecurityMiddleware::class,
             'admin.shop.context' => ResolveAdminShopContextMiddleware::class,
         ]);
 
@@ -37,5 +39,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhook_url',
             'target_secret',
             'headers',
+            'current_password',
+            'code',
+            'recovery_code',
+            'mfa_secret',
+            'mfa_recovery_codes',
+            'token_ciphertext',
         ]);
     })->create();

@@ -34,6 +34,9 @@ class SourceConnectionCrudTest extends TestCase
         $this->assertSame(['region' => 'ua'], $connection->options);
 
         $this->actingAs($admin)
+            ->withSession([
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+            ])
             ->put(route('admin.source-connections.update', $connection), [
                 'name' => 'Primary Prom Updated',
                 'code' => 'primary-prom',

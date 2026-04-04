@@ -16,6 +16,11 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const ROLE_ADMIN = 'admin';
+    public const STATE_INVITED = 'invited';
+    public const STATE_ACTIVE = 'active';
+    public const STATE_SUSPENDED = 'suspended';
+    public const STATE_LOCKED = 'locked';
+    public const STATE_PASSWORD_RESET_REQUIRED = 'password_reset_required';
 
     /**
      * The attributes that are mass assignable.
@@ -29,6 +34,19 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'account_state',
+        'failed_login_attempts',
+        'locked_until',
+        'last_login_at',
+        'last_login_ip',
+        'password_changed_at',
+        'password_reset_required_at',
+        'invite_accepted_at',
+        'mfa_secret',
+        'mfa_pending_secret',
+        'mfa_recovery_codes',
+        'mfa_enabled_at',
+        'mfa_last_verified_at',
         'settings',
     ];
 
@@ -40,6 +58,9 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'mfa_secret',
+        'mfa_pending_secret',
+        'mfa_recovery_codes',
     ];
 
     /**
@@ -53,6 +74,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'failed_login_attempts' => 'integer',
+            'locked_until' => 'datetime',
+            'last_login_at' => 'datetime',
+            'password_changed_at' => 'datetime',
+            'password_reset_required_at' => 'datetime',
+            'invite_accepted_at' => 'datetime',
+            'mfa_secret' => 'encrypted',
+            'mfa_pending_secret' => 'encrypted',
+            'mfa_recovery_codes' => 'encrypted:array',
+            'mfa_enabled_at' => 'datetime',
+            'mfa_last_verified_at' => 'datetime',
             'settings' => 'array',
         ];
     }
@@ -70,6 +102,16 @@ class User extends Authenticatable
     public function memberships(): HasMany
     {
         return $this->hasMany(ShopMembership::class);
+    }
+
+    public function adminInvites(): HasMany
+    {
+        return $this->hasMany(AdminInvite::class);
+    }
+
+    public function adminSessions(): HasMany
+    {
+        return $this->hasMany(AdminSession::class);
     }
 
     public function activeMemberships(): HasMany
@@ -104,7 +146,7 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        if (! $this->is_active) {
+        if (! $this->canUseAdminAuthentication()) {
             return false;
         }
 
@@ -115,5 +157,64 @@ class User extends Authenticatable
         }
 
         return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function canUseAdminAuthentication(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        if ($this->account_state === self::STATE_INVITED || $this->account_state === self::STATE_SUSPENDED) {
+            return false;
+        }
+
+        return ! $this->isLocked();
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->account_state === self::STATE_LOCKED
+            && ($this->locked_until?->isFuture() ?? true);
+    }
+
+    public function requiresPasswordReset(): bool
+    {
+        return $this->account_state === self::STATE_PASSWORD_RESET_REQUIRED
+            || $this->password_reset_required_at !== null;
+    }
+
+    public function hasMfaEnabled(): bool
+    {
+        return filled($this->mfa_secret) && $this->mfa_enabled_at !== null;
+    }
+
+    public function hasPendingMfaSetup(): bool
+    {
+        return filled($this->mfa_pending_secret) && ! $this->hasMfaEnabled();
+    }
+
+    public function mfaStatus(): string
+    {
+        return match (true) {
+            $this->hasMfaEnabled() => 'enabled',
+            $this->hasPendingMfaSetup() => 'pending_setup',
+            filled($this->mfa_recovery_codes) => 'recovery_only',
+            default => 'not_enabled',
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function accountStates(): array
+    {
+        return [
+            self::STATE_INVITED,
+            self::STATE_ACTIVE,
+            self::STATE_SUSPENDED,
+            self::STATE_LOCKED,
+            self::STATE_PASSWORD_RESET_REQUIRED,
+        ];
     }
 }

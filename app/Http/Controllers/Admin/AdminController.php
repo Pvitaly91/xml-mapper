@@ -58,7 +58,13 @@ abstract class AdminController extends Controller
 
     protected function governedFlashKey(GovernedActionResult $result): string
     {
-        return $result->status === ApprovalRequest::STATUS_REJECTED || $result->status === 'blocked'
+        return in_array($result->status, [
+            ApprovalRequest::STATUS_REJECTED,
+            'blocked',
+            'blocked_by_policy',
+            'password_reauth_required',
+            'mfa_reauth_required',
+        ], true)
             ? 'error'
             : 'status';
     }

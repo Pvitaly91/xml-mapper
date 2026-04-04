@@ -72,6 +72,9 @@ class FeedReleaseCenterAdminTest extends TestCase
         $secondGeneration = app(FeedBuildServiceInterface::class)->build($feedProfile->fresh());
 
         $this->actingAs($admin)
+            ->withSession([
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+            ])
             ->post(route('admin.feed-profiles.publish', $feedProfile), [
                 'generation_id' => $secondGeneration->id,
                 'force_publish' => '1',
@@ -86,6 +89,9 @@ class FeedReleaseCenterAdminTest extends TestCase
             ->assertRedirect();
 
         $this->actingAs($admin)
+            ->withSession([
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+            ])
             ->post(route('admin.feed-profiles.rollback', $feedProfile), [
                 'to_generation_id' => $generation->id,
                 'reason' => 'Restore approved release',

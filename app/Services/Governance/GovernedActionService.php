@@ -7,6 +7,7 @@ use App\Models\ApprovalRequest;
 use App\Models\Shop;
 use App\Models\User;
 use App\Services\Access\AdminAccessService;
+use App\Services\Auth\AdminStepUpAuthService;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 
@@ -17,6 +18,7 @@ class GovernedActionService
         private readonly ApprovalPolicyService $policyService,
         private readonly GovernedActionRegistry $registry,
         private readonly GovernanceAuditService $auditService,
+        private readonly AdminStepUpAuthService $stepUpAuthService,
     ) {}
 
     /**
@@ -59,6 +61,12 @@ class GovernedActionService
 
         if (($rule['platform_admin_only'] ?? false) === true && ! $this->accessService->isPlatformAdmin($actor)) {
             return new GovernedActionResult('blocked', message: 'This action is restricted to platform administrators.');
+        }
+
+        $stepUp = $this->stepUpAuthService->authorizeAction($action, $actor, $shop);
+
+        if (! $stepUp->allowed()) {
+            return new GovernedActionResult($stepUp->status, message: $stepUp->message);
         }
 
         if (($rule['approval_required'] ?? false) === true) {
@@ -140,6 +148,12 @@ class GovernedActionService
 
         if (! $this->accessService->canReviewApprovals($actor, $shop)) {
             throw new RuntimeException('You are not allowed to review approvals for this shop.');
+        }
+
+        $stepUp = $this->stepUpAuthService->authorizeAction($approvalRequest->action, $actor, $shop);
+
+        if (! $stepUp->allowed()) {
+            throw new RuntimeException($stepUp->message ?: 'Additional verification is required.');
         }
 
         if ($approvalRequest->isExpired()) {

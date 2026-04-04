@@ -411,6 +411,52 @@ Design rules:
 
 This keeps the access model practical for a multi-merchant operations admin without introducing a full enterprise IAM stack.
 
+## Authentication And Access Governance Layer
+
+Authentication is now a separate control plane from pure RBAC.
+
+Persisted auth artifacts:
+
+- `users` carries account state, lockout counters, password-reset markers and MFA metadata
+- `admin_invites` stores internal invite issuance, expiry, acceptance and revocation
+- `sessions` now carries admin session governance metadata such as device label, MFA verification time, revocation and break-glass markers
+
+Design rules:
+
+1. membership state and user state must both allow access; one cannot silently override the other
+2. internal invite flow is admin-managed, not public registration
+3. MFA material is encrypted / hashed enough to avoid plaintext recovery storage
+4. auth-sensitive actions emit auth-category governance audits instead of inventing a parallel audit store
+5. session governance is visible to operators and can revoke compromised or stale sessions without deleting history
+
+## MFA And Step-Up Flow
+
+`AdminMfaService` owns TOTP setup, verification and one-time recovery codes.
+
+Flow:
+
+1. user signs in with password
+2. `AdminAuthPolicyService` decides whether password reset, MFA enrollment or MFA challenge is required
+3. `EnsureAdminSecurityMiddleware` blocks admin routes until that state is satisfied
+4. `AdminStepUpAuthService` enforces fresh password and fresh MFA for dangerous actions
+5. `GovernedActionService` consumes that step-up decision before approval or execution
+
+This keeps “who are you?”, “what can you do?” and “how risky is this action right now?” as separate checks.
+
+## Break-Glass And Session Control
+
+Break-glass is intentionally session-scoped, time-bound and audited.
+
+Rules:
+
+1. only `platform_admin` can start it
+2. a reason is required
+3. recent password confirmation is always required
+4. MFA can be required by policy
+5. expiry is enforced automatically through the admin security middleware and session service
+
+`AdminSessionService` also supports session inspection, single-session revoke, revoke-other-sessions and revoke-all-sessions flows without changing the existing Blade/session auth model.
+
 ## Approval And Sensitive Action Flow
 
 Dangerous production actions are executed through `GovernedActionService`.

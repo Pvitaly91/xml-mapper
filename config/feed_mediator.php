@@ -87,6 +87,43 @@ return [
         ],
         'require_high_risk_confirmation' => (bool) env('FEED_MEDIATOR_REQUIRE_HIGH_RISK_CONFIRMATION', false),
     ],
+    'auth' => [
+        'password' => [
+            'min_length' => (int) env('FEED_MEDIATOR_AUTH_PASS_MIN', 12),
+            'require_mixed_case' => (bool) env('FEED_MEDIATOR_AUTH_PASS_MIXED', true),
+            'require_numbers' => (bool) env('FEED_MEDIATOR_AUTH_PASS_NUMBERS', true),
+            'require_symbols' => (bool) env('FEED_MEDIATOR_AUTH_PASS_SYMBOLS', false),
+            'uncompromised' => (bool) env('FEED_MEDIATOR_AUTH_PASS_UNCOMPROMISED', false),
+        ],
+        'login' => [
+            'max_failures' => (int) env('FEED_MEDIATOR_AUTH_LOGIN_FAILS', 5),
+            'lock_minutes' => (int) env('FEED_MEDIATOR_AUTH_LOCK_MIN', 15),
+        ],
+        'invites' => [
+            'expiry_hours' => (int) env('FEED_MEDIATOR_AUTH_INVITE_HOURS', 72),
+        ],
+        'mfa' => [
+            'issuer' => env('FEED_MEDIATOR_AUTH_MFA_ISSUER', env('APP_NAME', 'XML Mapper')),
+            'required_roles' => env('FEED_MEDIATOR_AUTH_MFA_ROLES', 'platform_admin'),
+            'enforce_non_production' => (bool) env('FEED_MEDIATOR_AUTH_MFA_NON_PROD', false),
+            'challenge_when_enabled' => (bool) env('FEED_MEDIATOR_AUTH_MFA_CHALLENGE_ENABLED', true),
+            'recovery_codes' => (int) env('FEED_MEDIATOR_AUTH_MFA_RECOVERY', 8),
+            'window' => (int) env('FEED_MEDIATOR_AUTH_MFA_WINDOW', 1),
+        ],
+        'reauth' => [
+            'password_ttl_minutes' => (int) env('FEED_MEDIATOR_AUTH_REAUTH_PASS_MIN', 15),
+            'mfa_ttl_minutes' => (int) env('FEED_MEDIATOR_AUTH_REAUTH_MFA_MIN', 10),
+            'mfa_actions_csv' => env('FEED_MEDIATOR_AUTH_REAUTH_MFA_ACTIONS', ''),
+        ],
+        'break_glass' => [
+            'ttl_minutes' => (int) env('FEED_MEDIATOR_AUTH_BREAK_GLASS_MIN', 30),
+            'require_mfa' => (bool) env('FEED_MEDIATOR_AUTH_BREAK_GLASS_MFA', true),
+        ],
+        'sessions' => [
+            'revoke_on_password_change' => (bool) env('FEED_MEDIATOR_AUTH_REVOKE_ON_PASS_CHANGE', true),
+            'retention_days' => (int) env('FEED_MEDIATOR_AUTH_SESSION_RET_DAYS', 30),
+        ],
+    ],
     'deploy' => [
         'health_url' => env('FEED_MEDIATOR_DEPLOY_HEALTH_URL', '/health'),
         'smoke_feed_profile_id' => env('FEED_MEDIATOR_DEPLOY_SMOKE_FEED_PROFILE_ID'),
@@ -234,7 +271,7 @@ return [
             static fn ($value) => trim((string) $value),
             explode(',', (string) env(
                 'FEED_MEDIATOR_REDACT_KEYS',
-                'authorization,token,secret,password,api_key,api_token,webhook_url'
+                'authorization,token,secret,password,api_key,api_token,webhook_url,mfa,recovery_code'
             ))
         ))),
         'error_tracking' => [

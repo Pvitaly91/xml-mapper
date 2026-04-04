@@ -6,6 +6,9 @@
     @if(session('status'))
         <div class="message">{{ session('status') }}</div>
     @endif
+    @if(session('error'))
+        <div class="message" style="background:#ffe7e7;border-color:#f2b3b3;color:#8d1a1a;">{{ session('error') }}</div>
+    @endif
     <form method="POST" action="{{ route('admin.login.store') }}">
         @csrf
         <label for="email">Email</label>

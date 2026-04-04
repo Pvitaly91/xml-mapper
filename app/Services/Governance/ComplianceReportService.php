@@ -18,6 +18,7 @@ class ComplianceReportService
     {
         return GovernanceAudit::query()
             ->with(['shop', 'user', 'approvalRequest'])
+            ->when(filled($filters['category'] ?? null), fn ($query) => $query->where('category', $filters['category']))
             ->when(filled($filters['shop_id'] ?? null), fn ($query) => $query->where('shop_id', (int) $filters['shop_id']))
             ->when(filled($filters['user_id'] ?? null), fn ($query) => $query->where('user_id', (int) $filters['user_id']))
             ->when(filled($filters['event_type'] ?? null), fn ($query) => $query->where('event_type', $filters['event_type']))
@@ -60,7 +61,7 @@ class ComplianceReportService
         $path = $directory.'/'.$filename;
         $payload = [
             'generated_at' => now()->toIso8601String(),
-            'filters' => Arr::only($filters, ['shop_id', 'user_id', 'status', 'action', 'event_type', 'severity', 'from', 'to']),
+            'filters' => Arr::only($filters, ['category', 'shop_id', 'user_id', 'status', 'action', 'event_type', 'severity', 'from', 'to']),
             'audits' => array_map(static fn (GovernanceAudit $audit) => [
                 'id' => $audit->id,
                 'shop_id' => $audit->shop_id,

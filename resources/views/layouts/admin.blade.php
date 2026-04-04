@@ -45,6 +45,13 @@
                 @if($adminLayout['currentRoleLabel'] ?? null)
                     <div style="margin-top: 8px;">{{ $adminLayout['currentRoleLabel'] }}</div>
                 @endif
+                @if($adminLayout['security']['account_state'] ?? null)
+                    <div style="margin-top: 8px;">Account: {{ $adminLayout['security']['account_state'] }}</div>
+                    <div>MFA: {{ $adminLayout['security']['mfa_status'] ?? 'n/a' }}</div>
+                    @if($adminLayout['security']['break_glass_expires_at'] ?? null)
+                        <div style="margin-top: 8px; color: #ffefb0;">Break-glass until {{ $adminLayout['security']['break_glass_expires_at'] }}</div>
+                    @endif
+                @endif
                 @if($currentShop)
                     <div style="margin-top: 8px;">{{ $currentShop->name }}</div>
                     <div>{{ $currentShop->slug }}</div>

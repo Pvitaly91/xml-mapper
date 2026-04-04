@@ -168,6 +168,11 @@ class AppServiceProvider extends ServiceProvider
                 'currentShop' => $currentShop,
                 'availableShops' => $accessService->availableShops($user),
                 'currentRoleLabel' => $currentRole ? $accessService->labelForRole($currentRole) : null,
+                'security' => [
+                    'account_state' => $user->account_state,
+                    'mfa_status' => $user->mfaStatus(),
+                    'break_glass_expires_at' => session('admin_auth.break_glass.expires_at'),
+                ],
                 'nav' => $nav,
             ]);
         });

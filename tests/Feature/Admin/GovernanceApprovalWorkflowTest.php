@@ -6,9 +6,11 @@ use App\Models\ApprovalRequest;
 use App\Models\ShopMembership;
 use App\Models\SourceConnection;
 use App\Models\User;
+use App\Services\Auth\AdminMfaService;
 use App\Services\Governance\ApprovalPolicyService;
 use App\Services\Governance\GovernedActionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use RuntimeException;
 use Tests\Concerns\CreatesAdminContext;
 use Tests\TestCase;
@@ -170,15 +172,28 @@ class GovernanceApprovalWorkflowTest extends TestCase
                 'password' => 'merchant-secret-password',
             ],
         ]);
+        $setup = app(AdminMfaService::class)->beginEnrollment($admin);
+        app(AdminMfaService::class)->confirmEnrollment($admin->fresh(), app(AdminMfaService::class)->currentCode($setup['secret']));
+        $reviewerSetup = app(AdminMfaService::class)->beginEnrollment($reviewer);
+        app(AdminMfaService::class)->confirmEnrollment($reviewer->fresh(), app(AdminMfaService::class)->currentCode($reviewerSetup['secret']));
 
-        $this->actingAs($admin)
+        $this->actingAs($admin->fresh())
+            ->withSession([
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+                'admin_auth.mfa_verified_at' => now()->toIso8601String(),
+            ])
             ->get(route('admin.source-connections.edit', $connection))
             ->assertOk()
             ->assertDontSee('merchant-secret-login')
             ->assertDontSee('merchant-secret-password')
             ->assertSee('masked by default');
 
-        $response = $this->actingAs($admin)->put(route('admin.source-connections.update', $connection), [
+        $response = $this->actingAs($admin->fresh())
+            ->withSession([
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+                'admin_auth.mfa_verified_at' => now()->toIso8601String(),
+            ])
+            ->put(route('admin.source-connections.update', $connection), [
             'name' => $connection->name,
             'code' => $connection->code,
             'driver' => SourceConnection::DRIVER_PROM_YML,
@@ -201,7 +216,16 @@ class GovernanceApprovalWorkflowTest extends TestCase
             'summary' => 'new-password',
         ]);
 
-        app(GovernedActionService::class)->approve($approval, $reviewer, 'Secret rebind approved after review.');
+        $request = Request::create('/admin/access/approvals/'.$approval->id.'/approve', 'POST');
+        $session = app('session.store');
+        $session->flush();
+        $session->start();
+        $session->put('admin_auth.password_confirmed_at', now()->toIso8601String());
+        $session->put('admin_auth.mfa_verified_at', now()->toIso8601String());
+        $request->setLaravelSession($session);
+        app()->instance('request', $request);
+
+        app(GovernedActionService::class)->approve($approval, $reviewer->fresh(), 'Secret rebind approved after review.');
 
         $this->assertDatabaseHas('governance_audits', [
             'approval_request_id' => $approval->id,

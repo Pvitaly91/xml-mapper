@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AttributeMappingController;
 use App\Http\Controllers\Admin\AttributeMappingSuggestionController;
 use App\Http\Controllers\Admin\AccessCenterController;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Admin\Auth\AdminSecurityController;
 use App\Http\Controllers\Admin\CategoryMappingAutomapController;
 use App\Http\Controllers\Admin\CategoryMappingController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -71,16 +72,45 @@ Route::prefix('admin')->group(function (): void {
     Route::middleware('guest')->group(function (): void {
         Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
         Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:admin-login')->name('admin.login.store');
+        Route::get('/invites/{token}', [AdminSecurityController::class, 'showInvite'])->name('admin.invites.show');
+        Route::post('/invites/{token}', [AdminSecurityController::class, 'acceptInvite'])->name('admin.invites.accept');
     });
 
-    Route::middleware(['auth', 'can:access-admin', 'admin.shop.context', 'admin.permission'])->name('admin.')->group(function (): void {
-        Route::get('/', DashboardController::class)->name('dashboard');
+    Route::middleware(['auth', 'admin.security'])->name('admin.')->group(function (): void {
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+        Route::get('/security/password-reset', [AdminSecurityController::class, 'editPasswordReset'])->name('auth.password-reset.edit');
+        Route::put('/security/password-reset', [AdminSecurityController::class, 'updatePassword'])->name('auth.password-reset.update');
+        Route::get('/security/mfa/setup', [AdminSecurityController::class, 'showMfaSetup'])->name('auth.mfa.setup');
+        Route::post('/security/mfa/setup', [AdminSecurityController::class, 'enableMfa'])->name('auth.mfa.enable');
+        Route::get('/security/mfa/challenge', [AdminSecurityController::class, 'showMfaChallenge'])->name('auth.mfa.challenge.create');
+        Route::post('/security/mfa/challenge', [AdminSecurityController::class, 'verifyMfaChallenge'])->name('auth.mfa.challenge.store');
+        Route::get('/security/reauth/password', [AdminSecurityController::class, 'showPasswordReauth'])->name('auth.reauth.password.create');
+        Route::post('/security/reauth/password', [AdminSecurityController::class, 'verifyPasswordReauth'])->name('auth.reauth.password.store');
+        Route::get('/security/reauth/mfa', [AdminSecurityController::class, 'showMfaReauth'])->name('auth.reauth.mfa.create');
+        Route::post('/security/reauth/mfa', [AdminSecurityController::class, 'verifyMfaReauth'])->name('auth.reauth.mfa.store');
+        Route::post('/security/break-glass', [AdminSecurityController::class, 'startBreakGlass'])->name('auth.break-glass.start');
+        Route::post('/security/break-glass/end', [AdminSecurityController::class, 'endBreakGlass'])->name('auth.break-glass.end');
+    });
+
+    Route::middleware(['auth', 'admin.security', 'can:access-admin', 'admin.shop.context', 'admin.permission'])->name('admin.')->group(function (): void {
+        Route::get('/', DashboardController::class)->name('dashboard');
         Route::get('/access', [AccessCenterController::class, 'index'])->name('access.index');
         Route::post('/access/switch-shop', [AccessCenterController::class, 'switchShop'])->name('access.switch-shop');
         Route::post('/access/memberships', [AccessCenterController::class, 'storeMembership'])->name('access.memberships.store');
         Route::put('/access/memberships/{shop_membership}', [AccessCenterController::class, 'updateMembership'])->name('access.memberships.update');
         Route::post('/access/memberships/{shop_membership}/revoke', [AccessCenterController::class, 'revokeMembership'])->name('access.memberships.revoke');
+        Route::post('/access/invites', [AccessCenterController::class, 'storeInvite'])->name('access.invites.store');
+        Route::get('/access/invites/{admin_invite}', [AccessCenterController::class, 'showInvite'])->name('access.invites.show');
+        Route::post('/access/invites/{admin_invite}/resend', [AccessCenterController::class, 'resendInvite'])->name('access.invites.resend');
+        Route::post('/access/invites/{admin_invite}/revoke', [AccessCenterController::class, 'revokeInvite'])->name('access.invites.revoke');
+        Route::post('/access/users/{user}/suspend', [AccessCenterController::class, 'suspendUser'])->name('access.users.suspend');
+        Route::post('/access/users/{user}/reactivate', [AccessCenterController::class, 'reactivateUser'])->name('access.users.reactivate');
+        Route::post('/access/users/{user}/force-password-reset', [AccessCenterController::class, 'forcePasswordReset'])->name('access.users.force-password-reset');
+        Route::post('/access/users/{user}/reset-mfa', [AccessCenterController::class, 'resetMfa'])->name('access.users.reset-mfa');
+        Route::get('/access/sessions', [AccessCenterController::class, 'sessions'])->name('access.sessions');
+        Route::post('/access/sessions/{admin_session}/revoke', [AccessCenterController::class, 'revokeSession'])->name('access.sessions.revoke');
+        Route::post('/access/users/{user}/sessions/revoke', [AccessCenterController::class, 'revokeUserSessions'])->name('access.users.sessions.revoke');
+        Route::get('/access/auth-audit', [AccessCenterController::class, 'authAudit'])->name('access.auth-audit');
         Route::get('/access/approvals/{approval_request}', [AccessCenterController::class, 'showApproval'])->name('access.approvals.show');
         Route::post('/access/approvals/{approval_request}/approve', [AccessCenterController::class, 'approve'])->name('access.approvals.approve');
         Route::post('/access/approvals/{approval_request}/reject', [AccessCenterController::class, 'reject'])->name('access.approvals.reject');

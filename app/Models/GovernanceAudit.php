@@ -16,6 +16,7 @@ class GovernanceAudit extends Model
     public const CATEGORY_SECRET = 'secret';
     public const CATEGORY_DANGEROUS_ACTION = 'dangerous_action';
     public const CATEGORY_COMPLIANCE = 'compliance';
+    public const CATEGORY_AUTH = 'auth';
 
     protected $fillable = [
         'shop_id',

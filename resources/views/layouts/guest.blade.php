@@ -11,11 +11,13 @@
         h1 { margin: 0 0 8px; font-size: 28px; }
         p { margin: 0 0 18px; color: #526071; }
         label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-        input[type="email"], input[type="password"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #c6ced6; box-sizing: border-box; margin-bottom: 16px; }
+        input[type="email"], input[type="password"], input[type="text"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #c6ced6; box-sizing: border-box; margin-bottom: 16px; }
         .button { width: 100%; background: #0d5c63; color: #fff; border: 0; border-radius: 10px; padding: 12px 14px; font-weight: 700; cursor: pointer; }
         .message { background: #fff4d6; border: 1px solid #edd595; color: #73510d; border-radius: 10px; padding: 12px; margin-bottom: 14px; }
         .error { color: #a61b1b; font-size: 13px; margin-top: -10px; margin-bottom: 12px; }
         .check { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: #526071; }
+        code, pre { display: block; white-space: pre-wrap; background: rgba(13, 92, 99, 0.07); border-radius: 10px; padding: 12px; font-family: Consolas, "Courier New", monospace; font-size: 13px; color: #173b43; margin-bottom: 16px; }
+        ul { padding-left: 18px; color: #526071; }
     </style>
 </head>
 <body>

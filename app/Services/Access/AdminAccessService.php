@@ -147,7 +147,7 @@ class AdminAccessService
 
     public function canAccessAdmin(User $user): bool
     {
-        return $user->is_active && $this->memberships($user)->isNotEmpty();
+        return $user->canUseAdminAuthentication() && $this->memberships($user)->isNotEmpty();
     }
 
     public function isPlatformAdmin(User $user): bool
@@ -220,6 +220,7 @@ class AdminAccessService
     {
         return User::query()
             ->where('is_active', true)
+            ->whereNotIn('account_state', [User::STATE_INVITED, User::STATE_SUSPENDED, User::STATE_LOCKED])
             ->where(function (Builder $query) use ($shop, $roles): void {
                 $query->whereHas('memberships', function (Builder $membershipQuery) use ($shop, $roles): void {
                     $membershipQuery->where('status', ShopMembership::STATUS_ACTIVE)

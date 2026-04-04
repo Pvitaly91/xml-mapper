@@ -26,6 +26,9 @@ class SecretsRotationAndConfirmationTest extends TestCase
         ]);
 
         $this->actingAs($admin)
+            ->withSession([
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+            ])
             ->post(route('admin.source-connections.rotation', $connection), [
                 'target' => SecretsRotationService::TARGET_PROM_API_TOKEN,
                 'note' => 'Rotated during staging rehearsal',

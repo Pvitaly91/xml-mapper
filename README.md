@@ -1488,6 +1488,71 @@ Key rules:
 
 Use `/admin/access` as the Access Center for memberships, approvals and compliance history. The current shop selector is RBAC-aware and refuses shop switches outside the user's active memberships.
 
+## Authentication, MFA And Session Governance
+
+The admin surface now adds a security layer on top of RBAC and approvals.
+
+Account lifecycle:
+
+- internal invites create a real `admin_invites` record plus membership in `invited` state
+- users move through `invited`, `active`, `suspended`, `locked`, `password_reset_required`
+- invite acceptance sets the initial password, activates the membership and records auth audit
+- revoked or suspended membership does not regain legacy fallback access
+- globally suspended users cannot sign in even if a membership is still active
+
+MFA / TOTP:
+
+- TOTP enrollment is available from the admin security flow
+- the setup screen shows the authenticator secret and provisioning URI; QR SVG is rendered when the optional QR package is installed
+- recovery codes are shown once, stored encrypted+hashed metadata style, and cannot be reused
+- `platform_admin` MFA is required by policy in production by default
+- MFA reset is operator-controlled, session-revoking and audited
+
+Step-up auth for dangerous actions:
+
+- dangerous actions no longer rely only on role or approval
+- the governed action layer now also checks recent password confirmation
+- policy can require recent MFA for selected action families or high-risk production actions
+- result states are explicit: `allowed`, `password_reauth_required`, `mfa_reauth_required`, `blocked_by_policy`
+
+Session governance:
+
+- active admin sessions are persisted with IP, device label, last seen time, MFA verification time and break-glass state
+- operators can inspect sessions, revoke one session, revoke other sessions, or revoke all sessions from Access Center
+- password change revokes other sessions by default and this behavior is configurable
+
+Break-glass:
+
+- break-glass is temporary session-scoped emergency mode for `platform_admin` only
+- a reason is required
+- recent re-auth is required first
+- TTL is enforced and expiry is audited
+- it is visible in the admin shell and auth audit trail; it is not a hidden bypass user
+
+Auth audit / compliance:
+
+- invite created / resent / revoked / accepted
+- login success / failure
+- account lock / unlock
+- password reset required / password changed
+- MFA enrolled / verified / failed / reset
+- session revoked / reuse blocked
+- re-auth challenged / succeeded / failed
+- break-glass started / ended
+
+Use `/admin/access/auth-audit` for filtered auth event review and `php artisan auth:audit:report` for JSON export.
+
+## Secure Operator Workflow
+
+Recommended production operator pattern:
+
+1. accept access through an internal invite instead of sharing credentials.
+2. complete password setup and MFA enrollment before opening live release or source-secret screens.
+3. keep day-to-day work shop-scoped; reserve `platform_admin` for cross-shop governance.
+4. when a dangerous action asks for recent auth, complete password/MFA re-auth instead of bypassing it.
+5. use break-glass only for explicit emergencies and record a clear reason.
+6. review auth audit and session state during post-incident or compliance follow-up.
+
 ## Dangerous Actions And Approval Queue
 
 High-risk actions no longer execute directly from admin screens.
