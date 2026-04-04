@@ -87,6 +87,11 @@ class FeedHypercareWindow extends Model
         return $this->hasMany(OpsPolicyResult::class, 'feed_hypercare_window_id');
     }
 
+    public function notificationDeliveries(): HasMany
+    {
+        return $this->hasMany(OpsNotificationDelivery::class, 'feed_hypercare_window_id');
+    }
+
     public function isTerminal(): bool
     {
         return in_array($this->status, self::terminalStatuses(), true);

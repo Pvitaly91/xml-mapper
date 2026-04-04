@@ -10,6 +10,8 @@ use App\Models\FeedProfile;
 use App\Models\OpsAlert;
 use App\Models\User;
 use App\Services\Ops\OpsAlertService;
+use App\Services\Ops\CorrelationContext;
+use App\Services\Ops\OpsStructuredLogService;
 use RuntimeException;
 
 class FeedFirstPullVerificationService
@@ -20,6 +22,8 @@ class FeedFirstPullVerificationService
         private readonly FeedReleaseAuditService $auditService,
         private readonly PilotNotificationService $notificationService,
         private readonly OpsAlertService $alertService,
+        private readonly CorrelationContext $correlationContext,
+        private readonly OpsStructuredLogService $structuredLogService,
     ) {}
 
     public function run(
@@ -169,6 +173,7 @@ class FeedFirstPullVerificationService
                     'checksum' => $generation->checksum,
                 ],
                 'reason' => $reason,
+                'correlation_id' => $this->correlationContext->ensure(),
             ] + $meta,
         ]);
 
@@ -260,6 +265,17 @@ class FeedFirstPullVerificationService
         if ($syncCutover) {
             $this->cutoverService->markFirstPullVerified($feedProfile->fresh(), $generation->fresh(), $verification, $user, $reason);
         }
+
+        $this->structuredLogService->{$failed ? 'error' : ($verification->status === FeedFirstPullVerification::STATUS_WARNING ? 'warning' : 'info')}(
+            'first_pull_verification',
+            'First-pull verification finished with status '.$verification->status.'.',
+            [
+                'feed_profile_id' => $feedProfile->id,
+                'feed_generation_id' => $generation->id,
+                'verification_id' => $verification->id,
+                'target' => $target,
+            ]
+        );
 
         return $verification->fresh(['smokeCheck', 'cutover']);
     }

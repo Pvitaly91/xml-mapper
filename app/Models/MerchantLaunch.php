@@ -127,6 +127,11 @@ class MerchantLaunch extends Model
         return $this->hasMany(MerchantLaunchTuningAction::class);
     }
 
+    public function notificationDeliveries(): HasMany
+    {
+        return $this->hasMany(OpsNotificationDelivery::class, 'merchant_launch_id');
+    }
+
     public function isClosed(): bool
     {
         return $this->state === self::STATE_CLOSED;

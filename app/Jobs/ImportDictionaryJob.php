@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Contracts\Dictionaries\KastaDictionaryImportServiceInterface;
 use App\Data\Dictionaries\DictionaryImportOptions;
+use App\Jobs\Concerns\UsesCorrelationContext;
+use App\Services\Ops\CorrelationContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
 
 class ImportDictionaryJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, UsesCorrelationContext;
 
     public int $timeout = 1800;
 
@@ -30,8 +32,10 @@ class ImportDictionaryJob implements ShouldQueue
         public readonly ?int $initiatedByUserId = null,
         public readonly ?string $originalFilename = null,
         public readonly bool $reimportLatest = false,
+        public ?string $correlationId = null,
     ) {
         $this->onQueue((string) config('feed_mediator.queues.dictionaries'));
+        $this->correlationId ??= app(CorrelationContext::class)->id();
     }
 
     /**

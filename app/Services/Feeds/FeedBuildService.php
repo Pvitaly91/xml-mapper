@@ -10,6 +10,8 @@ use App\Models\OpsAlert;
 use App\Models\SourceVariant;
 use App\Models\SyncLog;
 use App\Services\Ops\OpsAlertService;
+use App\Services\Ops\CorrelationContext;
+use App\Services\Ops\OpsStructuredLogService;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -25,6 +27,8 @@ class FeedBuildService implements FeedBuildServiceInterface
         private readonly FeedPublishGuardService $publishGuardService,
         private readonly PilotNotificationService $notificationService,
         private readonly OpsAlertService $alertService,
+        private readonly CorrelationContext $correlationContext,
+        private readonly OpsStructuredLogService $structuredLogService,
         private readonly ProcessLockService $lockService,
     ) {}
 
@@ -236,6 +240,11 @@ class FeedBuildService implements FeedBuildServiceInterface
                     $this->log($feedProfile, $generation, 'error', 'feed.build_failed', $exception->getMessage(), [
                         'exception' => $exception::class,
                     ]);
+                    $this->structuredLogService->error('feed_build', $exception->getMessage(), [
+                        'feed_profile_id' => $feedProfile->id,
+                        'feed_generation_id' => $generation->id,
+                        'exception' => $exception::class,
+                    ]);
                     $this->alertService->raiseForProfile(
                         $feedProfile,
                         OpsAlert::SOURCE_BUILD_FAILURE,
@@ -342,6 +351,8 @@ class FeedBuildService implements FeedBuildServiceInterface
 
     private function log(FeedProfile $feedProfile, FeedGeneration $generation, string $level, string $event, string $message, array $context = []): void
     {
+        $context['correlation_id'] = $this->correlationContext->ensure();
+
         SyncLog::create([
             'shop_id' => $feedProfile->shop_id,
             'source_connection_id' => $feedProfile->source_connection_id,
@@ -353,5 +364,11 @@ class FeedBuildService implements FeedBuildServiceInterface
             'context' => $context,
             'occurred_at' => now(),
         ]);
+
+        $this->structuredLogService->{$level === 'error' ? 'error' : 'info'}('feed_build', $message, array_merge($context, [
+            'event' => $event,
+            'feed_profile_id' => $feedProfile->id,
+            'feed_generation_id' => $generation->id,
+        ]));
     }
 }

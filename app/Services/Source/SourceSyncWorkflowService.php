@@ -10,6 +10,8 @@ use App\Models\FeedProfile;
 use App\Models\SourceConnection;
 use App\Models\SourceImport;
 use App\Models\SyncLog;
+use App\Services\Ops\CorrelationContext;
+use App\Services\Ops\OpsStructuredLogService;
 use Throwable;
 
 class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
@@ -19,6 +21,8 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
         private readonly SourceDriverRegistry $drivers,
         private readonly ProductNormalizerInterface $normalizer,
         private readonly SourceConnectionStateService $stateService,
+        private readonly CorrelationContext $correlationContext,
+        private readonly OpsStructuredLogService $structuredLogService,
     ) {}
 
     public function prepare(SourceConnection $connection): SourceImport
@@ -32,6 +36,7 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
         $connection = $import->sourceConnection;
         $driver = $this->drivers->forConnection($connection);
         $startedAt = microtime(true);
+        $correlationId = $this->correlationContext->ensure();
 
         try {
             $feedData = $driver->loadFeedData($connection, $import);
@@ -79,8 +84,17 @@ class SourceSyncWorkflowService implements SourceSyncWorkflowServiceInterface
                 'level' => 'error',
                 'event' => 'source.normalize_failed',
                 'message' => $exception->getMessage(),
-                'context' => ['exception' => $exception::class],
+                'context' => [
+                    'exception' => $exception::class,
+                    'correlation_id' => $correlationId,
+                ],
                 'occurred_at' => now(),
+            ]);
+            $this->structuredLogService->error('source_sync', $exception->getMessage(), [
+                'source_connection_id' => $connection->id,
+                'source_import_id' => $import->id,
+                'exception' => $exception::class,
+                'correlation_id' => $correlationId,
             ]);
 
             throw $exception;

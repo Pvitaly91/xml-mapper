@@ -9,6 +9,8 @@ use App\Models\FeedProfile;
 use App\Models\OpsAlert;
 use App\Models\User;
 use App\Services\Ops\OpsAlertService;
+use App\Services\Ops\OpsErrorTrackingService;
+use App\Services\Ops\OpsStructuredLogService;
 use RuntimeException;
 use Throwable;
 
@@ -25,6 +27,8 @@ class FeedReleaseService
         private readonly FeedFirstPullVerificationService $firstPullVerificationService,
         private readonly FeedHypercareService $hypercareService,
         private readonly OpsAlertService $alertService,
+        private readonly OpsStructuredLogService $structuredLogService,
+        private readonly OpsErrorTrackingService $errorTrackingService,
     ) {}
 
     public function markCandidate(FeedGeneration $generation, ?User $user = null, ?string $reason = null): FeedGeneration
@@ -154,6 +158,18 @@ class FeedReleaseService
                 ],
                 $generation
             );
+            $this->structuredLogService->error('feed_publish', $exception->getMessage(), [
+                'feed_profile_id' => $feedProfile->id,
+                'feed_generation_id' => $generation->id,
+                'force' => $force,
+                'exception' => $exception::class,
+            ]);
+            $this->errorTrackingService->capture($exception, [
+                'workflow' => 'feed_publish',
+                'feed_profile_id' => $feedProfile->id,
+                'feed_generation_id' => $generation->id,
+                'force' => $force,
+            ]);
 
             throw $exception;
         }
@@ -200,6 +216,12 @@ class FeedReleaseService
             $this->auditService->record($feedProfile, $published, 'first_pull_verification_failed', $user, $reason, [
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
+            ]);
+            $this->structuredLogService->error('feed_publish', $exception->getMessage(), [
+                'feed_profile_id' => $feedProfile->id,
+                'feed_generation_id' => $published->id,
+                'stage' => 'automatic_first_pull',
+                'exception' => $exception::class,
             ]);
         }
 

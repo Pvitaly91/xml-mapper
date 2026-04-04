@@ -62,6 +62,23 @@ Important env variables:
 - `FEED_MEDIATOR_FEEDBACK_BACKLOG_WARN=10`
 - `FEED_MEDIATOR_FEEDBACK_BACKLOG_CRIT=25`
 - `FEED_MEDIATOR_PROMOTION_SCHEMA_VERSION=1`
+- `FEED_MEDIATOR_NOTIFY_DB_ENABLED=true`
+- `FEED_MEDIATOR_NOTIFY_LOG_ENABLED=true`
+- `FEED_MEDIATOR_NOTIFY_MAIL_ENABLED=false`
+- `FEED_MEDIATOR_NOTIFY_MAIL_TO=ops@example.com`
+- `FEED_MEDIATOR_NOTIFY_LOG_CHANNEL=stack`
+- `FEED_MEDIATOR_NOTIFY_SUPPRESS_MINUTES=15`
+- `FEED_MEDIATOR_NOTIFY_REPEAT_MINUTES=30`
+- `FEED_MEDIATOR_NOTIFY_ESCALATE_MINUTES=15`
+- `FEED_MEDIATOR_NOTIFY_QUIET_TZ=Europe/Kyiv`
+- `FEED_MEDIATOR_NOTIFY_WEBHOOK_TIMEOUT=5`
+- `FEED_MEDIATOR_NOTIFY_WEBHOOK_RETRIES=3`
+- `FEED_MEDIATOR_NOTIFY_WEBHOOK_BACKOFF=60,300,900`
+- `FEED_MEDIATOR_NOTIFY_RET_DAYS=30`
+- `FEED_MEDIATOR_CORRELATION_HEADER=X-Correlation-ID`
+- `FEED_MEDIATOR_REDACT_KEYS=authorization,token,secret,password,api_key,api_token,webhook_url`
+- `FEED_MEDIATOR_ERROR_TRACKING_DRIVER=sentry`
+- `FEED_MEDIATOR_ERROR_TRACKING_DSN=`
 
 ## Scheduler
 
@@ -129,6 +146,12 @@ php artisan ops:digest {feedProfileId} --date=2026-04-03
 php artisan ops:handoff {feedProfileId}
 php artisan ops:silence {feedProfileId} --from="2026-04-03 23:00" --to="2026-04-04 01:00" --severity=warning --reason="planned maintenance"
 php artisan ops:silence:clear {feedProfileId}
+php artisan ops:notify:test {channel} --target= --shop=
+php artisan ops:notify:retry {deliveryId}
+php artisan ops:alerts:dispatch-pending
+php artisan ops:alerts:escalate-due --shop= --profile=
+php artisan ops:deliveries:prune
+php artisan ops:channels:status --shop=
 php artisan ops:preflight-production
 php artisan ops:backup-db
 php artisan ops:backup-files
@@ -337,6 +360,14 @@ Current prune scope:
 
 Audit and release history are intentionally not pruned automatically.
 
+Outbound delivery history has a dedicated retention path:
+
+```bash
+php artisan ops:deliveries:prune
+```
+
+The delivery retention window is controlled by `FEED_MEDIATOR_NOTIFY_RET_DAYS`. This keeps `ops_notification_deliveries` manageable without coupling external-notification cleanup to the broader artifact prune flow.
+
 ## Benchmark / Performance
 
 Benchmark command:
@@ -377,6 +408,163 @@ Secrets handling:
 - Prom API tokens are encrypted at rest
 - `api_token` is excluded from flashed validation input
 - token rotation should be followed by `source:test`
+- webhook targets are encrypted at rest and shown through redacted labels only
+- notification target fields are excluded from flashed validation input
+- structured logs and optional error-tracking context redact token/secret-like keys automatically
+
+## Notification Channels And Routing
+
+Use `/admin/notifications` as the operator-facing Notification Center.
+
+Supported outbound channels:
+
+- `database`
+- `log`
+- `email`
+- `webhook`
+
+Route scopes:
+
+- `global`
+- `shop`
+- `feed_profile`
+
+Route controls:
+
+- `event_family`, `event_type` and minimum severity
+- channel enable/disable
+- `muted_until`
+- quiet hours start/end/timezone
+- per-route suppression window, repeat interval, escalation delay, timeout and retry attempts
+
+Supported event families include:
+
+- `source_auth_broken`
+- `sync_failed`
+- `build_failed`
+- `publish_failed`
+- `smoke_failed`
+- `first_pull_failed`
+- `promotion_blocked`
+- `signoff_blocked`
+- `hypercare_critical_issue`
+- `rejection_spike`
+- `launch_degraded`
+- `rollback_executed`
+
+If no persisted routes exist, the system still has safe fallback database/log routing so critical operator visibility does not disappear.
+
+## Delivery History, Dedup And Escalation
+
+Every outbound attempt is stored in `ops_notification_deliveries` with:
+
+- event type and family
+- severity
+- channel and redacted target label
+- rendered summary/payload snapshot
+- attempts, timestamps and redacted response metadata
+- linked alert, launch, hypercare window, feed profile and pilot run when available
+- correlation ID
+
+Delivery states:
+
+- `pending_delivery`
+- `delivered`
+- `acknowledged`
+- `suppressed`
+- `escalated`
+- `resolved`
+- `dropped`
+- `failed`
+
+Dedup and anti-spam rules:
+
+- dedup keys/fingerprints are evaluated before delivery
+- suppression windows keep identical alert noise from fanning out repeatedly
+- repeat intervals delay re-delivery until the configured window expires
+- suppressed deliveries remain visible in history and in the Notification Center
+- due unacknowledged alerts can be escalated with `ops:alerts:escalate-due`
+
+Scheduler hooks:
+
+- `ops:alerts:dispatch-pending` retries pending deliveries whose backoff window expired
+- `ops:alerts:escalate-due` escalates overdue alerts
+- `ops:deliveries:prune` removes old delivery history
+
+## Correlation IDs And Structured Logging
+
+HTTP requests receive a correlation ID through `FEED_MEDIATOR_CORRELATION_HEADER` (`X-Correlation-ID` by default). The same ID is propagated into:
+
+- queued jobs
+- alerts/incidents
+- outbound deliveries
+- sync logs
+- release events
+- smoke checks
+- first-pull verification
+- launch and hypercare events
+
+This gives operators a stable trace key for debugging one incident across admin UI, logs, delivery history and closeout reports.
+
+Structured log context is attached to critical workflows:
+
+- source sync
+- build/publish
+- smoke
+- first-pull
+- feedback import
+- promotion
+- pilot
+- launch/hypercare
+
+Optional external error tracking is supported only when configured:
+
+- set `FEED_MEDIATOR_ERROR_TRACKING_DSN`
+- keep `FEED_MEDIATOR_ERROR_TRACKING_DRIVER=sentry` or replace it with another adapter if the service binding exists
+- when no DSN is present, the hook is a safe no-op
+
+## Testing Notification Delivery
+
+Admin actions:
+
+- open `/admin/notifications`
+- use `Send test notification` for an ad-hoc target
+- use `Test route` on an existing subscription
+- review the recorded delivery detail for status, attempts and correlation ID
+
+CLI:
+
+```bash
+php artisan ops:notify:test {channel} --target= --shop=
+php artisan ops:notify:retry {deliveryId}
+php artisan ops:channels:status --shop=
+```
+
+Operator expectations:
+
+1. run one test per active external route before a real live launch
+2. confirm `last_test_succeeded_at` or `last_test_failed_at` changed on the route
+3. if a test failed, inspect the persisted delivery and retry only after fixing the target or route policy
+
+## Launch, Hypercare And Incident Propagation
+
+Important live-support events now emit outbound notification candidates instead of staying only inside the admin UI:
+
+- launch degraded
+- smoke failed
+- first-pull failed
+- rejection spike
+- rollback executed
+- critical incident unresolved
+
+Live launch and hypercare screens show:
+
+- recent outbound deliveries
+- failed deliveries
+- suppressed deliveries
+- escalated alerts
+
+Closeout and evidence-oriented reports include outbound notification summaries when those deliveries are part of the operational story.
 
 ## Pilot Publish Checklist
 

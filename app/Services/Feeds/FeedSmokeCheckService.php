@@ -9,6 +9,8 @@ use App\Models\FeedProfile;
 use App\Models\OpsAlert;
 use App\Models\User;
 use App\Services\Ops\OpsAlertService;
+use App\Services\Ops\CorrelationContext;
+use App\Services\Ops\OpsStructuredLogService;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Request;
@@ -23,6 +25,8 @@ class FeedSmokeCheckService
         private readonly PilotNotificationService $notificationService,
         private readonly FeedPreviewLinkService $previewLinkService,
         private readonly OpsAlertService $alertService,
+        private readonly CorrelationContext $correlationContext,
+        private readonly OpsStructuredLogService $structuredLogService,
     ) {}
 
     public function run(
@@ -119,6 +123,7 @@ class FeedSmokeCheckService
         array $meta = []
     ): FeedGenerationSmokeCheck {
         $response = $this->fetch($url);
+        $correlationId = $this->correlationContext->ensure();
         $errors = [];
         $warnings = [];
         $body = $response['body'];
@@ -203,6 +208,7 @@ class FeedSmokeCheckService
                 'url' => $url,
                 'reason' => $reason,
                 'duration_ms' => $response['duration_ms'],
+                'correlation_id' => $correlationId,
             ], $meta),
         ]);
 
@@ -292,6 +298,18 @@ class FeedSmokeCheckService
         } else {
             $this->alertService->resolveFingerprint($feedProfile, OpsAlert::SOURCE_SMOKE_CHECK_FAILURE, 'Smoke checks recovered.');
         }
+
+        $this->structuredLogService->{$status === FeedGenerationSmokeCheck::STATUS_FAILED ? 'error' : ($status === FeedGenerationSmokeCheck::STATUS_WARNING ? 'warning' : 'info')}(
+            'feed_smoke',
+            'Smoke check finished with status '.$status.'.',
+            [
+                'feed_profile_id' => $feedProfile->id,
+                'feed_generation_id' => $generation->id,
+                'smoke_check_id' => $smokeCheck->id,
+                'target' => $meta['target'] ?? 'published',
+                'correlation_id' => $correlationId,
+            ]
+        );
 
         return $smokeCheck;
     }

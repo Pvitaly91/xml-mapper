@@ -35,6 +35,18 @@ Schedule::command('ops:alerts:review')
     ->onOneServer()
     ->withoutOverlapping();
 
+Schedule::command('ops:alerts:dispatch-pending')
+    ->name('ops:alerts-dispatch-pending')
+    ->everyFiveMinutes()
+    ->onOneServer()
+    ->withoutOverlapping();
+
+Schedule::command('ops:alerts:escalate-due')
+    ->name('ops:alerts-escalate-due')
+    ->everyFifteenMinutes()
+    ->onOneServer()
+    ->withoutOverlapping();
+
 Schedule::command('ops:backup-db')
     ->name('ops:backup-db')
     ->dailyAt((string) config('feed_mediator.schedule.backup_db_at'))
@@ -50,5 +62,11 @@ Schedule::command('ops:backup-files')
 Schedule::command('ops:prune')
     ->name('ops:prune')
     ->dailyAt((string) config('feed_mediator.schedule.prune_at'))
+    ->onOneServer()
+    ->withoutOverlapping();
+
+Schedule::command('ops:deliveries:prune')
+    ->name('ops:deliveries-prune')
+    ->dailyAt('04:00')
     ->onOneServer()
     ->withoutOverlapping();

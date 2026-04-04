@@ -2,6 +2,7 @@
 
 namespace App\Services\Ops;
 
+use App\Data\Ops\OpsNotificationMessage;
 use App\Models\FeedGeneration;
 use App\Models\FeedHypercareWindow;
 use App\Models\FeedProfile;
@@ -14,13 +15,15 @@ use App\Notifications\OpsAlertNotification;
 use App\Services\Feeds\FeedReleaseAuditService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Notification;
 
 class OpsAlertService
 {
     public function __construct(
         private readonly FeedReleaseAuditService $auditService,
         private readonly SilenceWindowService $silenceWindowService,
+        private readonly NotificationDeliveryService $deliveryService,
+        private readonly CorrelationContext $correlationContext,
+        private readonly OpsStructuredLogService $structuredLogService,
     ) {}
 
     public function raiseForProfile(
@@ -48,6 +51,7 @@ class OpsAlertService
             ? OpsAlert::STATE_SILENCED
             : ($existing?->state === OpsAlert::STATE_ACKNOWLEDGED ? OpsAlert::STATE_ACKNOWLEDGED : OpsAlert::STATE_RAISED);
         $now = now();
+        $correlationId = $this->correlationContext->ensure();
         $stateChanged = false;
         $wasNew = ! $existing instanceof OpsAlert;
 
@@ -62,6 +66,7 @@ class OpsAlertService
                 'state' => $state,
                 'severity' => $severity,
                 'fingerprint' => $fingerprint,
+                'correlation_id' => $correlationId,
                 'title' => $title,
                 'message' => $message,
                 'reason' => $silenced ? 'Silenced by maintenance window.' : null,
@@ -86,6 +91,7 @@ class OpsAlertService
                 'state' => $state,
                 'title' => $title,
                 'message' => $message,
+                'correlation_id' => $correlationId,
                 'reason' => $silenced ? 'Silenced by maintenance window.' : $existing->reason,
                 'silenced_at' => $silenced ? $now : null,
                 'last_raised_at' => $now,
@@ -112,8 +118,16 @@ class OpsAlertService
         }
 
         if (! $silenced && ($wasNew || $stateChanged)) {
-            Notification::send($this->activeAdmins($feedProfile), new OpsAlertNotification($alert));
+            $this->deliveryService->dispatch($this->messageForAlert($alert, 'ops.alert.'.$alert->state));
         }
+
+        $this->structuredLogService->{$this->severityMethod($severity)}('ops_alert', $message, [
+            'alert_id' => $alert->id,
+            'feed_profile_id' => $feedProfile->id,
+            'source' => $source,
+            'state' => $state,
+            'silenced' => $silenced,
+        ]);
 
         return $alert;
     }
@@ -185,6 +199,7 @@ class OpsAlertService
         ])->save();
 
         $this->recordAlertEvent($alert->feedProfile, $alert->feedGeneration, 'hypercare_alert_acknowledged', $alert, $user);
+        $this->deliveryService->markAlertState($alert->fresh(), OpsAlert::NOTIFICATION_ACKNOWLEDGED, $reason);
 
         return $alert->fresh();
     }
@@ -215,6 +230,7 @@ class OpsAlertService
             $alert,
             $user
         );
+        $this->deliveryService->markAlertState($alert->fresh(), OpsAlert::NOTIFICATION_RESOLVED, $reason);
 
         return $alert->fresh();
     }
@@ -242,7 +258,7 @@ class OpsAlertService
 
             $this->degradeHypercare($alert->hypercareWindow);
             $this->recordAlertEvent($alert->feedProfile, $alert->feedGeneration, 'hypercare_alert_escalated', $alert);
-            Notification::send($this->activeAdmins($alert->feedProfile), new OpsAlertNotification($alert));
+            $this->deliveryService->dispatch($this->messageForAlert($alert->fresh(), 'ops.alert.escalated'));
         }
 
         return $alerts;
@@ -337,6 +353,7 @@ class OpsAlertService
                 'state' => $alert->state,
                 'severity' => $alert->severity,
                 'fingerprint' => $alert->fingerprint,
+                'correlation_id' => $alert->correlation_id,
             ],
             'occurred_at' => now(),
         ]);
@@ -356,5 +373,52 @@ class OpsAlertService
         return $feedProfile->shop?->users
             ? $feedProfile->shop->users->where('role', User::ROLE_ADMIN)->where('is_active', true)->values()
             : collect();
+    }
+
+    private function messageForAlert(OpsAlert $alert, string $eventType): OpsNotificationMessage
+    {
+        return new OpsNotificationMessage(
+            eventType: $eventType,
+            eventFamily: $this->eventFamilyForSource($alert->source, $alert->severity),
+            severity: $alert->severity,
+            title: $alert->title,
+            message: $alert->message,
+            context: array_merge($alert->context ?? [], [
+                'alert_state' => $alert->state,
+                'alert_reason' => $alert->reason,
+                'alert_note' => $alert->note,
+                'alert_source' => $alert->source,
+            ]),
+            shopId: $alert->shop_id,
+            feedProfileId: $alert->feed_profile_id,
+            opsAlertId: $alert->id,
+            feedHypercareWindowId: $alert->feed_hypercare_window_id,
+            correlationId: $alert->correlation_id,
+            dedupKey: $alert->fingerprint,
+            databaseNotification: new OpsAlertNotification($alert),
+        );
+    }
+
+    private function eventFamilyForSource(string $source, string $severity): string
+    {
+        return match ($source) {
+            OpsAlert::SOURCE_SOURCE_AUTH_BROKEN => 'source_auth_broken',
+            OpsAlert::SOURCE_SYNC_FAILURE => 'sync_failed',
+            OpsAlert::SOURCE_BUILD_FAILURE => 'build_failed',
+            OpsAlert::SOURCE_PUBLISH_FAILURE => 'publish_failed',
+            OpsAlert::SOURCE_SMOKE_CHECK_FAILURE => 'smoke_failed',
+            OpsAlert::SOURCE_FIRST_PULL_FAILURE => 'first_pull_failed',
+            OpsAlert::SOURCE_REJECTION_SPIKE => 'rejection_spike',
+            default => $severity === OpsAlert::SEVERITY_CRITICAL ? 'hypercare_critical_issue' : '*',
+        };
+    }
+
+    private function severityMethod(string $severity): string
+    {
+        return match ($severity) {
+            OpsAlert::SEVERITY_CRITICAL => 'error',
+            OpsAlert::SEVERITY_WARNING => 'warning',
+            default => 'info',
+        };
     }
 }

@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Contracts\Source\SourceSyncWorkflowServiceInterface;
+use App\Jobs\Concerns\UsesCorrelationContext;
 use App\Models\SourceImport;
+use App\Services\Ops\CorrelationContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
 
 class NormalizeProductsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, UsesCorrelationContext;
 
     public int $timeout = 1800;
 
@@ -22,8 +24,10 @@ class NormalizeProductsJob implements ShouldQueue
 
     public function __construct(
         public readonly int $sourceImportId,
+        public ?string $correlationId = null,
     ) {
         $this->onQueue((string) config('feed_mediator.queues.normalization'));
+        $this->correlationId ??= app(CorrelationContext::class)->id();
     }
 
     /**

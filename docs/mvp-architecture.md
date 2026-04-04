@@ -29,6 +29,10 @@ Live launch execution flow:
 
 `MerchantLaunchService` -> persisted `merchant_launches` -> baseline seed -> live publish validation -> observation / defect capture -> safe tuning via existing feed-profile settings -> stabilization checklist -> handover / closeout reports
 
+External observability flow:
+
+`OpsAlertService` / live workflow services -> `NotificationRoutingService` -> `NotificationDeliveryService` -> channel drivers (`database`, `log`, `email`, `webhook`) -> persisted `ops_notification_deliveries` -> admin Notification Center / reports / retry / prune
+
 Driver paths:
 
 - `prom_yml`:
@@ -87,6 +91,13 @@ Feed-item export lifecycle:
 - `MerchantLaunchService` owns the persisted first-live launch record, baseline evaluation, observation/defect triage, tuning history, handover gating and closeout rules
 - `MerchantLaunchCenterService` assembles the live launch admin checklist screen
 - `MerchantLaunchReportService` exports summary, observation, defect and closeout launch reports
+- `CorrelationContext` and `CorrelationIdMiddleware` assign and propagate correlation IDs across HTTP, jobs, alerts, logs and outbound deliveries
+- `NotificationRoutingService` resolves route scope, event-family matching, quiet hours, mute windows and delivery policy defaults
+- `NotificationDeliveryService` persists outbound deliveries, enforces suppression/repeat policy, retries safe failures and syncs alert notification state
+- `NotificationCenterService` assembles route management, delivery history, per-route health and operator retry/test actions
+- `NotificationRenderService` produces per-channel payload summaries while keeping channel formatting outside controllers and Blade
+- `OpsStructuredLogService` adds consistent workflow context for source, release, pilot, launch and hypercare logs
+- `OpsErrorTrackingService` provides optional error-tracking hooks when a DSN and client binding are present
 - `FeedOperationsService` aggregates the production operations screen for one profile
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
@@ -188,6 +199,9 @@ Kasta export assumptions:
 - launch observations, launch defects and launch tuning actions are persisted separately from generic alerts and release events, but they still link back to feed items, feedback, alerts and generations when available
 - monitoring policy results are stored in `ops_policy_results`, which keeps cadence/threshold evaluation queryable without scattering ad-hoc status flags
 - alerts/incidents are stored in `ops_alerts` and mirrored into `feed_release_events` plus `sync_logs` so operator workflow and forensic logs stay aligned
+- outbound notification routes are stored in `ops_notification_routes`, which keeps routing scope, quiet hours, mute windows and per-channel policy outside controllers
+- outbound delivery history is stored in `ops_notification_deliveries`, so delivered, failed, suppressed and escalated states remain queryable instead of disappearing into log-only integrations
+- correlation IDs are first-class workflow context and are propagated into logs, alerts, deliveries, release events and job execution without changing the public feed or source-driver contracts
 - maintenance silence windows are stored in `ops_silence_windows` and applied centrally by the alert service instead of in controllers or Blade views
 - promotion snapshots are stored in `promotion_snapshots`; promotion history and rollback lineage are stored in `promotion_runs`
 - promotion snapshots never carry plaintext source secrets; source-connection promotion metadata tracks `missing`, `not_validated`, and `validated` secret states on the target side
@@ -351,6 +365,37 @@ Launch execution rules:
 5. handover requires a clean stabilization checklist and no remaining critical blockers.
 
 This keeps the live-launch support layer production-minded while preserving the existing pilot, release, promotion, feedback and hypercare flows.
+
+## External Observability And Incident Routing
+
+The outward-facing support layer is intentionally separate from the business workflows but still fed by the same domain services.
+
+Core rules:
+
+1. workflow services emit alert or notification candidates with correlation context instead of calling channel APIs directly
+2. routing is resolved from persisted `global`, `shop`, and `feed_profile` subscriptions plus safe fallback `database` / `log` routes
+3. suppression, dedup and repeat-interval logic is applied before the channel driver runs, and suppressed rows are still stored in history
+4. delivery attempts, retries, timeouts and redacted response metadata are persisted in `ops_notification_deliveries`
+5. alert notification state is synchronized with delivery state so operators can see `pending_delivery`, `delivered`, `acknowledged`, `suppressed`, `escalated`, `resolved`, or `dropped`
+6. channel-specific rendering lives in services, not controllers or Blade, so adding another outbound target remains incremental rather than invasive
+
+Observed events currently routed outward include launch degradation, smoke failure, first-pull failure, rejection spikes, rollback execution, publish failures and other critical hypercare incidents.
+
+## Correlation And Structured Logging
+
+`CorrelationIdMiddleware` ensures each HTTP request has a stable correlation ID, returns it in the response header, and seeds the shared log context.
+
+`UsesCorrelationContext` plus queue middleware re-activate that correlation ID inside jobs so the same identifier follows:
+
+- admin request
+- queue job
+- alert
+- outbound delivery
+- sync log
+- release event
+- smoke / first-pull / launch evidence
+
+This preserves traceability for production debugging without rewriting the current source-import or publish pipelines.
 
 ## First Merchant Production Execution Flow
 

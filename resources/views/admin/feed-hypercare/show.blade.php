@@ -6,6 +6,7 @@
     @php($panel = $dashboard)
     @php($hypercare = $panel['hypercare'])
     @php($publishedGeneration = $panel['published_generation'])
+    @php($notificationSummary = $panel['notifications'] ?? ['recent' => collect(), 'failed_count' => 0, 'suppressed_count' => 0, 'escalated_count' => 0])
 
     <section class="panel">
         <div class="toolbar">
@@ -15,6 +16,7 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.timeline.show', $feedProfile) }}">Live timeline</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.digest', $feedProfile) }}">Daily digest</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.handoff', $feedProfile) }}">Shift handoff</a>
+            <a class="button secondary" href="{{ route('admin.notifications.index', ['feed_profile_id' => $feedProfile->id]) }}">Notification center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback.create', $feedProfile) }}">Import feedback</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Remediation workbench</a>
         </div>
@@ -31,6 +33,33 @@
         <div class="stat"><span class="muted">Stability</span><strong>{{ $panel['stability']['score'] }} / {{ $panel['stability']['status'] }}</strong></div>
         <div class="stat"><span class="muted">Launch</span><strong>{{ $panel['current_launch']?->state ?: 'n/a' }}</strong></div>
     </div>
+
+    <section class="panel">
+        <h2>Outbound Notifications</h2>
+        <div class="stats">
+            <div class="stat"><span class="muted">Failed deliveries</span><strong>{{ $notificationSummary['failed_count'] ?? 0 }}</strong></div>
+            <div class="stat"><span class="muted">Suppressed</span><strong>{{ $notificationSummary['suppressed_count'] ?? 0 }}</strong></div>
+            <div class="stat"><span class="muted">Escalated</span><strong>{{ $notificationSummary['escalated_count'] ?? 0 }}</strong></div>
+        </div>
+        <div class="table-wrap" style="margin-top: 16px;">
+            <table>
+                <thead><tr><th>When</th><th>Event</th><th>Channel</th><th>Status</th><th>Correlation</th></tr></thead>
+                <tbody>
+                @forelse(($notificationSummary['recent'] ?? collect()) as $delivery)
+                    <tr>
+                        <td>{{ optional($delivery->created_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</td>
+                        <td>{{ $delivery->event_type }}</td>
+                        <td>{{ $delivery->channel }} / {{ $delivery->target_label ?: 'n/a' }}</td>
+                        <td>{{ $delivery->status }}</td>
+                        <td><code>{{ $delivery->correlation_id ?: 'n/a' }}</code></td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5" class="muted">No outbound notifications recorded.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
 
     <div class="grid cols-2">
         <section class="panel">
@@ -177,6 +206,7 @@
                             <td>
                                 <strong>{{ $alert->title }}</strong><br>
                                 <span class="muted">{{ $alert->message }}</span>
+                                <br><span class="muted">corr: <code>{{ $alert->correlation_id ?: 'n/a' }}</code></span>
                             </td>
                             <td>{{ $alert->state }}</td>
                             <td>

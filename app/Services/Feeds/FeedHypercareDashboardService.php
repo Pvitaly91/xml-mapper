@@ -5,6 +5,7 @@ namespace App\Services\Feeds;
 use App\Models\FeedHypercareWindow;
 use App\Models\FeedProfile;
 use App\Services\Ops\HypercarePolicyService;
+use App\Services\Ops\NotificationCenterService;
 use App\Services\Ops\OpsAlertService;
 use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
@@ -27,6 +28,7 @@ class FeedHypercareDashboardService
         private readonly SloSummaryService $sloSummaryService,
         private readonly SilenceWindowService $silenceWindowService,
         private readonly MerchantLaunchService $merchantLaunchService,
+        private readonly NotificationCenterService $notificationCenterService,
     ) {}
 
     /**
@@ -69,6 +71,7 @@ class FeedHypercareDashboardService
             'next_checks' => $monitoring['next_checks_due'],
             'current_launch' => $currentLaunch ? $this->merchantLaunchService->refresh($currentLaunch) : null,
             'launch_check' => $currentLaunch ? $this->merchantLaunchService->check($currentLaunch) : null,
+            'notifications' => $this->notificationCenterService->deliverySummaryForFeedProfile($feedProfile),
         ];
     }
 

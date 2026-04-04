@@ -6,6 +6,7 @@ use App\Models\FeedHypercareWindow;
 use App\Models\FeedProfile;
 use App\Models\OpsAlert;
 use App\Services\Ops\HypercarePolicyService;
+use App\Services\Ops\NotificationCenterService;
 use App\Services\Ops\OpsAlertService;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,6 +18,7 @@ class FeedHypercareReportService
         private readonly FeedStabilityService $stabilityService,
         private readonly HypercarePolicyService $policyService,
         private readonly OpsAlertService $alertService,
+        private readonly NotificationCenterService $notificationCenterService,
     ) {}
 
     /**
@@ -146,6 +148,7 @@ class FeedHypercareReportService
         $stability = $this->stabilityService->evaluate($feedProfile, $hypercare);
         $alerts = $this->alertService->openAlertsForProfile($feedProfile, $hypercare);
         $feedback = $this->feedbackSlaService->summarize($feedProfile, $hypercare);
+        $notifications = $this->notificationCenterService->deliverySummaryForFeedProfile($feedProfile);
         $lines = [
             '# Hypercare Closeout',
             '',
@@ -176,6 +179,11 @@ class FeedHypercareReportService
         $lines[] = '## Resolutions';
         $lines[] = '- Feedback fixed: '.($feedback['fixed'] ?? 0);
         $lines[] = '- Feedback wont_fix: '.($feedback['wont_fix'] ?? 0);
+        $lines[] = '';
+        $lines[] = '## Outbound Notifications';
+        $lines[] = '- Failed deliveries: '.($notifications['failed_count'] ?? 0);
+        $lines[] = '- Suppressed deliveries: '.($notifications['suppressed_count'] ?? 0);
+        $lines[] = '- Escalated deliveries: '.($notifications['escalated_count'] ?? 0);
         $lines[] = '';
         $lines[] = '## Remaining Risks';
 

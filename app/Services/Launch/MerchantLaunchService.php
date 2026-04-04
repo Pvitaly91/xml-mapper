@@ -17,10 +17,13 @@ use App\Models\OpsRun;
 use App\Models\PilotRun;
 use App\Models\PromotionRun;
 use App\Models\User;
+use App\Data\Ops\OpsNotificationMessage;
 use App\Services\Feeds\FeedbackSlaService;
 use App\Services\Feeds\FeedReleaseAuditService;
 use App\Services\Feeds\FeedStabilityService;
 use App\Services\Ops\EnvironmentContextService;
+use App\Services\Ops\NotificationDeliveryService;
+use App\Services\Ops\NotificationCenterService;
 use App\Services\Ops\OpsAlertService;
 use App\Services\Ops\OpsMaintenanceStatusService;
 use Illuminate\Support\Collection;
@@ -35,6 +38,8 @@ class MerchantLaunchService
         private readonly FeedStabilityService $feedStabilityService,
         private readonly OpsMaintenanceStatusService $opsMaintenanceStatusService,
         private readonly OpsAlertService $opsAlertService,
+        private readonly NotificationDeliveryService $notificationDeliveryService,
+        private readonly NotificationCenterService $notificationCenterService,
     ) {}
 
     /**
@@ -127,6 +132,7 @@ class MerchantLaunchService
     public function refresh(MerchantLaunch $launch): MerchantLaunch
     {
         $launch = $launch->fresh($this->relations());
+        $previousState = $launch->state;
         $feedProfile = $launch->feedProfile;
         $feedProfile->loadMissing([
             'shop',
@@ -267,7 +273,10 @@ class MerchantLaunchService
             ]),
         ])->save();
 
-        return $launch->fresh($this->relations());
+        $launch = $launch->fresh($this->relations());
+        $this->emitStateTransitionNotification($launch, $previousState, $state);
+
+        return $launch;
     }
 
     /**
@@ -297,6 +306,7 @@ class MerchantLaunchService
             'stability' => (array) data_get($launch->summary, 'stability', []),
             'tuning_actions' => $launch->tuningActions()->with('user')->latest('applied_at')->limit(20)->get(),
             'check' => $this->check($launch),
+            'notifications' => $this->notificationCenterService->deliverySummaryForLaunch($launch),
         ];
     }
 
@@ -1248,6 +1258,45 @@ class MerchantLaunchService
                 'merchant_launch_id' => $launch->id,
             ])
         );
+    }
+
+    private function emitStateTransitionNotification(MerchantLaunch $launch, string $previousState, string $state): void
+    {
+        if ($previousState === $state) {
+            return;
+        }
+
+        $family = match ($state) {
+            MerchantLaunch::STATE_DEGRADED => 'launch_degraded',
+            MerchantLaunch::STATE_ROLLED_BACK => 'rollback_executed',
+            MerchantLaunch::STATE_FAILED => 'hypercare_critical_issue',
+            default => null,
+        };
+
+        if ($family === null) {
+            return;
+        }
+
+        $severity = $state === MerchantLaunch::STATE_ROLLED_BACK ? 'warning' : 'critical';
+
+        $this->notificationDeliveryService->dispatch(new OpsNotificationMessage(
+            eventType: 'launch.'.$state,
+            eventFamily: $family,
+            severity: $severity,
+            title: 'Merchant launch state changed to '.str_replace('_', ' ', $state),
+            message: 'Launch #'.$launch->id.' transitioned from '.$previousState.' to '.$state.'.',
+            context: [
+                'merchant_launch_id' => $launch->id,
+                'previous_state' => $previousState,
+                'state' => $state,
+                'handover_state' => $launch->handover_state,
+                'blockers' => data_get($launch->summary, 'blockers', []),
+            ],
+            shopId: $launch->shop_id,
+            feedProfileId: $launch->feed_profile_id,
+            merchantLaunchId: $launch->id,
+            dedupKey: 'launch-'.$launch->id.'-'.$state,
+        ));
     }
 
     /**

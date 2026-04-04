@@ -153,6 +153,16 @@ class FeedProfile extends Model
         return $this->hasMany(OpsPolicyResult::class);
     }
 
+    public function notificationRoutes(): HasMany
+    {
+        return $this->hasMany(OpsNotificationRoute::class);
+    }
+
+    public function notificationDeliveries(): HasMany
+    {
+        return $this->hasMany(OpsNotificationDelivery::class);
+    }
+
     public function silenceWindows(): HasMany
     {
         return $this->hasMany(OpsSilenceWindow::class);

@@ -22,6 +22,7 @@ use App\Services\Feeds\FeedPublishService;
 use App\Services\Mappings\AttributeMappingService;
 use App\Services\Mappings\CategoryMappingService;
 use App\Services\Mappings\ValueMappingService;
+use App\Services\Ops\CorrelationContext;
 use App\Services\Ops\EnvironmentContextService;
 use App\Services\Ops\HeartbeatService;
 use App\Services\Source\Drivers\PromApiSourceDriver;
@@ -51,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(CorrelationContext::class);
         $this->app->bind(SourceImportServiceInterface::class, SourceImportService::class);
         $this->app->bind(PromYmlParserInterface::class, PromYmlParser::class);
         $this->app->bind(PromApiClientInterface::class, PromApiClient::class);

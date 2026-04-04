@@ -199,6 +199,46 @@ return [
             'max_feedback_backlog' => (int) env('FEED_MEDIATOR_LAUNCH_MAX_FEEDBACK_BACKLOG', 3),
         ],
     ],
+    'notifications' => [
+        'defaults' => [
+            'database_enabled' => (bool) env('FEED_MEDIATOR_NOTIFY_DB_ENABLED', true),
+            'log_enabled' => (bool) env('FEED_MEDIATOR_NOTIFY_LOG_ENABLED', true),
+            'mail_enabled' => (bool) env('FEED_MEDIATOR_NOTIFY_MAIL_ENABLED', false),
+            'mail_to' => array_values(array_filter(array_map(
+                static fn ($value) => trim((string) $value),
+                explode(',', (string) env('FEED_MEDIATOR_NOTIFY_MAIL_TO', ''))
+            ))),
+            'log_channel' => env('FEED_MEDIATOR_NOTIFY_LOG_CHANNEL', env('LOG_CHANNEL', 'stack')),
+        ],
+        'routing' => [
+            'suppression_window_minutes' => (int) env('FEED_MEDIATOR_NOTIFY_SUPPRESS_MINUTES', 15),
+            'repeat_interval_minutes' => (int) env('FEED_MEDIATOR_NOTIFY_REPEAT_MINUTES', 30),
+            'escalate_after_minutes' => (int) env('FEED_MEDIATOR_NOTIFY_ESCALATE_MINUTES', 15),
+            'default_quiet_hours_timezone' => env('FEED_MEDIATOR_NOTIFY_QUIET_TZ', env('APP_TIMEZONE', config('app.timezone'))),
+        ],
+        'webhook' => [
+            'timeout_seconds' => (int) env('FEED_MEDIATOR_NOTIFY_WEBHOOK_TIMEOUT', 5),
+            'max_attempts' => (int) env('FEED_MEDIATOR_NOTIFY_WEBHOOK_RETRIES', 3),
+            'backoff_seconds_csv' => env('FEED_MEDIATOR_NOTIFY_WEBHOOK_BACKOFF', '60,300,900'),
+        ],
+        'retention' => [
+            'delivery_days' => (int) env('FEED_MEDIATOR_NOTIFY_RET_DAYS', 30),
+        ],
+    ],
+    'observability' => [
+        'correlation_header' => env('FEED_MEDIATOR_CORRELATION_HEADER', 'X-Correlation-ID'),
+        'redact_keys' => array_values(array_filter(array_map(
+            static fn ($value) => trim((string) $value),
+            explode(',', (string) env(
+                'FEED_MEDIATOR_REDACT_KEYS',
+                'authorization,token,secret,password,api_key,api_token,webhook_url'
+            ))
+        ))),
+        'error_tracking' => [
+            'driver' => env('FEED_MEDIATOR_ERROR_TRACKING_DRIVER', 'sentry'),
+            'dsn' => env('FEED_MEDIATOR_ERROR_TRACKING_DSN'),
+        ],
+    ],
     'normalization' => [
         'article_keys' => ['article', 'vendorcode', 'vendor_code', 'артикул', 'sku'],
         'size_keys' => ['size', 'розмір', 'размер'],

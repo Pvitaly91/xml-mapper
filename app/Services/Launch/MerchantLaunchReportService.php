@@ -114,6 +114,17 @@ class MerchantLaunchReportService
         }
 
         $lines[] = '';
+        $lines[] = '## Outbound Notifications';
+
+        foreach (($detail['notifications']['recent'] ?? collect())->take(10) as $delivery) {
+            $lines[] = '- ['.$delivery->status.']['.$delivery->channel.'] '.$delivery->event_type.' / '.($delivery->target_label ?: 'n/a');
+        }
+
+        if (($detail['notifications']['recent'] ?? collect())->isEmpty()) {
+            $lines[] = '- No outbound notifications recorded.';
+        }
+
+        $lines[] = '';
         $lines[] = '## Open Risks';
 
         foreach ((array) ($detail['blockers'] ?? []) as $blocker) {

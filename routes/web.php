@@ -42,6 +42,7 @@ use App\Http\Controllers\Admin\FeedRunbookController;
 use App\Http\Controllers\Admin\FeedSmokeCheckController;
 use App\Http\Controllers\Admin\MappingPresetController;
 use App\Http\Controllers\Admin\MerchantLaunchController;
+use App\Http\Controllers\Admin\NotificationCenterController;
 use App\Http\Controllers\Admin\OpsMaintenanceController;
 use App\Http\Controllers\Admin\OpsAlertController;
 use App\Http\Controllers\Admin\OpsSilenceWindowController;
@@ -106,6 +107,14 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/merchant-launches/{merchant_launch}/handover', [MerchantLaunchController::class, 'handover'])->middleware('throttle:admin-sensitive')->name('merchant-launches.handover');
         Route::post('/merchant-launches/{merchant_launch}/close', [MerchantLaunchController::class, 'close'])->middleware('throttle:admin-sensitive')->name('merchant-launches.close');
         Route::get('/merchant-launches/{merchant_launch}/reports/{type}', [MerchantLaunchController::class, 'report'])->name('merchant-launches.reports.show');
+        Route::get('/notifications', [NotificationCenterController::class, 'index'])->name('notifications.index');
+        Route::post('/notifications/routes', [NotificationCenterController::class, 'storeRoute'])->name('notifications.routes.store');
+        Route::put('/notifications/routes/{ops_notification_route}', [NotificationCenterController::class, 'updateRoute'])->name('notifications.routes.update');
+        Route::post('/notifications/routes/{ops_notification_route}/test', [NotificationCenterController::class, 'testRoute'])->name('notifications.routes.test');
+        Route::post('/notifications/routes/{ops_notification_route}/mute', [NotificationCenterController::class, 'mute'])->name('notifications.routes.mute');
+        Route::post('/notifications/test', [NotificationCenterController::class, 'testChannel'])->name('notifications.test');
+        Route::get('/notifications/deliveries/{ops_notification_delivery}', [NotificationCenterController::class, 'show'])->name('notifications.deliveries.show');
+        Route::post('/notifications/deliveries/{ops_notification_delivery}/retry', [NotificationCenterController::class, 'retry'])->name('notifications.deliveries.retry');
 
         Route::resource('source-connections', SourceConnectionController::class)->except(['destroy']);
         Route::post('/source-connections/{source_connection}/test', [SourceConnectionTestController::class, 'store'])->middleware('throttle:admin-sensitive')->name('source-connections.test');

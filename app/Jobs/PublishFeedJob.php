@@ -3,9 +3,11 @@
 namespace App\Jobs;
 
 use App\Actions\Ops\ResolveDueFeedPublishesAction;
+use App\Jobs\Concerns\UsesCorrelationContext;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Services\Feeds\FeedReleaseService;
+use App\Services\Ops\CorrelationContext;
 use App\Services\Ops\ProcessLockService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -15,7 +17,7 @@ use Illuminate\Queue\SerializesModels;
 
 class PublishFeedJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, UsesCorrelationContext;
 
     public int $timeout = 900;
 
@@ -30,8 +32,10 @@ class PublishFeedJob implements ShouldQueue
         public readonly bool $force = false,
         public readonly ?string $reason = null,
         public readonly ?string $dispatchLockOwner = null,
+        public ?string $correlationId = null,
     ) {
         $this->onQueue((string) config('feed_mediator.queues.feeds'));
+        $this->correlationId ??= app(CorrelationContext::class)->id();
     }
 
     /**

@@ -10,6 +10,20 @@ class OpsAlert extends Model
 {
     use HasFactory;
 
+    public const NOTIFICATION_PENDING = 'pending_delivery';
+
+    public const NOTIFICATION_DELIVERED = 'delivered';
+
+    public const NOTIFICATION_ACKNOWLEDGED = 'acknowledged';
+
+    public const NOTIFICATION_SUPPRESSED = 'suppressed';
+
+    public const NOTIFICATION_ESCALATED = 'escalated';
+
+    public const NOTIFICATION_RESOLVED = 'resolved';
+
+    public const NOTIFICATION_DROPPED = 'dropped';
+
     public const STATE_RAISED = 'raised';
 
     public const STATE_ACKNOWLEDGED = 'acknowledged';
@@ -59,8 +73,10 @@ class OpsAlert extends Model
         'silenced_by_user_id',
         'source',
         'state',
+        'notification_state',
         'severity',
         'fingerprint',
+        'correlation_id',
         'title',
         'message',
         'reason',
@@ -71,10 +87,16 @@ class OpsAlert extends Model
         'acknowledged_at',
         'silenced_at',
         'escalated_at',
+        'notification_last_delivery_at',
+        'notification_suppressed_at',
+        'notification_escalated_at',
+        'notification_acknowledged_at',
+        'notification_resolved_at',
         'resolved_at',
         'false_positive_at',
         'last_reviewed_at',
         'context',
+        'notification_meta',
     ];
 
     protected function casts(): array
@@ -86,9 +108,15 @@ class OpsAlert extends Model
             'acknowledged_at' => 'datetime',
             'silenced_at' => 'datetime',
             'escalated_at' => 'datetime',
+            'notification_last_delivery_at' => 'datetime',
+            'notification_suppressed_at' => 'datetime',
+            'notification_escalated_at' => 'datetime',
+            'notification_acknowledged_at' => 'datetime',
+            'notification_resolved_at' => 'datetime',
             'resolved_at' => 'datetime',
             'false_positive_at' => 'datetime',
             'last_reviewed_at' => 'datetime',
+            'notification_meta' => 'array',
         ];
     }
 
@@ -130,6 +158,11 @@ class OpsAlert extends Model
     public function silencedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'silenced_by_user_id');
+    }
+
+    public function deliveries()
+    {
+        return $this->hasMany(OpsNotificationDelivery::class, 'ops_alert_id');
     }
 
     public function isOpen(): bool
@@ -176,5 +209,21 @@ class OpsAlert extends Model
             self::SEVERITY_WARNING => 2,
             default => 1,
         };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function notificationStates(): array
+    {
+        return [
+            self::NOTIFICATION_PENDING,
+            self::NOTIFICATION_DELIVERED,
+            self::NOTIFICATION_ACKNOWLEDGED,
+            self::NOTIFICATION_SUPPRESSED,
+            self::NOTIFICATION_ESCALATED,
+            self::NOTIFICATION_RESOLVED,
+            self::NOTIFICATION_DROPPED,
+        ];
     }
 }
