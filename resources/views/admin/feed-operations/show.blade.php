@@ -15,6 +15,7 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.promotion.show', $feedProfile) }}">Promotion center</a>
             <a class="button secondary" href="{{ route('admin.pilot-runs.index') }}">Pilot center</a>
+            <a class="button secondary" href="{{ route('admin.merchant-launches.index') }}">Launch center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
@@ -40,6 +41,7 @@
         <div class="stat"><span class="muted">Promotion</span><strong>{{ $panel['promotion']['status'] }}</strong></div>
         <div class="stat"><span class="muted">Pilot</span><strong>{{ $panel['latest_pilot_run']?->state ?: 'n/a' }}</strong></div>
         <div class="stat"><span class="muted">Pilot score</span><strong>{{ $panel['pilot_score']['score'] ?? 0 }}</strong></div>
+        <div class="stat"><span class="muted">Launch</span><strong>{{ $panel['current_launch']?->state ?: 'n/a' }}</strong></div>
     </div>
 
     <section class="panel">
@@ -56,6 +58,27 @@
             <div class="detail-row"><strong>Next step</strong><div>{{ data_get($panel['latest_pilot_run']?->summary, 'execution.next_step_label', 'n/a') }}</div></div>
             <div class="detail-row"><strong>Blockers</strong><div>{{ implode(' ', $panel['pilot_score']['blocking_reasons'] ?? []) ?: 'none' }}</div></div>
         </div>
+    </section>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Live Launch</h2>
+            @if($panel['current_launch'])
+                <span class="badge {{ in_array($panel['current_launch']->state, ['stabilized', 'closed'], true) ? 'ok' : (in_array($panel['current_launch']->state, ['degraded', 'failed', 'rolled_back'], true) ? 'err' : 'warn') }}">{{ $panel['current_launch']->state }}</span>
+                <a class="button secondary" href="{{ route('admin.merchant-launches.show', $panel['current_launch']) }}">Open launch</a>
+            @else
+                <a class="button secondary" href="{{ route('admin.merchant-launches.index') }}">Start launch</a>
+            @endif
+        </div>
+        @if($panel['current_launch'])
+            <div class="detail-list">
+                <div class="detail-row"><strong>Handover</strong><div>{{ $panel['current_launch']->handover_state }}</div></div>
+                <div class="detail-row"><strong>Critical blockers</strong><div>{{ implode(' ', $panel['launch_check']['critical_blockers'] ?? []) ?: 'none' }}</div></div>
+                <div class="detail-row"><strong>Next actions</strong><div>{{ implode(' | ', $panel['launch_check']['next_actions'] ?? []) ?: 'n/a' }}</div></div>
+            </div>
+        @else
+            <p class="muted">No live launch record is open for this feed profile.</p>
+        @endif
     </section>
 
     <div class="grid cols-2">

@@ -10,6 +10,7 @@ use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\SilenceWindowService;
 use App\Services\Ops\SloSummaryService;
+use App\Services\Launch\MerchantLaunchService;
 
 class FeedHypercareDashboardService
 {
@@ -25,6 +26,7 @@ class FeedHypercareDashboardService
         private readonly OpsMaintenanceStatusService $opsMaintenanceStatusService,
         private readonly SloSummaryService $sloSummaryService,
         private readonly SilenceWindowService $silenceWindowService,
+        private readonly MerchantLaunchService $merchantLaunchService,
     ) {}
 
     /**
@@ -32,13 +34,14 @@ class FeedHypercareDashboardService
      */
     public function summarize(FeedProfile $feedProfile): array
     {
-        $feedProfile->loadMissing(['sourceConnection.latestImport', 'publishedGeneration', 'latestGeneration']);
+        $feedProfile->loadMissing(['sourceConnection.latestImport', 'publishedGeneration', 'latestGeneration', 'currentMerchantLaunch']);
         $hypercare = $this->hypercareService->current($feedProfile);
         $monitoring = $this->policyService->review($feedProfile, $hypercare);
         $alerts = $this->alertService->openAlertsForProfile($feedProfile, $hypercare);
         $feedback = $this->feedbackSlaService->summarize($feedProfile, $hypercare);
         $stability = $this->stabilityService->evaluate($feedProfile, $hypercare);
         $publishedGeneration = $feedProfile->publishedGeneration;
+        $currentLaunch = $feedProfile->currentMerchantLaunch;
 
         return [
             'feed_profile' => $feedProfile,
@@ -64,6 +67,8 @@ class FeedHypercareDashboardService
             'history' => $this->hypercareService->summarize($feedProfile)['history'],
             'risk_state' => $this->resolveRiskState($hypercare, $alerts, $stability, $monitoring),
             'next_checks' => $monitoring['next_checks_due'],
+            'current_launch' => $currentLaunch ? $this->merchantLaunchService->refresh($currentLaunch) : null,
+            'launch_check' => $currentLaunch ? $this->merchantLaunchService->check($currentLaunch) : null,
         ];
     }
 

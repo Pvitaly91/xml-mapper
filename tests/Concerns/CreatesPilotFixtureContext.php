@@ -9,11 +9,13 @@ use App\Models\KastaAttribute;
 use App\Models\KastaAttributeValue;
 use App\Models\FeedProfile;
 use App\Models\KastaCategory;
+use App\Models\OpsRun;
 use App\Models\PilotRun;
 use App\Models\SourceCategory;
 use App\Models\SourceConnection;
 use App\Models\SourceProduct;
 use App\Models\SourceVariant;
+use App\Models\User;
 use App\Services\Ops\HeartbeatService;
 use App\Services\Pilot\PilotFixtureLibrary;
 use App\Services\Pilot\PilotExecutionService;
@@ -232,5 +234,20 @@ trait CreatesPilotFixtureContext
         $context['run'] = $run->fresh();
 
         return $context;
+    }
+
+    protected function recordSuccessfulDeployRun(FeedProfile $feedProfile, ?User $user = null): OpsRun
+    {
+        return OpsRun::create([
+            'shop_id' => $feedProfile->shop_id,
+            'feed_profile_id' => $feedProfile->id,
+            'user_id' => $user?->id,
+            'type' => OpsRun::TYPE_DEPLOY,
+            'status' => OpsRun::STATUS_SUCCEEDED,
+            'summary' => ['verified' => true],
+            'started_at' => now()->subMinutes(5),
+            'finished_at' => now(),
+            'meta' => ['source' => 'test'],
+        ]);
     }
 }

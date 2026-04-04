@@ -39,6 +39,7 @@ The application stores normalized source data locally, validates exportability, 
 - unified live timeline, daily digest, shift handoff and silence windows
 - staging-to-production promotion snapshots, drift detection, dry-run/apply, secret-safe rebinding and config rollback history
 - persisted pilot execution workflow with operator state/history, evidence pack export, readiness score, pilot center and fixture-backed proof tests
+- live merchant launch records with baseline-vs-actual tracking, observation/defect triage, safe tuning history, stabilization handover and closeout reports
 
 ## Local Setup
 
@@ -800,19 +801,20 @@ Rollback journal:
 
 ## First Real Merchant Production Execution
 
-For the first real merchant go-live the operator workflow now extends beyond candidate acceptance:
+For the first real merchant go-live the operator workflow now extends beyond candidate acceptance and pilot execution:
 
-1. onboard the merchant and finish unresolved mappings
-2. build and approve the production candidate
-3. start cutover tracking for the selected generation
-4. publish to the stable public feed URL inside the allowed window
-5. verify the first production pull
-6. import merchant feedback manually from CSV or JSON
-7. remediate rejected items in the rejection workbench
-8. rebuild / republish intentionally if fixes are required
+1. verify the production deploy run in ops
+2. execute and finish the persisted pilot run
+3. create one live merchant launch record
+4. confirm the first real publish and go-live observations
+5. compare baseline vs actual live metrics
+6. capture launch defects and apply safe tuning when needed
+7. stabilize, hand over, and close the launch with evidence
 
 New operator surfaces:
 
+- `/admin/merchant-launches`
+- `/admin/merchant-launches/{launch}`
 - `/admin/feed-profiles/{profile}/operations`
 - `/admin/feed-profiles/{profile}/reconciliation`
 - `/admin/feed-profiles/{profile}/feedback/import`
@@ -834,9 +836,91 @@ php artisan ops:handoff {feedProfileId}
 php artisan ops:silence {feedProfileId} --from="2026-04-03 23:00" --to="2026-04-04 01:00" --severity=warning --reason="planned maintenance"
 php artisan ops:silence:clear {feedProfileId}
 php artisan feed:runbook {feedProfileId}
+php artisan launch:start {feedProfileId} --pilot={pilotRunId} --promotion={promotionRunId} --note="first live merchant launch"
+php artisan launch:status {launchId}
+php artisan launch:observe {launchId} merchant_confirmation --severity=medium --note="merchant confirmed live visibility"
+php artisan launch:defect {launchId} mapping_gap --severity=high --note="live mapping issue"
+php artisan launch:check {launchId}
+php artisan launch:handover {launchId} --reason="stable after first live window"
+php artisan launch:close {launchId} --reason="closeout complete"
 ```
 
 `feedback:import` assumes `--feed-profile` is provided because feedback is matched against one shop/feed-profile context. This keeps manual CSV/JSON imports deterministic and shop-scoped.
+
+## Live Merchant Launch Record
+
+`/admin/merchant-launches` persists one production launch artifact per real merchant rollout. Each launch stores:
+
+- linked feed profile, pilot run, promotion run and published generation
+- owner / initiator and environment context
+- planned start, actual publish time and go-live confirmation time
+- current launch state, summary, notes and outcome
+
+Launch states:
+
+- `planned`
+- `executing`
+- `published`
+- `validating`
+- `degraded`
+- `stabilized`
+- `rolled_back`
+- `failed`
+- `closed`
+
+The launch record is separate from the pilot run on purpose: pilot proves readiness, launch proves what happened in production.
+
+## Launch Observations, Defects And Tuning
+
+The live launch screen is the operator checklist for the first real publish. It centralizes:
+
+- baseline vs actual launch metrics
+- observations such as merchant confirmation, pickup confirmation, rejection spikes, feed delay and false alarms
+- structured post-launch defects with links to feed items, feedback records, alerts and observations
+- safe tuning actions that reuse existing feed-profile settings and always record actor, reason and mode (`normal` vs `emergency`)
+
+Quick actions from the launch screen include:
+
+- add observation
+- open defect
+- rerun smoke
+- rerun first-pull verification
+- import feedback
+- open remediation
+- rebuild candidate
+- rollback
+- hand over or close the launch
+
+## Baseline, Handover And Proof
+
+Every launch records an expected band for:
+
+- ready items
+- published count
+- first-pull latency
+- feedback / rejection volume
+- sync freshness
+
+The screen and `launch:check` show actual vs expected, deltas, critical blockers, open incidents and next actions. Handover stays blocked while critical blockers remain, including smoke or first-pull failures, critical alerts/defects, unacceptable launch baselines, or missing merchant confirmation.
+
+Downloadable launch artifacts include:
+
+- summary report
+- observation report
+- defect report
+- closeout report
+
+## First 24h After Real Launch
+
+Recommended operator path for the first live merchant:
+
+1. start the launch record from `/admin/merchant-launches` or `launch:start`
+2. keep `/admin/merchant-launches/{launch}` open as the execution checklist
+3. record merchant confirmation and any real anomalies as observations
+4. run `launch:check {launchId}` after each significant event or mitigation
+5. import feedback early, triage defects quickly, and use tuning only with an explicit reason
+6. hand over only after the stabilization checklist passes
+7. close the launch only when closeout notes and remaining risks are recorded
 
 ## First-Pull Verification
 

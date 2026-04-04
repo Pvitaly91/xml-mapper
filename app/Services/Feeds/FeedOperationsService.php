@@ -12,6 +12,7 @@ use App\Services\Ops\OpsMaintenanceStatusService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\RestoreDrillService;
 use App\Services\Ops\SloSummaryService;
+use App\Services\Launch\MerchantLaunchService;
 use App\Services\Pilot\PilotReadinessScoreService;
 use App\Services\Promotion\PromotionStatusService;
 
@@ -30,6 +31,7 @@ class FeedOperationsService
         private readonly EnvironmentContextService $environmentContextService,
         private readonly PromotionStatusService $promotionStatusService,
         private readonly PilotReadinessScoreService $pilotReadinessScoreService,
+        private readonly MerchantLaunchService $merchantLaunchService,
     ) {}
 
     /**
@@ -43,6 +45,7 @@ class FeedOperationsService
             'publishedGeneration',
             'currentCutover.targetGeneration',
             'currentCutover.publishedGeneration',
+            'currentMerchantLaunch',
         ]);
 
         $latestGeneration = $feedProfile->latestGeneration;
@@ -54,6 +57,7 @@ class FeedOperationsService
         $cutover = $this->cutoverService->summarize($feedProfile, $latestGeneration);
         $firstPull = $this->firstPullVerificationService->summarize($feedProfile);
         $latestPilotRun = $feedProfile->pilotRuns()->latest('id')->first();
+        $currentLaunch = $feedProfile->currentMerchantLaunch;
 
         return [
             'feed_profile' => $feedProfile,
@@ -81,6 +85,8 @@ class FeedOperationsService
             'promotion' => $this->promotionStatusService->summarize($feedProfile),
             'latest_pilot_run' => $latestPilotRun,
             'pilot_score' => $this->pilotReadinessScoreService->score($feedProfile, $latestPilotRun),
+            'current_launch' => $currentLaunch ? $this->merchantLaunchService->refresh($currentLaunch) : null,
+            'launch_check' => $currentLaunch ? $this->merchantLaunchService->check($currentLaunch) : null,
             'rehearsal' => $this->rehearsalService->summarize($feedProfile),
             'restore_drill' => $this->restoreDrillService->summarize($feedProfile),
             'slo' => $this->sloSummaryService->summarize($feedProfile->shop, $feedProfile),

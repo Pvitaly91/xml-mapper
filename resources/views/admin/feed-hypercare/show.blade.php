@@ -11,6 +11,7 @@
         <div class="toolbar">
             <a class="button" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.release-center', $feedProfile) }}">Release center</a>
+            <a class="button secondary" href="{{ route('admin.merchant-launches.index') }}">Launch center</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.timeline.show', $feedProfile) }}">Live timeline</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.digest', $feedProfile) }}">Daily digest</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.handoff', $feedProfile) }}">Shift handoff</a>
@@ -28,6 +29,7 @@
         <div class="stat"><span class="muted">Open alerts</span><strong>{{ $panel['alerts']->count() }}</strong></div>
         <div class="stat"><span class="muted">Feedback backlog</span><strong>{{ $panel['feedback']['pending_backlog'] ?? 0 }}</strong></div>
         <div class="stat"><span class="muted">Stability</span><strong>{{ $panel['stability']['score'] }} / {{ $panel['stability']['status'] }}</strong></div>
+        <div class="stat"><span class="muted">Launch</span><strong>{{ $panel['current_launch']?->state ?: 'n/a' }}</strong></div>
     </div>
 
     <div class="grid cols-2">
@@ -96,6 +98,57 @@
             </div>
         </section>
     </div>
+
+    @if($panel['current_launch'])
+        <section class="panel">
+            <div class="toolbar">
+                <h2 style="margin: 0;">Live Launch Support</h2>
+                <a class="button secondary" href="{{ route('admin.merchant-launches.show', $panel['current_launch']) }}">Open launch</a>
+            </div>
+            <div class="detail-list">
+                <div class="detail-row"><strong>Launch state</strong><div>{{ $panel['current_launch']->state }}</div></div>
+                <div class="detail-row"><strong>Handover</strong><div>{{ $panel['current_launch']->handover_state }}</div></div>
+                <div class="detail-row"><strong>Critical blockers</strong><div>{{ implode(' ', $panel['launch_check']['critical_blockers'] ?? []) ?: 'none' }}</div></div>
+            </div>
+
+            <form method="POST" action="{{ route('admin.merchant-launches.observations.store', $panel['current_launch']) }}" style="margin-top: 16px;">
+                @csrf
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="launch_obs_type">Observation type</label>
+                        <select id="launch_obs_type" name="type">
+                            <option value="merchant_confirmation">merchant confirmation</option>
+                            <option value="first_marketplace_pickup_confirmed">first marketplace pickup confirmed</option>
+                            <option value="unexpected_rejection_pattern">unexpected rejection pattern</option>
+                            <option value="feed_delay_observed">feed delay observed</option>
+                            <option value="image_or_content_issue_trend">image/content issue trend</option>
+                            <option value="mapping_issue_discovered">mapping issue discovered</option>
+                            <option value="performance_issue">performance issue</option>
+                            <option value="false_alarm">false alarm</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="launch_obs_severity">Severity</label>
+                        <select id="launch_obs_severity" name="severity">
+                            <option value="low">low</option>
+                            <option value="medium" selected>medium</option>
+                            <option value="high">high</option>
+                            <option value="critical">critical</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="launch_obs_source">Source</label>
+                        <input id="launch_obs_source" name="source" value="hypercare">
+                    </div>
+                    <div class="field full">
+                        <label for="launch_obs_note">Observation note</label>
+                        <textarea id="launch_obs_note" name="note" required placeholder="Record merchant feedback, alert review, or live anomaly"></textarea>
+                    </div>
+                </div>
+                <button class="button secondary" type="submit" style="margin-top: 12px;">Record launch observation</button>
+            </form>
+        </section>
+    @endif
 
     <div class="grid cols-2">
         <section class="panel">

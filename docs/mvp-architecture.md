@@ -25,6 +25,10 @@ Pilot execution flow:
 
 `PilotExecutionService` -> `PilotRunStateMachine` -> persisted `pilot_runs` / `pilot_run_events` -> rehearsal -> promotion -> source verification -> sync -> build -> QA/sign-off -> publish -> smoke / first-pull -> feedback remediation -> hypercare -> evidence pack / reports
 
+Live launch execution flow:
+
+`MerchantLaunchService` -> persisted `merchant_launches` -> baseline seed -> live publish validation -> observation / defect capture -> safe tuning via existing feed-profile settings -> stabilization checklist -> handover / closeout reports
+
 Driver paths:
 
 - `prom_yml`:
@@ -80,6 +84,9 @@ Feed-item export lifecycle:
 - `PilotReportService` exports summary, blocker, execution-log and readiness reports
 - `PilotReadinessScoreService` computes `not_ready`, `needs_attention`, `ready`, `stable_after_launch`
 - `PilotFixtureLibrary` resolves golden fixtures for proof-grade integration tests
+- `MerchantLaunchService` owns the persisted first-live launch record, baseline evaluation, observation/defect triage, tuning history, handover gating and closeout rules
+- `MerchantLaunchCenterService` assembles the live launch admin checklist screen
+- `MerchantLaunchReportService` exports summary, observation, defect and closeout launch reports
 - `FeedOperationsService` aggregates the production operations screen for one profile
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
@@ -173,10 +180,12 @@ Kasta export assumptions:
 - operator notes reuse `feed_release_events` with `note_added` actions instead of a parallel comments subsystem
 - QA bundles are generated on demand from the built generation file plus report services; no extra export model is introduced
 - production cutover state is stored in `feed_profile_cutovers` so the operator can track current live-launch progress without inventing a second release engine
+- first real production launch state is stored separately in `merchant_launches`, so pilot proof and live production evidence do not overwrite each other
 - first-pull verification history is stored in `feed_first_pull_verifications` and links back to the smoke-check row that validated the same published URL
 - manual merchant feedback imports are stored in `feedback_imports` and `feedback_records`, which keeps external acceptance/rejection history queryable and shop-scoped
 - merchant-specific export overrides stay in `feed_profiles.settings`; validation/conformance services read them centrally
 - hypercare windows are stored in `feed_hypercare_windows` and stay linked to shop, feed profile and optional live generation
+- launch observations, launch defects and launch tuning actions are persisted separately from generic alerts and release events, but they still link back to feed items, feedback, alerts and generations when available
 - monitoring policy results are stored in `ops_policy_results`, which keeps cadence/threshold evaluation queryable without scattering ad-hoc status flags
 - alerts/incidents are stored in `ops_alerts` and mirrored into `feed_release_events` plus `sync_logs` so operator workflow and forensic logs stay aligned
 - maintenance silence windows are stored in `ops_silence_windows` and applied centrally by the alert service instead of in controllers or Blade views
@@ -276,6 +285,10 @@ app/
     PilotReadinessScoreService.php
     PilotReportService.php
     PilotRunStateMachine.php
+  Services/Launch/
+    MerchantLaunchCenterService.php
+    MerchantLaunchReportService.php
+    MerchantLaunchService.php
   Services/Ops/
     BackupService.php
     BenchmarkService.php
@@ -318,6 +331,26 @@ The merchant pilot acceptance path is:
 8. `FeedReleaseService` publishes or force-publishes with audit trail and post-publish smoke check
 
 This keeps the whole acceptance workflow generation-centric and reuses the existing build/publish pipeline instead of inventing a parallel release model.
+
+## First Live Merchant Launch Architecture
+
+The first live merchant launch is intentionally modeled as a separate persisted artifact after pilot completion.
+
+Why:
+
+1. pilot state proves readiness and rehearsal evidence
+2. launch state proves what actually happened in production
+3. post-launch observations, defects, tuning and handover decisions need their own audit trail
+
+Launch execution rules:
+
+1. `MerchantLaunchService::start()` seeds the launch baseline and links the current pilot, promotion and published generation when present.
+2. `refresh()` recomputes deploy verification, smoke, first-pull, feedback delta, live stability, launch blockers and next actions without duplicating existing release or hypercare logic.
+3. observations and defects stay operator-driven, but they still integrate with existing feed items, feedback records, alerts and release history.
+4. tuning actions never bypass domain services; they write through the existing feed-profile settings model and record before/after snapshots.
+5. handover requires a clean stabilization checklist and no remaining critical blockers.
+
+This keeps the live-launch support layer production-minded while preserving the existing pilot, release, promotion, feedback and hypercare flows.
 
 ## First Merchant Production Execution Flow
 

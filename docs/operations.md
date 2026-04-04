@@ -114,6 +114,13 @@ php artisan pilot:resume {pilotRunId} --with-sync --with-build --with-publish --
 php artisan pilot:abort {pilotRunId} --reason="operator abort"
 php artisan pilot:evidence {pilotRunId}
 php artisan pilot:status {pilotRunId}
+php artisan launch:start {feedProfileId} --pilot={pilotRunId} --promotion={promotionRunId} --note="first live merchant launch"
+php artisan launch:status {launchId}
+php artisan launch:observe {launchId} merchant_confirmation --severity=medium --note="merchant confirmed live visibility"
+php artisan launch:defect {launchId} mapping_gap --severity=high --note="live mapping issue"
+php artisan launch:check {launchId}
+php artisan launch:handover {launchId} --reason="stable after first live window"
+php artisan launch:close {launchId} --reason="closeout complete"
 php artisan feedback:import csv --file=/abs/path/feedback.csv --feed-profile={feedProfileId} --dry-run
 php artisan feedback:reconcile {feedProfileId}
 php artisan feed:runbook {feedProfileId}
@@ -551,6 +558,123 @@ For a real merchant pilot, retain:
 11. feedback import and remediation summary
 12. hypercare status or closeout report
 13. Pilot Evidence Pack ZIP
+
+## Live Merchant Launch Record
+
+Use `/admin/merchant-launches` to create one persisted production launch record for the first real merchant rollout after the pilot is complete.
+
+Each launch stores:
+
+- linked shop / feed profile
+- linked pilot run, promotion run and published generation
+- environment and launch owner
+- planned start, actual publish time and actual go-live confirmation time
+- current launch state, notes, summary and outcome
+
+Launch states:
+
+- `planned`
+- `executing`
+- `published`
+- `validating`
+- `degraded`
+- `stabilized`
+- `rolled_back`
+- `failed`
+- `closed`
+
+This record is intentionally separate from the pilot run because it captures production facts, not only pre-launch readiness.
+
+## Observations And Post-Launch Defect Triage
+
+The launch detail screen is the operator checklist for the first live run.
+
+Observation types cover:
+
+- merchant confirmation
+- first marketplace pickup confirmed
+- unexpected rejection pattern
+- feed delay observed
+- image or content issue trend
+- mapping issue discovered
+- performance issue
+- false alarm
+
+Structured defects classify post-launch issues as:
+
+- `data_quality`
+- `mapping_gap`
+- `source_sync_issue`
+- `export_conformance_issue`
+- `feedback_matching_issue`
+- `performance_issue`
+- `ops_issue`
+- `false_positive`
+
+Each defect also stores severity, status and optional links to the feed item, feedback record, generation, alert and originating observation.
+
+Quick operator actions from the launch screen:
+
+- open remediation workbench
+- open mappings
+- exclude item
+- rebuild candidate
+- rerun smoke or first-pull verification
+- import feedback
+- rollback with reason
+
+## Baseline Vs Actual And Handover
+
+Every launch stores an expected band for:
+
+- ready items
+- published count
+- first-pull latency
+- feedback volume
+- rejection volume
+- sync freshness
+
+The launch screen and `launch:check` show:
+
+- actual vs expected
+- deltas and in-range / warning / out-of-range status
+- critical blockers
+- next actions
+- open incidents and open defects
+
+Handover is blocked while any critical blocker remains, including deploy verification gaps, publish failures, smoke or first-pull failures, critical alerts, critical launch defects, unacceptable baseline deviations or missing merchant confirmation.
+
+## Post-Launch Tuning Rules
+
+Tuning is allowed only through safe existing settings paths. Supported tuning actions are:
+
+- publish guards
+- merchant overrides
+- excluded categories or vendors
+- minimum image count
+- minimum price
+- forced attribute overrides
+- forced value overrides
+
+Every tuning action records:
+
+- actor
+- reason
+- mode: `normal` or `emergency`
+- before / after settings snapshot
+
+Use tuning to localize and mitigate real launch defects, not as an untracked shortcut around validation or release rules.
+
+## Launch Reports And Closeout
+
+Downloadable launch artifacts:
+
+- launch summary report
+- observation report
+- defect report
+- closeout report
+
+The closeout report is the handover artifact for steady-state operations and should summarize what happened, what was fixed, what remains risky and what follow-up is recommended.
 
 ## Onboarding Wizard
 
@@ -1404,17 +1528,19 @@ The markdown pack includes:
 
 First `24h`:
 
-1. Publish only an approved generation.
-2. Confirm hypercare is active and the war room is open.
-3. Review smoke check, first-pull verification and source sync freshness.
-4. Keep `ops:alerts:review` running so raised alerts escalate instead of silently aging.
-5. Import merchant feedback quickly and acknowledge remediation ownership.
-6. Use rollback only with an explicit reason and after understanding the incident details.
+1. Start the launch record with `launch:start` or `/admin/merchant-launches` as soon as the live execution window begins.
+2. Keep the launch detail screen and hypercare war room open together.
+3. Confirm publish, smoke check, first-pull verification and source sync freshness from the launch checklist.
+4. Record merchant confirmation, pickup confirmation and anomalies as observations instead of keeping them only in chat or ad-hoc notes.
+5. Run `launch:check {launchId}` after each meaningful operator action so blockers and next actions stay explicit.
+6. Import merchant feedback quickly, open structured defects for real issues, and use tuning only with a recorded reason.
+7. Use rollback only with an explicit reason and after understanding the incident details.
 
 First `72h`:
 
 1. Use the daily digest before the first shift and the handoff report before operator changeover.
-2. Watch rejection spikes, ready-item drops and publish deltas after each remediation publish.
-3. Start a silence window only for planned maintenance and only at the needed severity threshold.
-4. Extend hypercare when stability is still `watch`, `degraded`, or `unstable`.
-5. Close hypercare only after critical blockers are cleared and the remaining risks are understood.
+2. Watch rejection spikes, ready-item drops, sync freshness and publish deltas after each remediation publish.
+3. Keep observation and defect triage current so handover decisions are based on persisted evidence.
+4. Start a silence window only for planned maintenance and only at the needed severity threshold.
+5. Extend hypercare when stability is still `watch`, `degraded`, or `unstable`.
+6. Hand over and close the launch only after critical blockers are cleared, the stabilization checklist passes and remaining risks are recorded.

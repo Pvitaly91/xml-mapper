@@ -10,6 +10,7 @@ use App\Models\SourceConnection;
 use App\Models\ValidationError;
 use App\Services\Feeds\FeedHypercareService;
 use App\Services\Feeds\FeedPilotReadinessService;
+use App\Services\Launch\MerchantLaunchService;
 use App\Services\Promotion\PromotionStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,12 +69,14 @@ class FeedProfileController extends AdminController
         FeedProfile $feedProfile,
         FeedPilotReadinessService $pilotReadinessService,
         FeedHypercareService $hypercareService,
+        MerchantLaunchService $merchantLaunchService,
         PromotionStatusService $promotionStatusService,
     ): View
     {
         $this->ensureShopOwned($request, $feedProfile);
-        $feedProfile->load(['sourceConnection', 'publishedGeneration', 'latestGeneration']);
+        $feedProfile->load(['sourceConnection', 'publishedGeneration', 'latestGeneration', 'currentMerchantLaunch']);
         $pilotReadiness = $pilotReadinessService->summarize($feedProfile);
+        $currentLaunch = $feedProfile->currentMerchantLaunch;
 
         return view('admin.feed-profiles.show', [
             'feedProfile' => $feedProfile,
@@ -92,6 +95,7 @@ class FeedProfileController extends AdminController
             'publicFeedUrl' => $feedProfile->published_path ? route('feeds.public', $feedProfile->public_token) : null,
             'pilotReadiness' => $pilotReadiness,
             'hypercareSummary' => $hypercareService->summarize($feedProfile),
+            'currentLaunch' => $currentLaunch ? $merchantLaunchService->refresh($currentLaunch) : null,
             'promotionStatus' => $promotionStatusService->summarize($feedProfile),
         ]);
     }

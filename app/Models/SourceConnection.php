@@ -186,6 +186,10 @@ class SourceConnection extends Model
             return 'missing';
         }
 
+        if (($this->promotionMeta()['secret_rebind_required'] ?? false) === true) {
+            return 'not_validated';
+        }
+
         $appliedAt = data_get($this->promotionMeta(), 'applied_at');
         $validatedAt = data_get($this->promotionMeta(), 'validated_at');
 

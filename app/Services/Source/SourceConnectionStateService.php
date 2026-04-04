@@ -28,8 +28,12 @@ class SourceConnectionStateService
             'last_connection_check_message' => $result->message,
         ])->save();
         $connection->savePromotionMeta([
-            'secret_state' => $connection->promotionSecretState(),
-            'secret_rebind_required' => $connection->promotionSecretRebindRequired(),
+            'secret_state' => $result->status === SourceConnection::CHECK_STATUS_OK
+                ? 'validated'
+                : $connection->promotionSecretState(),
+            'secret_rebind_required' => $result->status === SourceConnection::CHECK_STATUS_OK
+                ? false
+                : $connection->promotionSecretRebindRequired(),
             'validated_at' => $result->status === SourceConnection::CHECK_STATUS_OK
                 ? now()->toIso8601String()
                 : data_get($connection->promotionMeta(), 'validated_at'),

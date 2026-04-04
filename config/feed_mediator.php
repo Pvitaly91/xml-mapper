@@ -185,6 +185,20 @@ return [
         'reports_directory' => env('FEED_MEDIATOR_PILOT_REPORTS_DIRECTORY', 'feeds/runbooks/pilot/reports'),
         'evidence_directory' => env('FEED_MEDIATOR_PILOT_EVIDENCE_DIRECTORY', 'feeds/runbooks/pilot/evidence'),
     ],
+    'launch' => [
+        'reports_directory' => env('FEED_MEDIATOR_LAUNCH_REPORTS_DIRECTORY', 'feeds/runbooks/launch/reports'),
+        'baseline' => [
+            'default_first_pull_latency_ms' => (int) env('FEED_MEDIATOR_LAUNCH_BASELINE_FIRST_PULL_MS', 5000),
+            'default_sync_freshness_minutes' => (int) env('FEED_MEDIATOR_LAUNCH_BASELINE_SYNC_MINUTES', 60),
+            'count_warn_pct' => (float) env('FEED_MEDIATOR_LAUNCH_BASELINE_COUNT_WARN_PCT', 0.15),
+            'count_critical_pct' => (float) env('FEED_MEDIATOR_LAUNCH_BASELINE_COUNT_CRIT_PCT', 0.30),
+            'upper_warn_pct' => (float) env('FEED_MEDIATOR_LAUNCH_BASELINE_UPPER_WARN_PCT', 0.50),
+            'upper_critical_pct' => (float) env('FEED_MEDIATOR_LAUNCH_BASELINE_UPPER_CRIT_PCT', 1.00),
+        ],
+        'handover' => [
+            'max_feedback_backlog' => (int) env('FEED_MEDIATOR_LAUNCH_MAX_FEEDBACK_BACKLOG', 3),
+        ],
+    ],
     'normalization' => [
         'article_keys' => ['article', 'vendorcode', 'vendor_code', 'артикул', 'sku'],
         'size_keys' => ['size', 'розмір', 'размер'],

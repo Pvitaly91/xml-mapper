@@ -168,6 +168,18 @@ class FeedProfile extends Model
         return $this->hasMany(PilotRun::class);
     }
 
+    public function merchantLaunches(): HasMany
+    {
+        return $this->hasMany(MerchantLaunch::class);
+    }
+
+    public function currentMerchantLaunch(): HasOne
+    {
+        return $this->hasOne(MerchantLaunch::class)
+            ->where('state', '!=', MerchantLaunch::STATE_CLOSED)
+            ->latestOfMany();
+    }
+
     public function promotionSnapshots(): HasMany
     {
         return $this->hasMany(PromotionSnapshot::class);

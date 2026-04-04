@@ -41,6 +41,7 @@ use App\Http\Controllers\Admin\FeedRollbackController;
 use App\Http\Controllers\Admin\FeedRunbookController;
 use App\Http\Controllers\Admin\FeedSmokeCheckController;
 use App\Http\Controllers\Admin\MappingPresetController;
+use App\Http\Controllers\Admin\MerchantLaunchController;
 use App\Http\Controllers\Admin\OpsMaintenanceController;
 use App\Http\Controllers\Admin\OpsAlertController;
 use App\Http\Controllers\Admin\OpsSilenceWindowController;
@@ -94,6 +95,17 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/pilot-runs/{pilot_run}/events', [PilotRunController::class, 'event'])->name('pilot-runs.events.store');
         Route::get('/pilot-runs/{pilot_run}/evidence', [PilotRunController::class, 'evidence'])->name('pilot-runs.evidence');
         Route::get('/pilot-runs/{pilot_run}/reports/{type}', [PilotRunController::class, 'report'])->name('pilot-runs.reports.show');
+        Route::get('/merchant-launches', [MerchantLaunchController::class, 'index'])->name('merchant-launches.index');
+        Route::post('/merchant-launches', [MerchantLaunchController::class, 'store'])->name('merchant-launches.store');
+        Route::get('/merchant-launches/{merchant_launch}', [MerchantLaunchController::class, 'show'])->name('merchant-launches.show');
+        Route::post('/merchant-launches/{merchant_launch}/observations', [MerchantLaunchController::class, 'observe'])->name('merchant-launches.observations.store');
+        Route::post('/merchant-launches/{merchant_launch}/defects', [MerchantLaunchController::class, 'defect'])->name('merchant-launches.defects.store');
+        Route::put('/merchant-launches/{merchant_launch}/defects/{defect}', [MerchantLaunchController::class, 'updateDefect'])->name('merchant-launches.defects.update');
+        Route::put('/merchant-launches/{merchant_launch}/baseline', [MerchantLaunchController::class, 'baseline'])->name('merchant-launches.baseline.update');
+        Route::post('/merchant-launches/{merchant_launch}/tuning', [MerchantLaunchController::class, 'tuning'])->name('merchant-launches.tuning.store');
+        Route::post('/merchant-launches/{merchant_launch}/handover', [MerchantLaunchController::class, 'handover'])->middleware('throttle:admin-sensitive')->name('merchant-launches.handover');
+        Route::post('/merchant-launches/{merchant_launch}/close', [MerchantLaunchController::class, 'close'])->middleware('throttle:admin-sensitive')->name('merchant-launches.close');
+        Route::get('/merchant-launches/{merchant_launch}/reports/{type}', [MerchantLaunchController::class, 'report'])->name('merchant-launches.reports.show');
 
         Route::resource('source-connections', SourceConnectionController::class)->except(['destroy']);
         Route::post('/source-connections/{source_connection}/test', [SourceConnectionTestController::class, 'store'])->middleware('throttle:admin-sensitive')->name('source-connections.test');
