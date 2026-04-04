@@ -7,6 +7,7 @@ use App\Models\FeedProfile;
 use App\Models\KastaAttribute;
 use App\Models\KastaAttributeValue;
 use App\Models\KastaCategory;
+use App\Models\ShopMembership;
 use App\Models\Shop;
 use App\Models\SourceAttribute;
 use App\Models\SourceAttributeValue;
@@ -34,11 +35,56 @@ trait CreatesAdminContext
     {
         $shop ??= $this->createShop();
 
-        return User::factory()->create(array_merge([
+        $user = User::factory()->create(array_merge([
             'shop_id' => $shop->id,
             'role' => User::ROLE_ADMIN,
             'is_active' => true,
         ], $overrides));
+
+        ShopMembership::query()->firstOrCreate(
+            [
+                'user_id' => $user->id,
+                'shop_id' => $shop->id,
+            ],
+            [
+                'role' => ShopMembership::ROLE_SHOP_ADMIN,
+                'status' => ShopMembership::STATUS_ACTIVE,
+            ]
+        );
+
+        return $user;
+    }
+
+    protected function createPlatformAdminUser(array $overrides = []): User
+    {
+        $user = User::factory()->create(array_merge([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+            'shop_id' => null,
+        ], $overrides));
+
+        $this->grantMembership($user, null, ShopMembership::ROLE_PLATFORM_ADMIN);
+
+        return $user;
+    }
+
+    protected function grantMembership(
+        User $user,
+        ?Shop $shop,
+        string $role,
+        string $status = ShopMembership::STATUS_ACTIVE,
+        array $overrides = []
+    ): ShopMembership {
+        return ShopMembership::query()->updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'shop_id' => $shop?->id,
+            ],
+            array_merge([
+                'role' => $role,
+                'status' => $status,
+            ], $overrides)
+        );
     }
 
     protected function createSourceConnection(Shop $shop, array $overrides = []): SourceConnection

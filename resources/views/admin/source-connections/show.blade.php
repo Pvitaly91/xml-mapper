@@ -33,6 +33,7 @@
             <div class="detail-row"><strong>API base URL</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiBaseUrl() : 'n/a' }}</div></div>
             <div class="detail-row"><strong>API version</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? $connection->resolvedApiVersion() : 'n/a' }}</div></div>
             <div class="detail-row"><strong>API token</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_API ? ($connection->maskedApiToken() ?: 'not configured') : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Credentials bundle</strong><div>{{ $connection->driver === \App\Models\SourceConnection::DRIVER_PROM_YML ? (!empty($connection->credentials) ? 'configured (masked)' : 'not configured') : 'n/a' }}</div></div>
             <div class="detail-row"><strong>Promotion secret state</strong><div>{{ $connection->promotionSecretState() }}</div></div>
             <div class="detail-row"><strong>Promotion rebind required</strong><div>{{ $connection->promotionSecretRebindRequired() ? 'yes' : 'no' }}</div></div>
             <div class="detail-row"><strong>Token present</strong><div>{{ ($rotation['token_present'] ?? false) ? 'yes' : 'no' }}</div></div>

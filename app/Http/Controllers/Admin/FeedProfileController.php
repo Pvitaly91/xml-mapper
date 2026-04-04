@@ -57,7 +57,8 @@ class FeedProfileController extends AdminController
 
     public function store(FeedProfileRequest $request, UpsertFeedProfileAction $action): RedirectResponse
     {
-        $feedProfile = $action->handle($request->user(), $request->validated());
+        $shop = $this->adminShop($request);
+        $feedProfile = $action->handle($request->user(), $request->validated(), null, $shop);
 
         return redirect()
             ->route('admin.feed-profiles.show', $feedProfile)
@@ -106,7 +107,7 @@ class FeedProfileController extends AdminController
 
         return view('admin.feed-profiles.form', [
             'feedProfile' => $feedProfile,
-            'sourceConnections' => SourceConnection::query()->where('shop_id', $request->user()->shop_id)->orderBy('name')->get(),
+            'sourceConnections' => SourceConnection::query()->where('shop_id', $this->adminShop($request)->id)->orderBy('name')->get(),
             'pageTitle' => 'Edit Feed Profile',
         ]);
     }
@@ -114,7 +115,8 @@ class FeedProfileController extends AdminController
     public function update(FeedProfileRequest $request, FeedProfile $feedProfile, UpsertFeedProfileAction $action): RedirectResponse
     {
         $this->ensureShopOwned($request, $feedProfile);
-        $profile = $action->handle($request->user(), $request->validated(), $feedProfile);
+        $shop = $this->adminShop($request);
+        $profile = $action->handle($request->user(), $request->validated(), $feedProfile, $shop);
 
         return redirect()
             ->route('admin.feed-profiles.show', $profile)

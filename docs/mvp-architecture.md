@@ -397,6 +397,50 @@ Observed events currently routed outward include launch degradation, smoke failu
 
 This preserves traceability for production debugging without rewriting the current source-import or publish pipelines.
 
+## RBAC And Shop-Scoped Governance
+
+The admin surface now resolves access through persisted `shop_memberships` instead of a flat global admin flag.
+
+Design rules:
+
+1. `platform_admin` is the only truly global role and bypasses shop scoping intentionally
+2. `shop_admin`, `operator`, `reviewer`, and `observer` are shop-scoped memberships stored per user and shop
+3. the current admin shop is resolved from active memberships, not arbitrary form payloads
+4. route-level permission checks use a centralized resolver so controllers and Blade stay thin
+5. legacy `users.role=admin` support is treated as a compatibility fallback only when no membership rows exist
+
+This keeps the access model practical for a multi-merchant operations admin without introducing a full enterprise IAM stack.
+
+## Approval And Sensitive Action Flow
+
+Dangerous production actions are executed through `GovernedActionService`.
+
+Flow:
+
+1. the controller calls one centralized governed-action entry point
+2. `AdminAccessService` resolves permission against the current shop scope
+3. `ApprovalPolicyService` classifies the action as `standard`, `sensitive`, or `high_risk`
+4. production context can require approval, a `4-eyes` rule, or `platform_admin` scope
+5. if approval is required, the exact action payload is persisted in `approval_requests`
+6. once a different reviewer approves, the stored payload is executed through the registered action handler
+7. request, approval, rejection, expiry and execution all emit governance audit rows
+
+Covered action families include release, promotion, secret rebind/rotation, emergency launch tuning, silence windows and destructive maintenance.
+
+## Secret Governance And Compliance Layer
+
+Secret handling is intentionally conservative:
+
+1. encrypted values stay at rest and are masked in admin UI by default
+2. edit forms never repopulate raw secret values
+3. secret-touch actions can require approval in production
+4. secret-related execution and access attempts are audited under the governance trail
+5. logs, notification payloads, flash messages and reports redact token-like material before persistence or export
+
+`governance_audits` complements the existing release / ops audit trail with compliance-oriented records for role changes, membership changes, approvals and sensitive action attempts.
+
+`ComplianceReportService` exports shop/user/date-filtered governance history into the runbooks area so production reviews can reconstruct who requested, approved and executed risky actions, and under which correlation ID.
+
 ## First Merchant Production Execution Flow
 
 The live merchant execution path is:

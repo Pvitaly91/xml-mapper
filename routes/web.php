@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AttributeMappingController;
 use App\Http\Controllers\Admin\AttributeMappingSuggestionController;
+use App\Http\Controllers\Admin\AccessCenterController;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Admin\CategoryMappingAutomapController;
 use App\Http\Controllers\Admin\CategoryMappingController;
@@ -72,9 +73,19 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:admin-login')->name('admin.login.store');
     });
 
-    Route::middleware(['auth', 'can:access-admin'])->name('admin.')->group(function (): void {
+    Route::middleware(['auth', 'can:access-admin', 'admin.shop.context', 'admin.permission'])->name('admin.')->group(function (): void {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+        Route::get('/access', [AccessCenterController::class, 'index'])->name('access.index');
+        Route::post('/access/switch-shop', [AccessCenterController::class, 'switchShop'])->name('access.switch-shop');
+        Route::post('/access/memberships', [AccessCenterController::class, 'storeMembership'])->name('access.memberships.store');
+        Route::put('/access/memberships/{shop_membership}', [AccessCenterController::class, 'updateMembership'])->name('access.memberships.update');
+        Route::post('/access/memberships/{shop_membership}/revoke', [AccessCenterController::class, 'revokeMembership'])->name('access.memberships.revoke');
+        Route::get('/access/approvals/{approval_request}', [AccessCenterController::class, 'showApproval'])->name('access.approvals.show');
+        Route::post('/access/approvals/{approval_request}/approve', [AccessCenterController::class, 'approve'])->name('access.approvals.approve');
+        Route::post('/access/approvals/{approval_request}/reject', [AccessCenterController::class, 'reject'])->name('access.approvals.reject');
+        Route::get('/access/compliance', [AccessCenterController::class, 'compliance'])->name('access.compliance');
+        Route::get('/access/compliance/export', [AccessCenterController::class, 'exportCompliance'])->name('access.compliance.export');
         Route::post('/ops/preflight', [OpsMaintenanceController::class, 'preflight'])->middleware('throttle:admin-sensitive')->name('ops.preflight');
         Route::post('/ops/backup-db', [OpsMaintenanceController::class, 'backupDb'])->middleware('throttle:admin-sensitive')->name('ops.backup-db');
         Route::post('/ops/backup-files', [OpsMaintenanceController::class, 'backupFiles'])->middleware('throttle:admin-sensitive')->name('ops.backup-files');

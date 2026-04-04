@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admin\SourceConnections;
 
+use App\Models\Shop;
 use App\Models\SourceConnection;
 use App\Models\User;
 
@@ -10,16 +11,17 @@ class UpsertSourceConnectionAction
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function handle(User $user, array $payload, ?SourceConnection $connection = null): SourceConnection
+    public function handle(User $user, array $payload, ?SourceConnection $connection = null, ?Shop $shop = null): SourceConnection
     {
         $user = $user->fresh() ?? $user;
         $connection ??= new SourceConnection;
+        $shopId = $shop?->id ?: $user->shop_id;
         $existingPromotionMeta = $connection->promotionMeta();
         $credentials = $this->resolvedCredentials($payload, $connection);
         $options = $this->resolvedOptions($payload, $connection);
 
         $attributes = [
-            'shop_id' => $user->shop_id,
+            'shop_id' => $shopId,
             'name' => $payload['name'],
             'code' => $payload['code'],
             'driver' => $payload['driver'],

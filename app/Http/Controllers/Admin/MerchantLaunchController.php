@@ -11,6 +11,8 @@ use App\Http\Requests\Admin\Launch\MerchantLaunchStartRequest;
 use App\Http\Requests\Admin\Launch\MerchantLaunchTuningRequest;
 use App\Models\MerchantLaunch;
 use App\Models\MerchantLaunchDefect;
+use App\Services\Governance\ApprovalPolicyService;
+use App\Services\Governance\GovernedActionService;
 use App\Services\Launch\MerchantLaunchCenterService;
 use App\Services\Launch\MerchantLaunchReportService;
 use App\Services\Launch\MerchantLaunchService;
@@ -137,13 +139,39 @@ class MerchantLaunchController extends AdminController
     public function tuning(
         MerchantLaunchTuningRequest $request,
         MerchantLaunch $merchantLaunch,
-        MerchantLaunchService $service
+        MerchantLaunchService $service,
+        GovernedActionService $governedActionService
     ): RedirectResponse {
         $merchantLaunch->loadMissing('feedProfile');
         $this->ensureShopOwned($request, $merchantLaunch->feedProfile);
 
         try {
-            $service->applyTuning($merchantLaunch, $request->validated(), $request->user());
+            if (($request->validated('mode') ?? null) === 'emergency') {
+                $result = $this->dispatchGovernedAction(
+                    $request,
+                    $governedActionService,
+                    ApprovalPolicyService::ACTION_EMERGENCY_TUNING,
+                    $merchantLaunch,
+                    [
+                        'merchant_launch_id' => $merchantLaunch->id,
+                        'tuning_payload' => $request->validated(),
+                    ],
+                    [
+                        'merchant_launch_id' => $merchantLaunch->id,
+                        'type' => (string) $request->validated('type'),
+                        'mode' => 'emergency',
+                        'key' => $request->validated('key'),
+                    ],
+                    (string) $request->validated('reason'),
+                    targetLabel: 'Launch #'.$merchantLaunch->id
+                );
+
+                if ($result->status !== 'executed') {
+                    return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for emergency tuning.');
+                }
+            } else {
+                $service->applyTuning($merchantLaunch, $request->validated(), $request->user());
+            }
         } catch (Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }
@@ -171,13 +199,37 @@ class MerchantLaunchController extends AdminController
     public function close(
         MerchantLaunchReasonRequest $request,
         MerchantLaunch $merchantLaunch,
-        MerchantLaunchService $service
+        MerchantLaunchService $service,
+        GovernedActionService $governedActionService
     ): RedirectResponse {
         $merchantLaunch->loadMissing('feedProfile');
         $this->ensureShopOwned($request, $merchantLaunch->feedProfile);
 
         try {
-            $service->close($merchantLaunch, (string) $request->validated('reason'), $request->user());
+            if ($request->boolean('override_blockers')) {
+                $result = $this->dispatchGovernedAction(
+                    $request,
+                    $governedActionService,
+                    ApprovalPolicyService::ACTION_LAUNCH_CLOSE_OVERRIDE,
+                    $merchantLaunch,
+                    [
+                        'merchant_launch_id' => $merchantLaunch->id,
+                        'reason' => (string) $request->validated('reason'),
+                    ],
+                    [
+                        'merchant_launch_id' => $merchantLaunch->id,
+                        'override_blockers' => true,
+                    ],
+                    (string) $request->validated('reason'),
+                    targetLabel: 'Launch #'.$merchantLaunch->id
+                );
+
+                if ($result->status !== 'executed') {
+                    return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for launch close override.');
+                }
+            } else {
+                $service->close($merchantLaunch, (string) $request->validated('reason'), $request->user());
+            }
         } catch (Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }

@@ -18,6 +18,7 @@ class MerchantLaunchReasonRequest extends FormRequest
     {
         return [
             'reason' => ['required', 'string', 'max:1000'],
+            'override_blockers' => ['nullable', 'boolean'],
         ];
     }
 }

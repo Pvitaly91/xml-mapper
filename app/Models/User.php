@@ -67,6 +67,31 @@ class User extends Authenticatable
         return $this->hasMany(FeedProfile::class);
     }
 
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(ShopMembership::class);
+    }
+
+    public function activeMemberships(): HasMany
+    {
+        return $this->memberships()->where('status', ShopMembership::STATUS_ACTIVE);
+    }
+
+    public function governedApprovalRequests(): HasMany
+    {
+        return $this->hasMany(ApprovalRequest::class, 'requested_by_user_id');
+    }
+
+    public function governanceApprovals(): HasMany
+    {
+        return $this->hasMany(ApprovalRequest::class, 'approved_by_user_id');
+    }
+
+    public function governanceAudits(): HasMany
+    {
+        return $this->hasMany(GovernanceAudit::class);
+    }
+
     public function initiatedPilotRuns(): HasMany
     {
         return $this->hasMany(PilotRun::class, 'initiated_by_user_id');
@@ -79,6 +104,16 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->is_active && $this->role === self::ROLE_ADMIN;
+        if (! $this->is_active) {
+            return false;
+        }
+
+        if ($this->memberships()->exists()) {
+            return $this->memberships()
+                ->where('status', ShopMembership::STATUS_ACTIVE)
+                ->exists();
+        }
+
+        return $this->role === self::ROLE_ADMIN;
     }
 }

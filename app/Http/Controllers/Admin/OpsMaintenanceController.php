@@ -4,10 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\FeedProfile;
 use App\Models\OpsRun;
+use App\Services\Governance\ApprovalPolicyService;
+use App\Services\Governance\GovernedActionService;
 use App\Services\Ops\BackupService;
 use App\Services\Ops\BenchmarkService;
 use App\Services\Ops\ProductionPreflightService;
-use App\Services\Ops\PruneService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -50,15 +51,28 @@ class OpsMaintenanceController extends AdminController
         return back()->with('status', 'Files backup created: '.$result['path']);
     }
 
-    public function prune(Request $request, PruneService $service): RedirectResponse
+    public function prune(Request $request, GovernedActionService $governedActionService): RedirectResponse
     {
         try {
-            $result = $service->run($request->user());
+            $result = $this->dispatchGovernedAction(
+                $request,
+                $governedActionService,
+                ApprovalPolicyService::ACTION_PRUNE,
+                null,
+                ['requested_by' => $request->user()?->id],
+                ['action' => 'ops.prune'],
+                'Ops prune requested from admin maintenance panel.'
+            );
         } catch (Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('status', 'Prune finished with '.count($result['summary']).' retention counters updated.');
+        return back()->with(
+            $this->governedFlashKey($result),
+            $result->status === 'executed'
+                ? 'Prune finished with '.count((array) ($result->execution['summary'] ?? [])).' retention counters updated.'
+                : ($result->message ?: 'Approval workflow started for prune.')
+        );
     }
 
     public function benchmark(Request $request, FeedProfile $feedProfile, BenchmarkService $service): RedirectResponse

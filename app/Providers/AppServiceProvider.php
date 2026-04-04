@@ -16,6 +16,21 @@ use App\Contracts\Source\SourceImportServiceInterface;
 use App\Contracts\Source\SourceSyncWorkflowServiceInterface;
 use App\Contracts\Validation\ValidationServiceInterface;
 use App\Models\User;
+use App\Services\Access\AdminAccessService;
+use App\Services\Admin\CurrentAdminShopResolver;
+use App\Services\Governance\GovernedActionRegistry;
+use App\Services\Governance\Handlers\CriticalSilenceWindowActionHandler;
+use App\Services\Governance\Handlers\EmergencyTuningActionHandler;
+use App\Services\Governance\Handlers\ForcePublishActionHandler;
+use App\Services\Governance\Handlers\FreezeToggleActionHandler;
+use App\Services\Governance\Handlers\LaunchCloseOverrideActionHandler;
+use App\Services\Governance\Handlers\PromotionApplyActionHandler;
+use App\Services\Governance\Handlers\PromotionRollbackActionHandler;
+use App\Services\Governance\Handlers\PruneActionHandler;
+use App\Services\Governance\Handlers\RollbackActionHandler;
+use App\Services\Governance\Handlers\SecretRebindActionHandler;
+use App\Services\Governance\Handlers\SecretRotationActionHandler;
+use App\Services\Governance\ApprovalPolicyService;
 use App\Services\Dictionaries\KastaDictionaryImportService;
 use App\Services\Feeds\FeedBuildService;
 use App\Services\Feeds\FeedPublishService;
@@ -53,6 +68,21 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(CorrelationContext::class);
+        $this->app->singleton(GovernedActionRegistry::class, function ($app): GovernedActionRegistry {
+            return new GovernedActionRegistry([
+                ApprovalPolicyService::ACTION_RELEASE_FORCE_PUBLISH => $app->make(ForcePublishActionHandler::class),
+                ApprovalPolicyService::ACTION_RELEASE_ROLLBACK => $app->make(RollbackActionHandler::class),
+                ApprovalPolicyService::ACTION_RELEASE_FREEZE => $app->make(FreezeToggleActionHandler::class),
+                ApprovalPolicyService::ACTION_PROMOTION_APPLY => $app->make(PromotionApplyActionHandler::class),
+                ApprovalPolicyService::ACTION_PROMOTION_ROLLBACK => $app->make(PromotionRollbackActionHandler::class),
+                ApprovalPolicyService::ACTION_SECRET_REBIND => $app->make(SecretRebindActionHandler::class),
+                ApprovalPolicyService::ACTION_SECRET_ROTATION => $app->make(SecretRotationActionHandler::class),
+                ApprovalPolicyService::ACTION_EMERGENCY_TUNING => $app->make(EmergencyTuningActionHandler::class),
+                ApprovalPolicyService::ACTION_LAUNCH_CLOSE_OVERRIDE => $app->make(LaunchCloseOverrideActionHandler::class),
+                ApprovalPolicyService::ACTION_SILENCE_CRITICAL => $app->make(CriticalSilenceWindowActionHandler::class),
+                ApprovalPolicyService::ACTION_PRUNE => $app->make(PruneActionHandler::class),
+            ]);
+        });
         $this->app->bind(SourceImportServiceInterface::class, SourceImportService::class);
         $this->app->bind(PromYmlParserInterface::class, PromYmlParser::class);
         $this->app->bind(PromApiClientInterface::class, PromApiClient::class);
@@ -80,7 +110,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('access-admin', fn (User $user): bool => $user->isAdmin());
+        Gate::define('access-admin', fn (User $user): bool => app(AdminAccessService::class)->canAccessAdmin($user));
 
         Authenticate::redirectUsing(static fn () => route('login'));
         RedirectIfAuthenticated::redirectUsing(static fn () => route('admin.dashboard'));
@@ -101,6 +131,45 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer('*', static function ($view): void {
             $view->with('appEnvironment', app(EnvironmentContextService::class)->summary());
+        });
+
+        View::composer('layouts.admin', static function ($view): void {
+            $request = request();
+            $user = $request?->user();
+
+            if (! $user instanceof User) {
+                return;
+            }
+
+            $accessService = app(AdminAccessService::class);
+            $shopResolver = app(CurrentAdminShopResolver::class);
+            $currentShop = $request->attributes->get('admin_shop');
+            $currentRole = $accessService->roleFor($user, $currentShop);
+
+            if (! $currentShop) {
+                $currentShop = $shopResolver->resolve($request);
+                $currentRole = $accessService->roleFor($user, $currentShop);
+            }
+
+            $nav = collect([
+                ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'active' => 'admin.dashboard', 'visible' => $accessService->can($user, 'dashboard.view', $currentShop)],
+                ['label' => 'Onboarding', 'route' => 'admin.onboarding.show', 'active' => 'admin.onboarding.*', 'visible' => $accessService->can($user, 'onboarding.manage', $currentShop)],
+                ['label' => 'Go-Live Control', 'route' => 'admin.shop-control.show', 'active' => 'admin.shop-control.*', 'visible' => $currentShop && $accessService->can($user, 'launch.view', $currentShop)],
+                ['label' => 'Pilot Center', 'route' => 'admin.pilot-runs.index', 'active' => 'admin.pilot-runs.*', 'visible' => $currentShop && $accessService->can($user, 'pilot.view', $currentShop)],
+                ['label' => 'Launch Center', 'route' => 'admin.merchant-launches.index', 'active' => 'admin.merchant-launches.*', 'visible' => $currentShop && $accessService->can($user, 'launch.view', $currentShop)],
+                ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'active' => 'admin.notifications.*', 'visible' => $currentShop && $accessService->can($user, 'notifications.view', $currentShop)],
+                ['label' => 'Source Connections', 'route' => 'admin.source-connections.index', 'active' => 'admin.source-connections.*', 'visible' => $currentShop && $accessService->can($user, 'source.view', $currentShop)],
+                ['label' => 'Feed Profiles', 'route' => 'admin.feed-profiles.index', 'active' => 'admin.feed-profiles.*', 'visible' => $currentShop && $accessService->can($user, 'feed_profiles.view', $currentShop)],
+                ['label' => 'Kasta Dictionaries', 'route' => 'admin.dictionaries.index', 'active' => 'admin.dictionaries.*|admin.dictionary-imports.*', 'visible' => $accessService->can($user, 'dictionaries.view', $currentShop) || $accessService->can($user, 'dictionaries.manage', $currentShop)],
+                ['label' => 'Access Center', 'route' => 'admin.access.index', 'active' => 'admin.access.*', 'visible' => $accessService->can($user, 'access.view', $currentShop) || $accessService->can($user, 'compliance.view', $currentShop) || $accessService->can($user, 'approvals.review', $currentShop)],
+            ])->filter(fn (array $item) => $item['visible'])->values()->all();
+
+            $view->with('adminLayout', [
+                'currentShop' => $currentShop,
+                'availableShops' => $accessService->availableShops($user),
+                'currentRoleLabel' => $currentRole ? $accessService->labelForRole($currentRole) : null,
+                'nav' => $nav,
+            ]);
         });
     }
 }

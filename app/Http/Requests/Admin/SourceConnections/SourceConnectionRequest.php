@@ -20,6 +20,7 @@ class SourceConnectionRequest extends FormRequest
     public function rules(): array
     {
         $connection = $this->route('source_connection');
+        $shopId = $this->currentShopId();
 
         return [
             'name' => ['required', 'string', 'max:255'],
@@ -28,7 +29,7 @@ class SourceConnectionRequest extends FormRequest
                 'string',
                 'max:255',
                 Rule::unique('source_connections', 'code')
-                    ->where(fn ($query) => $query->where('shop_id', $this->user()->shop_id))
+                    ->where(fn ($query) => $query->where('shop_id', $shopId))
                     ->ignore($connection?->id),
             ],
             'driver' => ['required', Rule::in(SourceConnection::supportedDrivers())],
@@ -88,5 +89,10 @@ class SourceConnectionRequest extends FormRequest
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function currentShopId(): ?int
+    {
+        return $this->attributes->get('admin_shop')?->id ?: $this->user()?->shop_id;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Actions\Admin\FeedProfiles;
 
 use App\Models\FeedGenerationSignoff;
 use App\Models\FeedProfile;
+use App\Models\Shop;
 use App\Models\User;
 
 class UpsertFeedProfileAction
@@ -11,9 +12,10 @@ class UpsertFeedProfileAction
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function handle(User $user, array $payload, ?FeedProfile $feedProfile = null): FeedProfile
+    public function handle(User $user, array $payload, ?FeedProfile $feedProfile = null, ?Shop $shop = null): FeedProfile
     {
         $user = $user->fresh() ?? $user;
+        $shopId = $shop?->id ?: $user->shop_id;
         $settings = array_merge($this->decodeJson($payload['settings_json'] ?? null) ?? [], [
             'publish_guard_enabled' => (bool) ($payload['publish_guard_enabled'] ?? false),
             'minimum_ready_items' => (int) ($payload['minimum_ready_items'] ?? 0),
@@ -44,7 +46,7 @@ class UpsertFeedProfileAction
         ]);
 
         $attributes = [
-            'shop_id' => $user->shop_id,
+            'shop_id' => $shopId,
             'user_id' => $user->id,
             'source_connection_id' => $payload['source_connection_id'],
             'name' => $payload['name'],

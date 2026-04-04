@@ -9,6 +9,8 @@ use App\Http\Requests\Admin\Promotion\PromotionSnapshotImportRequest;
 use App\Models\FeedProfile;
 use App\Models\PromotionRun;
 use App\Models\PromotionSnapshot;
+use App\Services\Governance\ApprovalPolicyService;
+use App\Services\Governance\GovernedActionService;
 use App\Services\Promotion\PromotionCenterService;
 use App\Services\Promotion\PromotionReportService;
 use App\Services\Promotion\PromotionService;
@@ -107,17 +109,40 @@ class FeedPromotionController extends AdminController
     public function apply(
         PromotionActionRequest $request,
         FeedProfile $feedProfile,
-        PromotionService $service
+        GovernedActionService $governedActionService
     ): RedirectResponse {
         $this->ensureShopOwned($request, $feedProfile);
         $snapshot = $this->findSnapshot($feedProfile, (int) $request->validated('source_snapshot_id'));
-        $run = $service->applySnapshot(
-            $snapshot,
-            $feedProfile,
-            (string) ($request->validated('strategy') ?: PromotionRun::STRATEGY_SAFE_MERGE),
-            $request->user(),
-            $request->validated('reason')
-        );
+
+        try {
+            $result = $this->dispatchGovernedAction(
+                $request,
+                $governedActionService,
+                ApprovalPolicyService::ACTION_PROMOTION_APPLY,
+                $feedProfile,
+                [
+                    'feed_profile_id' => $feedProfile->id,
+                    'source_snapshot_id' => $snapshot->id,
+                    'strategy' => (string) ($request->validated('strategy') ?: PromotionRun::STRATEGY_SAFE_MERGE),
+                    'reason' => (string) $request->validated('reason'),
+                ],
+                [
+                    'feed_profile_id' => $feedProfile->id,
+                    'source_snapshot_id' => $snapshot->id,
+                    'strategy' => (string) ($request->validated('strategy') ?: PromotionRun::STRATEGY_SAFE_MERGE),
+                ],
+                (string) $request->validated('reason'),
+                targetLabel: $feedProfile->code
+            );
+        } catch (Throwable $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        if ($result->status !== 'executed') {
+            return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for promotion apply.');
+        }
+
+        $run = PromotionRun::query()->findOrFail((int) ($result->execution['promotion_run_id'] ?? 0));
 
         return redirect()
             ->route('admin.feed-profiles.promotion.runs.show', [$feedProfile, $run])
@@ -139,12 +164,37 @@ class FeedPromotionController extends AdminController
         PromotionRollbackRequest $request,
         FeedProfile $feedProfile,
         PromotionRun $promotionRun,
-        PromotionService $service
+        GovernedActionService $governedActionService
     ): RedirectResponse {
         $this->ensureShopOwned($request, $feedProfile);
         abort_unless($promotionRun->target_feed_profile_id === $feedProfile->id, 404);
 
-        $run = $service->rollback($promotionRun, $request->user(), $request->validated('reason'));
+        try {
+            $result = $this->dispatchGovernedAction(
+                $request,
+                $governedActionService,
+                ApprovalPolicyService::ACTION_PROMOTION_ROLLBACK,
+                $promotionRun,
+                [
+                    'promotion_run_id' => $promotionRun->id,
+                    'reason' => (string) $request->validated('reason'),
+                ],
+                [
+                    'promotion_run_id' => $promotionRun->id,
+                    'feed_profile_id' => $feedProfile->id,
+                ],
+                (string) $request->validated('reason'),
+                targetLabel: 'Promotion run #'.$promotionRun->id
+            );
+        } catch (Throwable $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        if ($result->status !== 'executed') {
+            return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for promotion rollback.');
+        }
+
+        $run = PromotionRun::query()->findOrFail((int) ($result->execution['promotion_run_id'] ?? $promotionRun->id));
 
         return redirect()
             ->route('admin.feed-profiles.promotion.runs.show', [$feedProfile, $run])

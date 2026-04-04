@@ -9,6 +9,7 @@ use App\Models\OpsNotificationDelivery;
 use App\Models\OpsNotificationRoute;
 use App\Models\Shop;
 use App\Models\User;
+use App\Services\Access\AdminAccessService;
 use App\Support\SensitiveDataRedactor;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -21,6 +22,7 @@ class NotificationCenterService
     public function __construct(
         private readonly NotificationDeliveryService $deliveryService,
         private readonly SensitiveDataRedactor $redactor,
+        private readonly AdminAccessService $accessService,
     ) {}
 
     /**
@@ -282,11 +284,7 @@ class NotificationCenterService
             ->values();
 
         if ($emails->isEmpty()) {
-            $emails = User::query()
-                ->where('shop_id', $shop->id)
-                ->where('role', User::ROLE_ADMIN)
-                ->where('is_active', true)
-                ->pluck('email');
+            $emails = collect($this->accessService->activeAdminEmailsForShop($shop));
         }
 
         foreach ($emails as $email) {

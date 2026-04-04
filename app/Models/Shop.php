@@ -33,6 +33,11 @@ class Shop extends Model
         return $this->hasMany(User::class);
     }
 
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(ShopMembership::class);
+    }
+
     public function sourceConnections(): HasMany
     {
         return $this->hasMany(SourceConnection::class);

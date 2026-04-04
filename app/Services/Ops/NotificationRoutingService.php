@@ -5,7 +5,8 @@ namespace App\Services\Ops;
 use App\Data\Ops\OpsNotificationMessage;
 use App\Models\OpsAlert;
 use App\Models\OpsNotificationRoute;
-use App\Models\User;
+use App\Models\Shop;
+use App\Services\Access\AdminAccessService;
 use App\Support\SensitiveDataRedactor;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -14,6 +15,7 @@ class NotificationRoutingService
 {
     public function __construct(
         private readonly SensitiveDataRedactor $redactor,
+        private readonly AdminAccessService $accessService,
     ) {}
 
     /**
@@ -119,14 +121,11 @@ class NotificationRoutingService
         $emails = array_values(array_filter((array) config('feed_mediator.notifications.defaults.mail_to', [])));
 
         if ($emails === [] && $message->shopId !== null && (bool) config('feed_mediator.notifications.defaults.mail_enabled', false)) {
-            $emails = User::query()
-                ->where('shop_id', $message->shopId)
-                ->where('role', User::ROLE_ADMIN)
-                ->where('is_active', true)
-                ->pluck('email')
-                ->filter()
-                ->values()
-                ->all();
+            $shop = Shop::query()->find($message->shopId);
+
+            if ($shop instanceof Shop) {
+                $emails = $this->accessService->activeAdminEmailsForShop($shop);
+            }
         }
 
         if ($emails !== [] && (bool) config('feed_mediator.notifications.defaults.mail_enabled', false)) {

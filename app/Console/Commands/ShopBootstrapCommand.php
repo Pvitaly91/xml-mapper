@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\Admin\Shops\BootstrapShopForPilotAction;
 use App\Models\Shop;
+use App\Models\ShopMembership;
 use App\Models\SourceConnection;
 use App\Models\User;
 use Illuminate\Console\Command;
@@ -53,6 +54,17 @@ class ShopBootstrapCommand extends Command
                 'password' => $password,
                 'role' => User::ROLE_ADMIN,
                 'is_active' => true,
+            ]
+        );
+
+        ShopMembership::query()->updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'shop_id' => $shop->id,
+            ],
+            [
+                'role' => ShopMembership::ROLE_SHOP_ADMIN,
+                'status' => ShopMembership::STATUS_ACTIVE,
             ]
         );
 

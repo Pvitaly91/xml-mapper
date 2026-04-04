@@ -6,13 +6,19 @@ use App\Contracts\Ops\NotificationChannelDriver;
 use App\Data\Ops\OpsNotificationChannelResult;
 use App\Data\Ops\OpsNotificationMessage;
 use App\Models\OpsNotificationDelivery;
+use App\Models\Shop;
 use App\Models\User;
 use App\Notifications\OpsDatabaseNotification;
+use App\Services\Access\AdminAccessService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
 class DatabaseNotificationChannel implements NotificationChannelDriver
 {
+    public function __construct(
+        private readonly AdminAccessService $accessService,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $route
      * @param  array<string, mixed>  $rendered
@@ -54,17 +60,13 @@ class DatabaseNotificationChannel implements NotificationChannelDriver
     {
         $target = (array) ($route['target'] ?? []);
         $emails = array_values(array_filter((array) ($target['emails'] ?? [])));
+        $shop = $message->shopId !== null ? Shop::query()->find($message->shopId) : null;
+        $users = $this->accessService->activeAdminUsers($shop);
 
-        $query = User::query()->where('is_active', true)->where('role', User::ROLE_ADMIN);
-
-        if ($message->shopId !== null) {
-            $query->where('shop_id', $message->shopId);
+        if ($emails === []) {
+            return $users;
         }
 
-        if ($emails !== []) {
-            $query->whereIn('email', $emails);
-        }
-
-        return $query->get();
+        return $users->whereIn('email', $emails)->values();
     }
 }

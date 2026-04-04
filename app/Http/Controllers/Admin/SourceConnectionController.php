@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\Admin\SourceConnections\UpsertSourceConnectionAction;
 use App\Http\Requests\Admin\SourceConnections\SourceConnectionRequest;
 use App\Models\SourceConnection;
+use App\Services\Governance\ApprovalPolicyService;
+use App\Services\Governance\GovernedActionService;
 use App\Services\Ops\SecretsRotationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Throwable;
 
 class SourceConnectionController extends AdminController
 {
@@ -53,7 +56,8 @@ class SourceConnectionController extends AdminController
 
     public function store(SourceConnectionRequest $request, UpsertSourceConnectionAction $action): RedirectResponse
     {
-        $connection = $action->handle($request->user(), $request->validated());
+        $shop = $this->adminShop($request);
+        $connection = $action->handle($request->user(), $request->validated(), null, $shop);
 
         if ($request->boolean('redirect_to_onboarding')) {
             return redirect()
@@ -90,10 +94,54 @@ class SourceConnectionController extends AdminController
         ]);
     }
 
-    public function update(SourceConnectionRequest $request, SourceConnection $sourceConnection, UpsertSourceConnectionAction $action): RedirectResponse
+    public function update(
+        SourceConnectionRequest $request,
+        SourceConnection $sourceConnection,
+        UpsertSourceConnectionAction $action,
+        GovernedActionService $governedActionService
+    ): RedirectResponse
     {
         $this->ensureShopOwned($request, $sourceConnection);
-        $connection = $action->handle($request->user(), $request->validated(), $sourceConnection);
+        $shop = $this->adminShop($request);
+        $payload = $request->validated();
+
+        try {
+            if ($this->touchesSecrets($payload, $sourceConnection)) {
+                $result = $this->dispatchGovernedAction(
+                    $request,
+                    $governedActionService,
+                    ApprovalPolicyService::ACTION_SECRET_REBIND,
+                    $sourceConnection,
+                    [
+                        'source_connection_id' => $sourceConnection->id,
+                        'connection_payload' => $payload,
+                    ],
+                    [
+                        'source_connection_id' => $sourceConnection->id,
+                        'driver' => $payload['driver'],
+                        'status' => $payload['status'],
+                        'secret_fields' => [
+                            'api_token' => filled($payload['api_token'] ?? null),
+                            'credentials_json' => filled($payload['credentials_json'] ?? null),
+                        ],
+                    ],
+                    'Secret rebind requested for source connection update.',
+                    targetLabel: $sourceConnection->name
+                );
+
+                if ($result->status !== 'executed') {
+                    return redirect()
+                        ->route('admin.source-connections.show', $sourceConnection)
+                        ->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for secret rebind.');
+                }
+
+                $connection = SourceConnection::query()->findOrFail((int) ($result->execution['source_connection_id'] ?? $sourceConnection->id));
+            } else {
+                $connection = $action->handle($request->user(), $payload, $sourceConnection, $shop);
+            }
+        } catch (Throwable $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
         if ($request->boolean('redirect_to_onboarding')) {
             return redirect()
@@ -104,5 +152,19 @@ class SourceConnectionController extends AdminController
         return redirect()
             ->route('admin.source-connections.show', $connection)
             ->with('status', 'Source connection updated.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function touchesSecrets(array $payload, SourceConnection $connection): bool
+    {
+        if (filled($payload['api_token'] ?? null) || filled($payload['credentials_json'] ?? null)) {
+            return true;
+        }
+
+        return $connection->exists
+            && (($payload['driver'] ?? $connection->driver) !== $connection->driver)
+            && (filled($connection->api_token) || ! empty($connection->credentials));
     }
 }

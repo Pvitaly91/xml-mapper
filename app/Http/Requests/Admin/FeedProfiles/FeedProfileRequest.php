@@ -20,12 +20,13 @@ class FeedProfileRequest extends FormRequest
     public function rules(): array
     {
         $feedProfile = $this->route('feed_profile');
+        $shopId = $this->currentShopId();
 
         return [
             'source_connection_id' => [
                 'required',
                 'integer',
-                Rule::exists('source_connections', 'id')->where(fn ($query) => $query->where('shop_id', $this->user()->shop_id)),
+                Rule::exists('source_connections', 'id')->where(fn ($query) => $query->where('shop_id', $shopId)),
             ],
             'name' => ['required', 'string', 'max:255'],
             'code' => [
@@ -33,7 +34,7 @@ class FeedProfileRequest extends FormRequest
                 'string',
                 'max:255',
                 Rule::unique('feed_profiles', 'code')
-                    ->where(fn ($query) => $query->where('shop_id', $this->user()->shop_id))
+                    ->where(fn ($query) => $query->where('shop_id', $shopId))
                     ->ignore($feedProfile?->id),
             ],
             'status' => ['required', Rule::in([FeedProfile::STATUS_DRAFT, FeedProfile::STATUS_ACTIVE, FeedProfile::STATUS_INACTIVE])],
@@ -66,5 +67,10 @@ class FeedProfileRequest extends FormRequest
             'forced_value_overrides_json' => ['nullable', 'json'],
             'settings_json' => ['nullable', 'json'],
         ];
+    }
+
+    private function currentShopId(): ?int
+    {
+        return $this->attributes->get('admin_shop')?->id ?: $this->user()?->shop_id;
     }
 }

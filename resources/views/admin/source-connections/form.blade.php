@@ -62,7 +62,10 @@
                 </div>
                 <div class="field full" data-driver-section="prom_yml">
                     <label for="credentials_json">Credentials JSON</label>
-                    <textarea id="credentials_json" name="credentials_json">{{ old('credentials_json', $connection->credentials ? json_encode($connection->credentials, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '') }}</textarea>
+                    <textarea id="credentials_json" name="credentials_json" placeholder="{{ $connection->exists && !empty($connection->credentials) ? 'Leave blank to keep the current encrypted credentials bundle' : 'Paste credentials JSON when required by the source' }}">{{ old('credentials_json') }}</textarea>
+                    @if($connection->exists && !empty($connection->credentials))
+                        <p class="muted" style="margin-top: 6px;">Stored credentials are masked by default and are never rendered back into the form.</p>
+                    @endif
                 </div>
                 <div class="field full">
                     <label for="options_json">Settings / options JSON</label>
@@ -70,6 +73,7 @@
                     @if($connection->promotionMeta() !== [])
                         <p class="muted" style="margin-top: 6px;">Promotion metadata is preserved separately and is not edited in this JSON field.</p>
                     @endif
+                    <p class="muted" style="margin-top: 6px;">Production secret changes can require approval before they are applied.</p>
                 </div>
             </div>
 

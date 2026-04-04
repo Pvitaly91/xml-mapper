@@ -546,7 +546,7 @@ class MerchantLaunchService
         return $this->refresh($launch);
     }
 
-    public function close(MerchantLaunch $launch, string $reason, ?User $user = null): MerchantLaunch
+    public function close(MerchantLaunch $launch, string $reason, ?User $user = null, bool $overrideBlockers = false): MerchantLaunch
     {
         if (blank($reason)) {
             throw new RuntimeException('Close reason is required.');
@@ -555,7 +555,7 @@ class MerchantLaunchService
         $launch = $this->refresh($launch);
         $check = $this->check($launch);
 
-        if (($check['safe_to_close'] ?? false) !== true) {
+        if (! $overrideBlockers && ($check['safe_to_close'] ?? false) !== true) {
             throw new RuntimeException('Launch cannot be closed safely: '.implode(' ', $check['critical_blockers'] ?? ['Resolve remaining blockers first.']));
         }
 
@@ -567,6 +567,7 @@ class MerchantLaunchService
                 'closeout' => [
                     'closed_at' => now()->toIso8601String(),
                     'reason' => $reason,
+                    'override_blockers' => $overrideBlockers,
                 ],
             ]),
         ])->save();
@@ -574,6 +575,7 @@ class MerchantLaunchService
         $this->audit($launch, 'live_launch_closed', $user, $reason, [
             'handover_state' => $launch->handover_state,
             'state' => MerchantLaunch::STATE_CLOSED,
+            'override_blockers' => $overrideBlockers,
         ]);
 
         return $this->refresh($launch);

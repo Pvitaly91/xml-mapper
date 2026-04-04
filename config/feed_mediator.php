@@ -199,6 +199,9 @@ return [
             'max_feedback_backlog' => (int) env('FEED_MEDIATOR_LAUNCH_MAX_FEEDBACK_BACKLOG', 3),
         ],
     ],
+    'governance' => [
+        'reports_directory' => env('FEED_MEDIATOR_GOV_REPORTS_DIRECTORY', 'feeds/runbooks/compliance'),
+    ],
     'notifications' => [
         'defaults' => [
             'database_enabled' => (bool) env('FEED_MEDIATOR_NOTIFY_DB_ENABLED', true),

@@ -29,27 +29,36 @@
 <body>
 <div class="app">
     <aside class="sidebar">
-        @php($currentShop = auth()->user()?->shop)
+        @php($adminLayout = $adminLayout ?? ['currentShop' => null, 'availableShops' => collect(), 'nav' => [], 'currentRoleLabel' => null])
+        @php($currentShop = $adminLayout['currentShop'] ?? null)
         <div class="brand">XML Mapper<small>Prom -> Kasta admin</small></div>
         <nav class="nav">
-            <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
-            <a href="{{ route('admin.onboarding.show') }}" class="{{ request()->routeIs('admin.onboarding.*') ? 'active' : '' }}">Onboarding</a>
-            @if($currentShop)
-                <a href="{{ route('admin.shop-control.show') }}" class="{{ request()->routeIs('admin.shop-control.*') ? 'active' : '' }}">Go-Live Control</a>
-                <a href="{{ route('admin.pilot-runs.index') }}" class="{{ request()->routeIs('admin.pilot-runs.*') ? 'active' : '' }}">Pilot Center</a>
-                <a href="{{ route('admin.notifications.index') }}" class="{{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">Notification Center</a>
-                <a href="{{ route('admin.source-connections.index') }}" class="{{ request()->routeIs('admin.source-connections.*') ? 'active' : '' }}">Source Connections</a>
-                <a href="{{ route('admin.feed-profiles.index') }}" class="{{ request()->routeIs('admin.feed-profiles.*') ? 'active' : '' }}">Feed Profiles</a>
-            @endif
-            <a href="{{ route('admin.dictionaries.index') }}" class="{{ request()->routeIs('admin.dictionaries.*') || request()->routeIs('admin.dictionary-imports.*') ? 'active' : '' }}">Kasta Dictionaries</a>
+            @foreach(($adminLayout['nav'] ?? []) as $item)
+                @php($patterns = explode('|', $item['active']))
+                <a href="{{ route($item['route']) }}" class="{{ collect($patterns)->contains(fn ($pattern) => request()->routeIs($pattern)) ? 'active' : '' }}">{{ $item['label'] }}</a>
+            @endforeach
         </nav>
         <div class="meta">
             @if(auth()->user())
                 <div>{{ auth()->user()->name }}</div>
                 <div>{{ auth()->user()->email }}</div>
+                @if($adminLayout['currentRoleLabel'] ?? null)
+                    <div style="margin-top: 8px;">{{ $adminLayout['currentRoleLabel'] }}</div>
+                @endif
                 @if($currentShop)
                     <div style="margin-top: 8px;">{{ $currentShop->name }}</div>
                     <div>{{ $currentShop->slug }}</div>
+                @endif
+                @if(($adminLayout['availableShops'] ?? collect())->count() > 1)
+                    <form method="POST" action="{{ route('admin.access.switch-shop') }}" style="margin-top: 14px;">
+                        @csrf
+                        <label for="layout_shop_id" style="display: block; margin-bottom: 6px;">Current shop</label>
+                        <select id="layout_shop_id" name="shop_id" onchange="this.form.submit()" style="width: 100%; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,0.08); color: #fff;">
+                            @foreach($adminLayout['availableShops'] as $shopOption)
+                                <option value="{{ $shopOption->id }}" @selected((int) ($currentShop->id ?? 0) === (int) $shopOption->id) style="color: #192230;">{{ $shopOption->name }}</option>
+                            @endforeach
+                        </select>
+                    </form>
                 @endif
             @endif
             <form method="POST" action="{{ route('admin.logout') }}" style="margin-top: 14px;">

@@ -546,6 +546,102 @@ Operator expectations:
 2. confirm `last_test_succeeded_at` or `last_test_failed_at` changed on the route
 3. if a test failed, inspect the persisted delivery and retry only after fixing the target or route policy
 
+## RBAC, Memberships And Safe Admin Usage
+
+Production admin access now depends on active `shop_memberships`.
+
+Roles:
+
+- `platform_admin`
+- `shop_admin`
+- `operator`
+- `reviewer`
+- `observer`
+
+Operational expectations:
+
+1. use `/admin/access` to manage memberships instead of relying on the legacy `users.role=admin` flag
+2. keep operators and reviewers shop-scoped whenever possible
+3. reserve `platform_admin` for cross-shop governance and break-glass operations
+4. if a user is suspended or revoked, their membership state changes immediately govern admin access
+5. always confirm the current shop selector before taking a release, promotion, launch or source-secret action
+
+CLI helpers:
+
+```bash
+php artisan access:list-members --shop=
+php artisan access:grant {user} {role} --shop= --by=
+php artisan access:revoke {user} {role} --shop= --by=
+```
+
+## Approval Queue And Four-Eyes Rule
+
+Sensitive and high-risk actions flow through a persisted approval queue.
+
+Statuses:
+
+- `pending`
+- `approved`
+- `rejected`
+- `expired`
+- `cancelled`
+- `executed`
+
+The following actions are governance-controlled:
+
+- force publish
+- rollback
+- freeze toggle
+- promotion apply / rollback
+- secret rebind / rotation confirmation
+- emergency tuning
+- launch closeout override
+- critical silence window creation
+- destructive prune / maintenance
+
+Operational rules:
+
+1. staging can allow direct execution for some actions that require approval in production
+2. `high_risk` production actions can require `4-eyes`, so the requester cannot self-approve
+3. approval executes the persisted payload rather than accepting a second free-form request body
+4. expired or rejected approvals must be recreated; they are not silently revived
+5. all request / approve / reject / execute transitions are written into the governance audit trail
+
+Approval CLI:
+
+```bash
+php artisan approval:list --status=pending
+php artisan approval:approve {approvalId} --note= --by=
+php artisan approval:reject {approvalId} --note= --by=
+```
+
+## Secret Governance And Compliance Reports
+
+Secret handling for source connections and related operational targets is deliberately strict.
+
+Rules:
+
+1. raw secret values are not shown back in edit forms or normal detail screens
+2. source credentials remain encrypted at rest
+3. secret updates, rebinds and rotation confirmations are audited
+4. production-sensitive secret actions can require approval through the same governance layer
+5. logs, reports, notifications and flash messages redact token-like material
+
+Use `/admin/access/compliance` for governance-grade filters by shop, user and date.
+
+Exports:
+
+```bash
+php artisan compliance:report --shop= --user= --from= --to=
+```
+
+The compliance export is written into `FEED_MEDIATOR_GOV_REPORTS_DIRECTORY` and includes:
+
+- governance audit rows
+- approvals history
+- sensitive action history
+- correlation IDs where available
+
 ## Launch, Hypercare And Incident Propagation
 
 Important live-support events now emit outbound notification candidates instead of staying only inside the admin UI:

@@ -1465,6 +1465,102 @@ Recommended operator check before a live launch:
 
 Retention for outbound delivery history is controlled by `FEED_MEDIATOR_NOTIFY_RET_DAYS`; `ops:deliveries:prune` is scheduled automatically and keeps the notification journal from growing without bound.
 
+## Access Control And Governance
+
+Admin access is now governed through persisted `shop_memberships` instead of assuming every `admin` user can operate everywhere.
+
+Supported roles:
+
+- `platform_admin`
+- `shop_admin`
+- `operator`
+- `reviewer`
+- `observer`
+
+Key rules:
+
+- one user can hold different roles in different shops
+- `platform_admin` can access every active shop
+- `shop_admin` is limited to assigned shops but can manage onboarding, source, mappings, release, promotion, pilot, launch, hypercare and compliance inside that scope
+- `operator` can execute day-to-day operational workflows but cannot approve governance requests
+- `reviewer` can inspect workflows, review approvals and open compliance history without taking sensitive operational actions
+- `observer` stays read-only
+
+Use `/admin/access` as the Access Center for memberships, approvals and compliance history. The current shop selector is RBAC-aware and refuses shop switches outside the user's active memberships.
+
+## Dangerous Actions And Approval Queue
+
+High-risk actions no longer execute directly from admin screens.
+
+Governed actions currently include:
+
+- force publish
+- rollback
+- freeze toggle
+- promotion apply
+- promotion rollback
+- secret rebind and secret rotation confirmation
+- emergency tuning
+- launch closeout override
+- critical alert silence window creation
+- destructive prune / maintenance
+
+Approval requests are stored in `approval_requests` with:
+
+- `pending`
+- `approved`
+- `rejected`
+- `expired`
+- `cancelled`
+- `executed`
+
+Policy enforcement is centralized and environment-aware:
+
+- staging can execute some sensitive actions directly
+- production can require approval for the same action
+- `high_risk` actions can require a `4-eyes` reviewer
+- platform-only actions such as destructive prune stay blocked for non-platform roles
+
+When approval is required, the original action payload is stored with the request and executed from that persisted payload after approval. This prevents an operator from approving one thing and then submitting a different form body.
+
+CLI helpers:
+
+```bash
+php artisan access:list-members --shop=
+php artisan access:grant {user} {role} --shop= --by=
+php artisan access:revoke {user} {role} --shop= --by=
+php artisan approval:list --status=pending
+php artisan approval:approve {approvalId} --note= --by=
+php artisan approval:reject {approvalId} --note= --by=
+php artisan compliance:report --shop= --user= --from= --to=
+```
+
+`approval:approve` and `approval:reject` require an explicit `--by` actor so approval execution stays attributable in audit history.
+
+## Secret Governance And Compliance Trail
+
+Source credentials and other sensitive values remain encrypted at rest and masked by default in admin screens.
+
+Operational rules:
+
+- secret values are never echoed back into edit forms
+- source connection screens show only masked or confirm-only state
+- secret reveal is not the default operator path; operators confirm or rotate instead
+- secret update, rebind and rotation events are audited
+- production secret changes can require approval through the same governed action layer
+- flash messages, logs, notification payloads and compliance summaries redact secret-like fragments
+
+Governance-grade audit history is stored in `governance_audits`.
+
+Use `/admin/access/compliance` to filter:
+
+- actions by user, date and shop
+- approvals history
+- sensitive action attempts
+- launch / release / promotion governance history
+
+Compliance exports include correlation IDs when available, making it possible to trace one sensitive production action across admin request, queue work, notification delivery and downstream incident handling.
+
 ## Production Basics
 
 - use Redis for `CACHE_STORE` and `QUEUE_CONNECTION`
