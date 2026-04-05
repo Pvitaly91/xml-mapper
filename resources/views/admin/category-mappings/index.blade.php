@@ -6,6 +6,7 @@
     <section class="panel">
         <div class="toolbar">
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.mapping-coverage.show', $feedProfile) }}">Mapping Coverage Center</a>
         </div>
 
         <form method="GET" class="filters">

@@ -283,6 +283,17 @@ return [
         'reports_directory' => env('FEED_MEDIATOR_PILOT_REPORTS_DIRECTORY', 'feeds/runbooks/pilot/reports'),
         'evidence_directory' => env('FEED_MEDIATOR_PILOT_EVIDENCE_DIRECTORY', 'feeds/runbooks/pilot/evidence'),
     ],
+    'mapping_automation' => [
+        'auto_apply_confidence' => (float) env('FEED_MEDIATOR_MAP_AUTO_CONF', 0.9),
+        'bulk' => [
+            'high_volume_count' => (int) env('FEED_MEDIATOR_MAP_BULK_VOL', 25),
+        ],
+        'feedback' => [
+            'minimum_repeated_rejections' => (int) env('FEED_MEDIATOR_MAP_FB_REPEAT', 3),
+            'minimum_exclusion_pattern' => (int) env('FEED_MEDIATOR_MAP_FB_EXCL', 2),
+            'minimum_override_pattern' => (int) env('FEED_MEDIATOR_MAP_FB_OVR', 2),
+        ],
+    ],
     'launch' => [
         'reports_directory' => env('FEED_MEDIATOR_LAUNCH_REPORTS_DIRECTORY', 'feeds/runbooks/launch/reports'),
         'baseline' => [

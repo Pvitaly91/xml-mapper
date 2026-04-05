@@ -20,6 +20,8 @@ class ApprovalPolicyService
     public const ACTION_LAUNCH_CLOSE_OVERRIDE = 'launch.close_override';
     public const ACTION_SILENCE_CRITICAL = 'ops.silence_critical';
     public const ACTION_PRUNE = 'ops.prune';
+    public const ACTION_MAPPING_BULK_APPLY = 'mapping.bulk_apply';
+    public const ACTION_MAPPING_TEMPLATE_APPLY = 'mapping.template_apply';
 
     public function __construct(
         private readonly EnvironmentContextService $environmentContextService,
@@ -120,6 +122,22 @@ class ApprovalPolicyService
                 'approval_required' => $environment['is_production'],
                 'four_eyes' => $environment['is_production'],
                 'ttl_minutes' => 120,
+            ],
+            self::ACTION_MAPPING_BULK_APPLY => [
+                'classification' => ApprovalRequest::CLASS_HIGH_RISK,
+                'permission' => 'mappings.manage',
+                'platform_admin_only' => false,
+                'approval_required' => $environment['is_production'],
+                'four_eyes' => $environment['is_production'],
+                'ttl_minutes' => 180,
+            ],
+            self::ACTION_MAPPING_TEMPLATE_APPLY => [
+                'classification' => ApprovalRequest::CLASS_SENSITIVE,
+                'permission' => 'mappings.manage',
+                'platform_admin_only' => false,
+                'approval_required' => $environment['is_production'],
+                'four_eyes' => false,
+                'ttl_minutes' => 180,
             ],
         ];
 

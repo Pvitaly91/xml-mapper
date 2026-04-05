@@ -27,6 +27,7 @@ The application stores normalized source data locally, validates exportability, 
 - guided shop onboarding wizard and per-shop go-live control panel
 - unresolved mappings workbench with bulk helpers and confirmation step
 - reusable mapping preset export/import with dry-run preview
+- deterministic mapping automation with rule-based suggestions, bulk auto-apply batches, feedback-driven recommendations, item-level exceptions, reusable templates, and Mapping Coverage Center
 - dual source drivers via `source_connections.driver`:
   - `prom_yml`
   - `prom_api`
@@ -94,6 +95,40 @@ php artisan serve
 ```
 
 Admin login is available at `/admin/login`.
+
+## Mapping Automation Workflow
+
+The mapping automation layer speeds up first-pass category, attribute, and value mapping without replacing manual control.
+
+- `MappingRuleEngineService` evaluates deterministic rules in a centralized pipeline.
+- `MappingSuggestionService` returns explainable suggestions with confidence, strategy, evidence, and auto-apply safety.
+- `MappingBatchService` supports dry-run, apply, persisted batch history, and rollback.
+- `MappingTemplateLibraryService` exports/imports reusable mapping knowledge with scope-aware collision handling.
+- `FeedItemMappingExceptionService` keeps per-item overrides visible in diagnostics and protected from later auto-mapping.
+
+Operator workflow for a new merchant:
+
+1. Sync the source catalog and open the Mapping Coverage Center from the feed profile.
+2. Review category, attribute, and value suggestions with the highest `unlock_estimate`.
+3. Run `dry-run` batches first, then execute safe batches above the configured threshold.
+4. Use feedback-driven recommendations to convert repeated rejection patterns into rules, aliases, exclusions, or merchant overrides.
+5. Keep merchant-specific edge cases as item-level exceptions instead of widening a risky global rule.
+6. Export a mapping template once the profile is stable so the same knowledge can be reused on similar catalogs.
+
+Manual mappings remain the source of truth. Safe auto-apply batches skip manual conflicts unless the operator explicitly chooses an overwrite strategy.
+
+CLI examples:
+
+```bash
+php artisan mapping:suggest 1 --type=category
+php artisan mapping:apply-suggestions 1 --type=category --threshold=0.90 --dry-run
+php artisan mapping:apply-suggestions 1 --type=category --threshold=0.90
+php artisan mapping:rollback-batch 12 --reason="rule too broad"
+php artisan mapping:coverage 1
+php artisan mapping:feedback-recommendations 1
+php artisan mapping:template:export 1
+php artisan mapping:template:apply 1 --file=/abs/path/template.json --dry-run
+```
 
 ## Environment Readiness
 

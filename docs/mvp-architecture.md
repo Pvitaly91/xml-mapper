@@ -14,6 +14,7 @@
 10. New-shop onboarding and go-live daily operations are separate operator flows built on top of the same domain services.
 11. Final pre-live confidence is validated through Playwright against the same Blade/session stack, backed by local-only demo bootstrap fixtures instead of browser-only domain shortcuts.
 12. Large-catalog readiness is measured through deterministic scale fixtures plus persisted performance runs; the system does not make unmeasured performance claims.
+13. Mapping automation stays deterministic and explainable. Manual mappings and item-level exceptions always outrank auto-suggestions unless an operator explicitly chooses an overwrite path.
 
 ## Runtime Flow
 
@@ -42,6 +43,10 @@ Pre-live confidence flow:
 Scale-readiness flow:
 
 `ScaleCatalogBootstrapService` -> deterministic large Prom YML fixture -> bootstrap action + real sync/normalize/build path -> `PerformanceBenchmarkService` -> persisted `performance_runs` / `performance_run_stages` -> `PerformanceBudgetService` -> admin Performance Center + ops alerts + downloadable JSON reports
+
+Mapping automation flow:
+
+`MappingRuleEngineService` -> explicit rule evaluation by shop/profile/category/brand context -> `MappingSuggestionService` -> deterministic confidence/explanation payloads -> `MappingBatchService` dry-run/apply/rollback -> `MappingCoverageService` prioritized backlog + ready-item gain -> `MappingTemplateLibraryService` reusable rule packs -> `MappingFeedbackRecommendationService` governed recommendations from repeated feedback patterns -> `FeedItemMappingExceptionService` item-level safe overrides in diagnostics/export
 
 Driver paths:
 
@@ -124,6 +129,13 @@ Feed-item export lifecycle:
 - `PerformanceCenterService` assembles the admin scale/performance screen
 - `PerformanceReportService` exports one persisted run as a JSON artifact
 - `PerformanceWorkflowService` keeps controllers and commands on one orchestration path for bootstrap and benchmark execution
+- `MappingRuleEngineService` owns deterministic category/attribute/value rule matching and match explanations
+- `MappingSuggestionService` translates rule hits plus safe heuristics into operator-facing suggestions with confidence and unlock estimates
+- `MappingBatchService` persists dry-run/apply/rollback history for bulk mapping automation
+- `MappingTemplateLibraryService` exports/imports reusable mapping packs with scope-aware conflict handling
+- `MappingCoverageService` assembles coverage splits, unresolved backlog priority, recent batch history, and feedback-linked mapping issues
+- `MappingFeedbackRecommendationService` turns repeated remediation patterns into governed recommendations instead of silent self-learning
+- `FeedItemMappingExceptionService` applies and protects item-level mapping overrides so diagnostics plus export stay aligned
 - `OpsMaintenanceStatusService` aggregates backups, deploy metadata, storage usage and queue backlog for admin screens
 - `ShopControlPanelService` aggregates daily go-live state for one shop
 - `UnresolvedMappingsWorkbenchService` groups blockers into operator queues
@@ -223,6 +235,9 @@ Kasta export assumptions:
 - maintenance silence windows are stored in `ops_silence_windows` and applied centrally by the alert service instead of in controllers or Blade views
 - promotion snapshots are stored in `promotion_snapshots`; promotion history and rollback lineage are stored in `promotion_runs`
 - promotion snapshots never carry plaintext source secrets; source-connection promotion metadata tracks `missing`, `not_validated`, and `validated` secret states on the target side
+- mapping rules are stored in `mapping_rules`, mapping automation batches plus row-level history are stored in `mapping_batches` and `mapping_batch_entries`
+- reusable template packs are stored in `mapping_templates`; feed-item exceptions are stored in `feed_item_mapping_exceptions`
+- batch execution is audited and can be routed through the existing approval workflow for sensitive scopes or overwrite-heavy strategies
 
 ## Dictionary Import Architecture
 

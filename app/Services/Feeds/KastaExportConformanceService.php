@@ -6,10 +6,13 @@ use App\Contracts\Mappings\AttributeMappingServiceInterface;
 use App\Contracts\Mappings\CategoryMappingServiceInterface;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
+use App\Models\FeedItemMappingException;
 use App\Models\KastaAttribute;
+use App\Models\KastaCategory;
 use App\Models\SourceProduct;
 use App\Models\SourceVariant;
 use App\Models\ValidationError;
+use App\Services\Mappings\Automation\FeedItemMappingExceptionService;
 use App\Support\Canonicalizer;
 
 class KastaExportConformanceService
@@ -19,6 +22,7 @@ class KastaExportConformanceService
         private readonly AttributeMappingServiceInterface $attributeMappingService,
         private readonly KastaExportFieldNormalizer $fieldNormalizer,
         private readonly FeedProfileOverrideService $overrideService,
+        private readonly FeedItemMappingExceptionService $exceptionService,
     ) {}
 
     /**
@@ -30,6 +34,7 @@ class KastaExportConformanceService
      *     mapped_category:?array<string, mixed>,
      *     mapped_attributes:array<string, string>,
      *     attribute_rows:array<int, array<string, mixed>>,
+     *     exception_rows:array<int, array<string, mixed>>,
      *     required_attribute_diagnostics:array<int, array<string, mixed>>,
      *     normalized_export_snapshot:array<string, mixed>,
      *     diagnostics_summary:array<string, mixed>
@@ -45,6 +50,17 @@ class KastaExportConformanceService
         $mappingErrors = [];
         $conformanceErrors = [];
         $mappedCategory = $this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory);
+        $exceptions = $feedItem instanceof FeedItem ? $this->exceptionService->activeForFeedItem($feedItem) : collect();
+        $exceptionRows = [];
+
+        if ($mappedCategory !== null) {
+            [$mappedCategory, $categoryException] = $this->applyCategoryException($mappedCategory, $exceptions);
+
+            if ($categoryException !== null) {
+                $exceptionRows[] = $categoryException;
+            }
+        }
+
         $mappingRows = collect();
         $requiredDiagnostics = [];
         $mappedAttributes = [];
@@ -80,6 +96,8 @@ class KastaExportConformanceService
                 ->filter(fn (array $row) => $row['mapped_value'] !== null)
                 ->mapWithKeys(fn (array $row) => [$row['kasta_attribute_code'] => $row['mapped_value']])
                 ->all();
+            [$mappedAttributes, $mappingRows, $attributeExceptionRows] = $this->applyAttributeExceptions($mappedAttributes, $mappingRows, $exceptions);
+            $exceptionRows = [...$exceptionRows, ...$attributeExceptionRows];
             $mappedAttributes = $this->overrideService->applyAttributeOverrides($feedProfile, $mappedAttributes);
 
             $requiredAttributes = KastaAttribute::query()
@@ -356,6 +374,7 @@ class KastaExportConformanceService
             ],
             'mapped_attributes' => $mappedAttributes,
             'attribute_rows' => $attributeRows,
+            'exception_rows' => $exceptionRows,
             'required_attribute_diagnostics' => $requiredDiagnostics,
             'normalized_export_snapshot' => $normalizedExportSnapshot,
             'diagnostics_summary' => [
@@ -366,6 +385,98 @@ class KastaExportConformanceService
                 'operator_summary' => $this->operatorSummary($sourceErrors, $mappingErrors, $conformanceErrors, $requiredDiagnostics, $feedItem),
             ],
         ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, FeedItemMappingException>  $exceptions
+     * @return array{0:KastaCategory,1:?array<string,mixed>}
+     */
+    private function applyCategoryException(KastaCategory $mappedCategory, $exceptions): array
+    {
+        $exception = $exceptions->first(
+            fn (FeedItemMappingException $candidate) => $candidate->exception_type === FeedItemMappingException::TYPE_CATEGORY && $candidate->is_active
+        );
+
+        if (! $exception instanceof FeedItemMappingException) {
+            return [$mappedCategory, null];
+        }
+
+        $overrideCategory = KastaCategory::query()->find((int) $exception->target_value);
+
+        if (! $overrideCategory instanceof KastaCategory) {
+            return [$mappedCategory, null];
+        }
+
+        return [
+            $overrideCategory,
+            [
+                'type' => 'category',
+                'target_key' => 'category_id',
+                'target_value' => $overrideCategory->id,
+                'target_label' => $overrideCategory->full_path ?: $overrideCategory->name,
+                'reason' => $exception->reason,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $mappedAttributes
+     * @param  \Illuminate\Support\Collection<int, array<string,mixed>>  $mappingRows
+     * @param  \Illuminate\Support\Collection<int, FeedItemMappingException>  $exceptions
+     * @return array{0:array<string,string>,1:\Illuminate\Support\Collection<int,array<string,mixed>>,2:array<int,array<string,mixed>>}
+     */
+    private function applyAttributeExceptions(array $mappedAttributes, $mappingRows, $exceptions): array
+    {
+        $rows = $mappingRows->map(fn (array $row) => $row);
+        $exceptionRows = [];
+
+        foreach ($exceptions as $exception) {
+            if ($exception->exception_type !== FeedItemMappingException::TYPE_ATTRIBUTE_VALUE || ! $exception->is_active) {
+                continue;
+            }
+
+            $normalizedKey = Canonicalizer::normalizeKey((string) $exception->target_key);
+            $mappedAttributes[$exception->target_key] = $exception->target_value;
+
+            $matchingIndex = $rows->search(
+                fn (array $row) => Canonicalizer::normalizeKey((string) ($row['kasta_attribute_code'] ?? '')) === $normalizedKey
+            );
+
+            if ($matchingIndex !== false) {
+                $row = $rows->get($matchingIndex);
+                $row['mapped_value'] = $exception->target_value;
+                $row['resolution'] = 'item_exception';
+                $rows->put($matchingIndex, $row);
+            } else {
+                $rows->push([
+                    'source_attribute_name' => 'Item exception',
+                    'source_attribute_code' => $exception->target_key,
+                    'source_value' => null,
+                    'kasta_attribute_name' => $exception->target_key,
+                    'kasta_attribute_code' => $exception->target_key,
+                    'kasta_attribute_id' => null,
+                    'mapped_value' => $exception->target_value,
+                    'resolution' => 'item_exception',
+                    'allows_custom_value' => true,
+                    'default_value' => null,
+                    'use_variant_value' => false,
+                    'has_value_mapping' => false,
+                    'used_value_mapping' => false,
+                    'used_default' => false,
+                    'used_custom_value' => false,
+                ]);
+            }
+
+            $exceptionRows[] = [
+                'type' => 'attribute_value',
+                'target_key' => $exception->target_key,
+                'target_value' => $exception->target_value,
+                'target_label' => $exception->target_label,
+                'reason' => $exception->reason,
+            ];
+        }
+
+        return [$mappedAttributes, $rows, $exceptionRows];
     }
 
     /**

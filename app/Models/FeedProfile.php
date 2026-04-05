@@ -225,6 +225,26 @@ class FeedProfile extends Model
         return $this->hasMany(ValueMapping::class);
     }
 
+    public function mappingRules(): HasMany
+    {
+        return $this->hasMany(MappingRule::class);
+    }
+
+    public function mappingBatches(): HasMany
+    {
+        return $this->hasMany(MappingBatch::class);
+    }
+
+    public function mappingTemplates(): HasMany
+    {
+        return $this->hasMany(MappingTemplate::class);
+    }
+
+    public function itemMappingExceptions(): HasMany
+    {
+        return $this->hasMany(FeedItemMappingException::class);
+    }
+
     public function validationErrors(): HasMany
     {
         return $this->hasMany(ValidationError::class);

@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\FeedHypercareReportController;
 use App\Http\Controllers\Admin\FeedHypercareTimelineController;
 use App\Http\Controllers\Admin\FeedItemController;
 use App\Http\Controllers\Admin\FeedLaunchPackController;
+use App\Http\Controllers\Admin\MappingCoverageController;
 use App\Http\Controllers\Admin\FeedOperationsController;
 use App\Http\Controllers\Admin\FeedProfileController;
 use App\Http\Controllers\Admin\FeedProfileStatusController;
@@ -251,6 +252,12 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/feed-profiles/{feed_profile}/workbench/value-suggestions', [UnresolvedMappingsWorkbenchController::class, 'applyValueSuggestions'])->name('feed-profiles.workbench.value-suggestions');
         Route::post('/feed-profiles/{feed_profile}/workbench/bulk/confirm', [UnresolvedMappingsWorkbenchController::class, 'confirmBulk'])->name('feed-profiles.workbench.bulk-confirm');
         Route::post('/feed-profiles/{feed_profile}/workbench/bulk/execute', [UnresolvedMappingsWorkbenchController::class, 'executeBulk'])->name('feed-profiles.workbench.bulk-execute');
+        Route::get('/feed-profiles/{feed_profile}/mapping-coverage', [MappingCoverageController::class, 'show'])->name('feed-profiles.mapping-coverage.show');
+        Route::post('/feed-profiles/{feed_profile}/mapping-coverage/apply', [MappingCoverageController::class, 'applySuggestions'])->name('feed-profiles.mapping-coverage.apply');
+        Route::post('/feed-profiles/{feed_profile}/mapping-coverage/batches/{mapping_batch}/rollback', [MappingCoverageController::class, 'rollbackBatch'])->name('feed-profiles.mapping-coverage.batches.rollback');
+        Route::post('/feed-profiles/{feed_profile}/mapping-coverage/templates', [MappingCoverageController::class, 'storeTemplate'])->name('feed-profiles.mapping-coverage.templates.store');
+        Route::get('/feed-profiles/{feed_profile}/mapping-coverage/templates/export', [MappingCoverageController::class, 'exportTemplate'])->name('feed-profiles.mapping-coverage.templates.export');
+        Route::post('/feed-profiles/{feed_profile}/mapping-coverage/templates/apply', [MappingCoverageController::class, 'applyTemplate'])->name('feed-profiles.mapping-coverage.templates.apply');
         Route::get('/feed-profiles/{feed_profile}/mapping-presets/import', [MappingPresetController::class, 'importForm'])->name('feed-profiles.mapping-presets.import');
         Route::get('/feed-profiles/{feed_profile}/mapping-presets/export', [MappingPresetController::class, 'export'])->name('feed-profiles.mapping-presets.export');
         Route::post('/feed-profiles/{feed_profile}/mapping-presets/preview', [MappingPresetController::class, 'preview'])->name('feed-profiles.mapping-presets.preview');
@@ -290,5 +297,7 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/feed-profiles/{feed_profile}/feed-items/bulk', [FeedItemController::class, 'bulkUpdate'])->name('feed-profiles.feed-items.bulk');
         Route::get('/feed-profiles/{feed_profile}/feed-items/{feed_item}', [FeedItemController::class, 'show'])->name('feed-profiles.feed-items.show');
         Route::put('/feed-profiles/{feed_profile}/feed-items/{feed_item}/override', [FeedItemController::class, 'override'])->name('feed-profiles.feed-items.override');
+        Route::post('/feed-profiles/{feed_profile}/feed-items/{feed_item}/exceptions/category', [FeedItemController::class, 'storeCategoryException'])->name('feed-profiles.feed-items.exceptions.category');
+        Route::post('/feed-profiles/{feed_profile}/feed-items/{feed_item}/exceptions/attribute', [FeedItemController::class, 'storeAttributeException'])->name('feed-profiles.feed-items.exceptions.attribute');
     });
 });

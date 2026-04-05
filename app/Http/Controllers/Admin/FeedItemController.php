@@ -9,10 +9,12 @@ use App\Http\Requests\Admin\FeedItems\FeedItemOverrideRequest;
 use App\Models\CategoryMapping;
 use App\Models\FeedItem;
 use App\Models\FeedProfile;
+use App\Models\KastaCategory;
 use App\Models\SourceCategory;
 use App\Models\ValidationError;
 use App\Services\Feeds\FeedItemDiagnosticsService;
 use App\Services\Feeds\KastaExportXmlService;
+use App\Services\Mappings\Automation\FeedItemMappingExceptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -100,6 +102,8 @@ class FeedItemController extends AdminController
             'mappedCategory' => $diagnostics['mapped_category'] ?? null,
             'resolvedAttributes' => $diagnostics['mapped_attributes'] ?? [],
             'attributeRows' => $diagnostics['attribute_rows'] ?? [],
+            'exceptionRows' => $diagnostics['exception_rows'] ?? [],
+            'kastaCategories' => KastaCategory::query()->where('is_active', true)->orderBy('full_path')->get(),
             'xmlPreview' => $xmlPreview,
         ]);
     }
@@ -132,6 +136,60 @@ class FeedItemController extends AdminController
         ]);
 
         return back()->with('status', 'Feed item override saved.');
+    }
+
+    public function storeCategoryException(
+        Request $request,
+        FeedProfile $feedProfile,
+        FeedItem $feedItem,
+        FeedItemMappingExceptionService $service
+    ): RedirectResponse {
+        $this->ensureShopOwned($request, $feedProfile);
+        abort_unless($feedItem->feed_profile_id === $feedProfile->id, 404);
+
+        $validated = $request->validate([
+            'kasta_category_id' => ['required', 'integer', 'exists:kasta_categories,id'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        $category = KastaCategory::query()->findOrFail($validated['kasta_category_id']);
+        $service->upsertCategoryException(
+            $feedProfile,
+            $feedItem,
+            $category->id,
+            $category->full_path ?: $category->name,
+            $validated['reason'],
+            $request->user()
+        );
+
+        return back()->with('status', 'Feed item category exception saved.');
+    }
+
+    public function storeAttributeException(
+        Request $request,
+        FeedProfile $feedProfile,
+        FeedItem $feedItem,
+        FeedItemMappingExceptionService $service
+    ): RedirectResponse {
+        $this->ensureShopOwned($request, $feedProfile);
+        abort_unless($feedItem->feed_profile_id === $feedProfile->id, 404);
+
+        $validated = $request->validate([
+            'attribute_code' => ['required', 'string', 'max:120'],
+            'target_value' => ['required', 'string', 'max:255'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        $service->upsertAttributeException(
+            $feedProfile,
+            $feedItem,
+            $validated['attribute_code'],
+            $validated['target_value'],
+            $validated['reason'],
+            $request->user()
+        );
+
+        return back()->with('status', 'Feed item attribute exception saved.');
     }
 
     /**

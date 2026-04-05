@@ -52,6 +52,14 @@
             <h2>Operator Summary</h2>
             @if($diagnostics)
                 <p>{{ $diagnostics['diagnostics_summary']['operator_summary']['headline'] ?? 'n/a' }}</p>
+                @if(! empty($exceptionRows))
+                    <p><strong>Active item exceptions:</strong></p>
+                    <ul>
+                        @foreach($exceptionRows as $exception)
+                            <li>{{ $exception['type'] }}: {{ $exception['target_label'] ?? $exception['target_value'] }} ({{ $exception['reason'] }})</li>
+                        @endforeach
+                    </ul>
+                @endif
                 @if(! empty($diagnostics['diagnostics_summary']['operator_summary']['missing_required_attributes']))
                     <ul>
                         @foreach($diagnostics['diagnostics_summary']['operator_summary']['missing_required_attributes'] as $issue)
@@ -62,6 +70,54 @@
             @else
                 <p class="muted">Diagnostics are not available.</p>
             @endif
+        </section>
+    </div>
+
+    <div class="grid cols-2">
+        <section class="panel">
+            <h2>Item-Level Category Exception</h2>
+            <form method="POST" action="{{ route('admin.feed-profiles.feed-items.exceptions.category', [$feedProfile, $feedItem]) }}">
+                @csrf
+                <div class="field">
+                    <label for="kasta_category_id">Override category</label>
+                    <select id="kasta_category_id" name="kasta_category_id">
+                        @foreach($kastaCategories as $category)
+                            <option value="{{ $category->id }}" @selected(($mappedCategory['id'] ?? null) === $category->id)>{{ $category->full_path ?: $category->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field" style="margin-top: 12px;">
+                    <label for="category_exception_reason">Reason</label>
+                    <input id="category_exception_reason" name="reason" value="{{ old('reason') }}" placeholder="Why this one item needs a different category">
+                </div>
+                <div class="toolbar" style="margin-top: 16px;">
+                    <button class="button secondary" type="submit">Save category exception</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Item-Level Attribute Exception</h2>
+            <form method="POST" action="{{ route('admin.feed-profiles.feed-items.exceptions.attribute', [$feedProfile, $feedItem]) }}">
+                @csrf
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="attribute_code">Kasta attribute code</label>
+                        <input id="attribute_code" name="attribute_code" value="{{ old('attribute_code') }}" placeholder="color">
+                    </div>
+                    <div class="field">
+                        <label for="target_value">Forced value</label>
+                        <input id="target_value" name="target_value" value="{{ old('target_value') }}" placeholder="Black">
+                    </div>
+                    <div class="field full">
+                        <label for="attribute_exception_reason">Reason</label>
+                        <input id="attribute_exception_reason" name="reason" value="{{ old('reason') }}" placeholder="Why this one item needs a value override">
+                    </div>
+                </div>
+                <div class="toolbar" style="margin-top: 16px;">
+                    <button class="button secondary" type="submit">Save attribute exception</button>
+                </div>
+            </form>
         </section>
     </div>
 

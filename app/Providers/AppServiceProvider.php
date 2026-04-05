@@ -24,6 +24,8 @@ use App\Services\Governance\Handlers\EmergencyTuningActionHandler;
 use App\Services\Governance\Handlers\ForcePublishActionHandler;
 use App\Services\Governance\Handlers\FreezeToggleActionHandler;
 use App\Services\Governance\Handlers\LaunchCloseOverrideActionHandler;
+use App\Services\Governance\Handlers\MappingBulkApplyActionHandler;
+use App\Services\Governance\Handlers\MappingTemplateApplyActionHandler;
 use App\Services\Governance\Handlers\PromotionApplyActionHandler;
 use App\Services\Governance\Handlers\PromotionRollbackActionHandler;
 use App\Services\Governance\Handlers\PruneActionHandler;
@@ -81,6 +83,8 @@ class AppServiceProvider extends ServiceProvider
                 ApprovalPolicyService::ACTION_LAUNCH_CLOSE_OVERRIDE => $app->make(LaunchCloseOverrideActionHandler::class),
                 ApprovalPolicyService::ACTION_SILENCE_CRITICAL => $app->make(CriticalSilenceWindowActionHandler::class),
                 ApprovalPolicyService::ACTION_PRUNE => $app->make(PruneActionHandler::class),
+                ApprovalPolicyService::ACTION_MAPPING_BULK_APPLY => $app->make(MappingBulkApplyActionHandler::class),
+                ApprovalPolicyService::ACTION_MAPPING_TEMPLATE_APPLY => $app->make(MappingTemplateApplyActionHandler::class),
             ]);
         });
         $this->app->bind(SourceImportServiceInterface::class, SourceImportService::class);

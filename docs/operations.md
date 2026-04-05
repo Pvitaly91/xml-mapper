@@ -106,6 +106,11 @@ Important env variables:
 - `FEED_MEDIATOR_BUDGET_FB_CRIT_MS=90000`
 - `FEED_MEDIATOR_BUDGET_QUEUE_WARN=25`
 - `FEED_MEDIATOR_BUDGET_QUEUE_CRIT=75`
+- `FEED_MEDIATOR_MAP_AUTO_CONF=0.9`
+- `FEED_MEDIATOR_MAP_BULK_VOL=25`
+- `FEED_MEDIATOR_MAP_FB_REPEAT=3`
+- `FEED_MEDIATOR_MAP_FB_EXCL=2`
+- `FEED_MEDIATOR_MAP_FB_OVR=2`
 
 Browser E2E uses a dedicated `e2e` runtime profile rather than production env values. The Playwright harness sets:
 
@@ -202,6 +207,14 @@ php artisan ops:benchmark-compare --profile={feedProfileId}
 php artisan ops:queue-health
 php artisan ops:report-heavy-queries
 php artisan ops:prune-performance-runs
+php artisan mapping:suggest {feedProfileId} --type=category --scope=
+php artisan mapping:apply-suggestions {feedProfileId} --type=category --threshold=0.9 --dry-run
+php artisan mapping:apply-suggestions {feedProfileId} --type=value --threshold=0.9 --strategy=safe
+php artisan mapping:rollback-batch {batchId} --reason="rule too broad"
+php artisan mapping:coverage {feedProfileId}
+php artisan mapping:feedback-recommendations {feedProfileId}
+php artisan mapping:template:export {feedProfileId}
+php artisan mapping:template:apply {feedProfileId} --file=/abs/path/template.json --dry-run
 php artisan demo:bootstrap-e2e --fresh
 php artisan demo:bootstrap-e2e --fresh --json
 ```
@@ -214,6 +227,34 @@ npm run e2e:smoke
 npm run e2e
 npm run e2e:report
 ```
+
+## High-Throughput Mapping Runbook
+
+Use the Mapping Coverage Center at `/admin/feed-profiles/{profile}/mapping-coverage` when a merchant catalog is synced but still blocked by unresolved category, attribute, or value mappings.
+
+Recommended operator sequence:
+
+1. Run `php artisan mapping:coverage {feedProfileId}` to get the current coverage split and estimated ready-item gain.
+2. Run `php artisan mapping:suggest {feedProfileId} --type=category` first. Category coverage usually unlocks downstream attribute/value automation.
+3. Preview batches with `php artisan mapping:apply-suggestions ... --dry-run`.
+4. Execute only deterministic high-confidence batches. In production, sensitive or overwrite-heavy batches can route into the existing approval queue.
+5. If a batch was too broad, use `php artisan mapping:rollback-batch {batchId}` immediately. The batch history remains queryable in the Mapping Coverage Center.
+6. Review `mapping:feedback-recommendations` after real feedback imports. Convert repeated rejection patterns into explicit rules or merchant overrides only after operator review.
+7. Save stable profiles as templates so similar shops can start from a known-good baseline instead of repeating the same manual work.
+
+Safety rules:
+
+- manual mappings stay authoritative unless the operator explicitly chooses `overwrite_existing`
+- item-level exceptions are for edge cases and survive later sync plus auto-mapping passes
+- rules are deterministic and explainable; there is no black-box scoring or silent self-learning
+- repeated sync must not erase manual mappings, manual enrichments, or feed-item exception rows
+
+Before first large-catalog go-live, monitor:
+
+- category coverage and the remaining number of unmapped required categories
+- unresolved required attributes and value families with the highest `unlock_estimate`
+- repeated feedback-linked mapping issues that should become explicit rules or aliases
+- recent mapping batch conflicts or rollbacks, especially if production approval was required
 
 Supervisor config:
 

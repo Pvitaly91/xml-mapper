@@ -68,6 +68,7 @@ class AdminRoutePermissionResolver
             || str_starts_with($routeName, 'admin.feed-profiles.attribute-mappings.')
             || str_starts_with($routeName, 'admin.feed-profiles.value-mappings.')
             || str_starts_with($routeName, 'admin.feed-profiles.workbench.')
+            || str_starts_with($routeName, 'admin.feed-profiles.mapping-coverage.')
             || str_starts_with($routeName, 'admin.feed-profiles.mapping-presets.')
         ) {
             return in_array($method, ['GET', 'HEAD'], true) ? 'mappings.view' : 'mappings.manage';

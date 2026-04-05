@@ -94,6 +94,11 @@ class FeedItem extends Model
         return $this->hasMany(FeedbackRecord::class);
     }
 
+    public function mappingExceptions(): HasMany
+    {
+        return $this->hasMany(FeedItemMappingException::class);
+    }
+
     /**
      * @return list<string>
      */
