@@ -21,6 +21,8 @@ class KastaExportConformanceService
         private readonly CategoryMappingServiceInterface $categoryMappingService,
         private readonly AttributeMappingServiceInterface $attributeMappingService,
         private readonly KastaExportFieldNormalizer $fieldNormalizer,
+        private readonly KastaExportContractService $contractService,
+        private readonly FeedItemEnrichmentService $enrichmentService,
         private readonly FeedProfileOverrideService $overrideService,
         private readonly FeedItemMappingExceptionService $exceptionService,
     ) {}
@@ -52,6 +54,7 @@ class KastaExportConformanceService
         $mappedCategory = $this->categoryMappingService->getMappedCategory($feedProfile, $product->sourceCategory);
         $exceptions = $feedItem instanceof FeedItem ? $this->exceptionService->activeForFeedItem($feedItem) : collect();
         $exceptionRows = [];
+        $contentOverrides = $this->exceptionService->extractContentOverrides($exceptions);
 
         if ($mappedCategory !== null) {
             [$mappedCategory, $categoryException] = $this->applyCategoryException($mappedCategory, $exceptions);
@@ -260,19 +263,28 @@ class KastaExportConformanceService
             }
         }
 
-        $pictures = $this->fieldNormalizer->normalizePictures([
-            ...($variant->images_json ?? []),
-            ...($product->images_json ?? []),
-            $product->primary_image_url,
-        ]);
-
-        $normalizedVendor = $this->fieldNormalizer->normalizeVendor($product->vendor, $product->brand);
-        $normalizedArticle = $this->fieldNormalizer->normalizeArticle($product->article);
-        $normalizedColor = $this->fieldNormalizer->normalizeColor(
-            $this->firstAttributeValue($mappedAttributes, ['color', 'colour']) ?: $variant->color
+        $contract = $this->contractService->resolve($feedProfile, $mappedCategory);
+        $enrichment = $this->enrichmentService->preview(
+            $feedProfile,
+            $product,
+            $variant,
+            $mappedAttributes,
+            $contract,
+            $contentOverrides
         );
-        $normalizedSize = $this->fieldNormalizer->normalizeSize(
-            $this->firstAttributeValue($mappedAttributes, ['size']) ?: $variant->size
+        $exceptionRows = [...$exceptionRows, ...($contentOverrides['rows'] ?? [])];
+
+        $content = $enrichment['content'];
+        $family = $enrichment['family'];
+        $warnings = $enrichment['warnings'];
+        $normalizedVendor = $this->fieldNormalizer->normalizeVendor($content['vendor'] ?? null);
+        $normalizedArticle = $this->fieldNormalizer->normalizeArticle($content['article'] ?? null);
+        $normalizedColor = $this->fieldNormalizer->normalizeColor($content['color'] ?? null);
+        $normalizedSize = $this->fieldNormalizer->normalizeSize($content['size'] ?? null);
+        $pictures = $this->fieldNormalizer->normalizePictures((array) ($content['images'] ?? []));
+        $minimumImages = max(
+            (int) ($contract['minimum_images'] ?? 1),
+            $this->overrideService->effectiveMinimumPictures($feedProfile)
         );
 
         if ($normalizedVendor['value'] === null) {
@@ -283,12 +295,31 @@ class KastaExportConformanceService
             $conformanceErrors[] = $this->error(ValidationError::CODE_INVALID_ARTICLE, 'Vendor code/article cannot be normalized for export.');
         }
 
-        if ($normalizedColor['value'] === null) {
+        if (($contract['requires_color'] ?? false) && $normalizedColor['value'] === null) {
             $conformanceErrors[] = $this->error(ValidationError::CODE_INVALID_COLOR, 'Color is required for Kasta export.');
         }
 
-        if ($normalizedSize['value'] === null) {
+        if (($contract['requires_size'] ?? false) && $normalizedSize['value'] === null) {
             $conformanceErrors[] = $this->error(ValidationError::CODE_INVALID_SIZE, 'Size is required for Kasta export.');
+        }
+
+        if (blank($content['title'] ?? null)) {
+            $conformanceErrors[] = $this->error(ValidationError::CODE_INVALID_TITLE, 'Title cannot be normalized for export.');
+        }
+
+        if (blank($content['description'] ?? null)) {
+            $conformanceErrors[] = $this->error(ValidationError::CODE_INVALID_DESCRIPTION, 'Description is required for export.');
+        }
+
+        if (count($pictures) < $minimumImages) {
+            $conformanceErrors[] = $this->error(
+                ValidationError::CODE_INSUFFICIENT_IMAGES,
+                sprintf('Export contract requires at least %d valid image(s).', $minimumImages),
+                [
+                    'minimum_images' => $minimumImages,
+                    'current_images' => count($pictures),
+                ]
+            );
         }
 
         $invalidPictures = collect($pictures)
@@ -301,6 +332,22 @@ class KastaExportConformanceService
                 ValidationError::CODE_INVALID_IMAGE_URL,
                 'Some export images are not valid URLs.',
                 ['invalid_pictures' => $invalidPictures]
+            );
+        }
+
+        if (($contract['requires_size_grid'] ?? false) && blank($family['size_grid_code'] ?? null)) {
+            $conformanceErrors[] = $this->error(
+                ValidationError::CODE_INVALID_SIZE_GRID,
+                'Size grid linkage is required for this category profile.',
+                ['size_grid_candidates' => $family['size_grid_candidates'] ?? []]
+            );
+        }
+
+        if (($family['has_duplicate_axes'] ?? false) === true) {
+            $conformanceErrors[] = $this->error(
+                ValidationError::CODE_VARIANT_GROUPING_ISSUE,
+                'Variant family contains duplicated size/color combinations.',
+                ['duplicate_variant_ids' => $family['duplicate_variant_ids'] ?? []]
             );
         }
 
@@ -327,7 +374,7 @@ class KastaExportConformanceService
         $normalizedExportSnapshot = [
             'offer_id' => $variant->stable_offer_id,
             'available' => (bool) $variant->is_available,
-            'name' => $variant->title ?: $product->name,
+            'name' => $content['title'] ?? null,
             'price' => $variant->price !== null ? number_format((float) $variant->price, 2, '.', '') : null,
             'currency' => $variant->currency ?: $feedProfile->currency ?: 'UAH',
             'category_id' => $mappedCategory?->external_id,
@@ -337,11 +384,21 @@ class KastaExportConformanceService
             'color' => $normalizedColor['value'],
             'size' => $normalizedSize['value'],
             'pictures' => $pictures,
-            'description' => Canonicalizer::normalizeText($product->description),
-            'params' => $mappedAttributes,
+            'size_grid_code' => $family['size_grid_code'] ?? ($content['size_grid_code'] ?? null),
+            'description' => $content['description'] ?? null,
+            'params' => $this->buildExportParams($mappedAttributes, $content, $family),
             'export_key' => $variant->stable_offer_id,
             'export_key_hash' => $variant->export_key_hash,
             'published_export_key_hash' => $variant->published_export_key_hash,
+            'contract' => $contract,
+            'enrichment' => [
+                'rules' => $enrichment['rules'],
+                'warnings' => $warnings,
+                'diff' => $enrichment['diff'],
+                'apply_payload' => $enrichment['apply_payload'],
+                'manual_override_active' => $enrichment['manual_override_active'],
+            ],
+            'family' => $family,
             'canonical_identity' => [
                 'vendor' => $normalizedVendor['key'],
                 'article' => $normalizedArticle['key'],
@@ -366,6 +423,7 @@ class KastaExportConformanceService
             'source_errors' => array_values($sourceErrors),
             'mapping_errors' => $mappingErrors,
             'conformance_errors' => $conformanceErrors,
+            'warnings' => $warnings,
             'mapped_category' => $mappedCategory === null ? null : [
                 'id' => $mappedCategory->id,
                 'external_id' => $mappedCategory->external_id,
@@ -376,11 +434,15 @@ class KastaExportConformanceService
             'attribute_rows' => $attributeRows,
             'exception_rows' => $exceptionRows,
             'required_attribute_diagnostics' => $requiredDiagnostics,
+            'contract' => $contract,
+            'family_context' => $family,
+            'enrichment' => $enrichment,
             'normalized_export_snapshot' => $normalizedExportSnapshot,
             'diagnostics_summary' => [
                 'source_error_count' => count($sourceErrors),
                 'mapping_error_count' => count($mappingErrors),
                 'conformance_error_count' => count($conformanceErrors),
+                'warning_count' => count($warnings),
                 'missing_required_attributes' => collect($requiredDiagnostics)->where('status', 'missing')->count(),
                 'operator_summary' => $this->operatorSummary($sourceErrors, $mappingErrors, $conformanceErrors, $requiredDiagnostics, $feedItem),
             ],
@@ -477,6 +539,31 @@ class KastaExportConformanceService
         }
 
         return [$mappedAttributes, $rows, $exceptionRows];
+    }
+
+    /**
+     * @param  array<string, string>  $mappedAttributes
+     * @param  array<string, mixed>  $content
+     * @param  array<string, mixed>  $family
+     * @return array<string, string>
+     */
+    private function buildExportParams(array $mappedAttributes, array $content, array $family): array
+    {
+        $params = $mappedAttributes;
+        $extra = array_filter([
+            'color' => $content['color'] ?? null,
+            'size' => $content['size'] ?? null,
+            'size_grid_code' => $family['size_grid_code'] ?? ($content['size_grid_code'] ?? null),
+            'family_group_id' => $family['family_key'] ?? null,
+        ], fn ($value) => Canonicalizer::normalizeText(is_scalar($value) ? (string) $value : null) !== null);
+
+        foreach ($extra as $key => $value) {
+            $params[$key] = (string) $value;
+        }
+
+        ksort($params);
+
+        return $params;
     }
 
     /**

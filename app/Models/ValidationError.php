@@ -40,6 +40,16 @@ class ValidationError extends Model
 
     public const CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID = 'duplicated_or_unstable_offer_id';
 
+    public const CODE_INVALID_TITLE = 'invalid_title';
+
+    public const CODE_INVALID_DESCRIPTION = 'invalid_description';
+
+    public const CODE_INSUFFICIENT_IMAGES = 'insufficient_images';
+
+    public const CODE_INVALID_SIZE_GRID = 'invalid_size_grid';
+
+    public const CODE_VARIANT_GROUPING_ISSUE = 'variant_grouping_issue';
+
     protected $fillable = [
         'shop_id',
         'feed_profile_id',
@@ -129,6 +139,11 @@ class ValidationError extends Model
             self::CODE_INVALID_SIZE,
             self::CODE_INVALID_IMAGE_URL,
             self::CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID,
+            self::CODE_INVALID_TITLE,
+            self::CODE_INVALID_DESCRIPTION,
+            self::CODE_INSUFFICIENT_IMAGES,
+            self::CODE_INVALID_SIZE_GRID,
+            self::CODE_VARIANT_GROUPING_ISSUE,
         ];
     }
 
@@ -143,6 +158,11 @@ class ValidationError extends Model
             self::CODE_INVALID_COLOR,
             self::CODE_INVALID_SIZE,
             self::CODE_DUPLICATED_OR_UNSTABLE_OFFER_ID,
+            self::CODE_INVALID_TITLE,
+            self::CODE_INVALID_DESCRIPTION,
+            self::CODE_INSUFFICIENT_IMAGES,
+            self::CODE_INVALID_SIZE_GRID,
+            self::CODE_VARIANT_GROUPING_ISSUE,
         ];
     }
 

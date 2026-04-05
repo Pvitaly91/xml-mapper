@@ -40,15 +40,22 @@ class FeedQaBundleTest extends TestCase
         $this->assertNotFalse($zip->locateName('invalid-items.csv'));
         $this->assertNotFalse($zip->locateName('generation-diff.json'));
         $this->assertNotFalse($zip->locateName('readiness.json'));
+        $this->assertNotFalse($zip->locateName('functional-xml-report.json'));
+        $this->assertNotFalse($zip->locateName('functional-included-items.csv'));
+        $this->assertNotFalse($zip->locateName('functional-excluded-items.csv'));
+        $this->assertNotFalse($zip->locateName('functional-issues.csv'));
+        $this->assertNotFalse($zip->locateName('functional-blockers.csv'));
         $this->assertNotFalse($zip->locateName('smoke-check-summary.json'));
         $this->assertNotFalse($zip->locateName('release-notes.txt'));
 
         $summary = json_decode($zip->getFromName('summary.json'), true, 512, JSON_THROW_ON_ERROR);
+        $functionalReport = json_decode($zip->getFromName('functional-xml-report.json'), true, 512, JSON_THROW_ON_ERROR);
         $releaseNotes = (string) $zip->getFromName('release-notes.txt');
         $zip->close();
 
         $this->assertSame($generation->id, $summary['generation']['id']);
         $this->assertSame($feedProfile->id, $summary['feed_profile']['id']);
+        $this->assertSame(1, data_get($functionalReport, 'summary.included_items_count'));
         $this->assertStringContainsString('Client-visible note for QA bundle.', $releaseNotes);
     }
 }

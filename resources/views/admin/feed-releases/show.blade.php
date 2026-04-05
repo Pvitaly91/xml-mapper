@@ -18,6 +18,7 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.rehearsal.show', $feedProfile) }}">Rehearsal</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.launch-pack.show', $feedProfile) }}">Launch pack</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.content-enrichment.index', $feedProfile) }}">Content enrichment</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <form method="POST" action="{{ route('admin.feed-profiles.build', $feedProfile) }}">
                 @csrf

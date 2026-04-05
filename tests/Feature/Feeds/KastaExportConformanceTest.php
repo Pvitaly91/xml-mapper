@@ -5,6 +5,7 @@ namespace Tests\Feature\Feeds;
 use App\Contracts\Feeds\FeedBuildServiceInterface;
 use App\Models\AttributeMapping;
 use App\Models\FeedItem;
+use App\Models\SizeGrid;
 use App\Models\ValidationError;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -159,5 +160,75 @@ class KastaExportConformanceTest extends TestCase
         Storage::disk(config('feed_mediator.storage_disk'))
             ->assertExists($generation->file_path);
         $this->assertStringContainsString($variant->stable_offer_id, Storage::disk(config('feed_mediator.storage_disk'))->get($generation->file_path));
+    }
+
+    public function test_footwear_contract_requires_size_grid_and_minimum_images(): void
+    {
+        Storage::fake(config('feed_mediator.storage_disk'));
+
+        ['feedProfile' => $feedProfile, 'product' => $product, 'variant' => $variant, 'kastaCategory' => $kastaCategory] = $this->seedBuildableCatalog();
+
+        $kastaCategory->update([
+            'external_id' => 'KASTA-SNEAKERS',
+            'name' => 'Sneakers',
+            'full_path' => 'Footwear > Sneakers',
+        ]);
+        $product->update([
+            'name' => 'Runner',
+            'primary_image_url' => 'https://example.test/shoe-1.jpg',
+            'images_json' => ['https://example.test/shoe-1.jpg'],
+        ]);
+        $variant->update([
+            'title' => 'Runner',
+            'size' => '42',
+            'images_json' => ['https://example.test/shoe-1.jpg'],
+            'attributes_snapshot' => ['Color' => 'Black', 'Size' => '42'],
+        ]);
+
+        app(FeedBuildServiceInterface::class)->build($feedProfile);
+        $feedItem = FeedItem::query()->where('feed_profile_id', $feedProfile->id)->firstOrFail();
+
+        $this->assertSame(FeedItem::STATUS_INVALID_CONFORMANCE, $feedItem->status);
+        $this->assertDatabaseHas('validation_errors', [
+            'feed_item_id' => $feedItem->id,
+            'code' => ValidationError::CODE_INSUFFICIENT_IMAGES,
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('validation_errors', [
+            'feed_item_id' => $feedItem->id,
+            'code' => ValidationError::CODE_INVALID_SIZE_GRID,
+            'is_active' => true,
+        ]);
+
+        SizeGrid::create([
+            'code' => 'adult-eu-shoes',
+            'name' => 'Adult EU Shoes',
+            'schema' => ['labels' => ['41', '42', '43']],
+            'is_active' => true,
+        ]);
+
+        $product->update([
+            'primary_image_url' => 'https://example.test/shoe-1.jpg',
+            'images_json' => [
+                'https://example.test/shoe-1.jpg',
+                'https://example.test/shoe-2.jpg',
+                'https://example.test/shoe-3.jpg',
+            ],
+        ]);
+        $variant->update([
+            'images_json' => [
+                'https://example.test/shoe-1.jpg',
+                'https://example.test/shoe-2.jpg',
+                'https://example.test/shoe-3.jpg',
+            ],
+        ]);
+
+        $generation = app(FeedBuildServiceInterface::class)->build($feedProfile->fresh());
+
+        $this->assertSame(FeedItem::STATUS_READY, $feedItem->fresh()->status);
+        $this->assertStringContainsString(
+            '<param name="size_grid_code">adult-eu-shoes</param>',
+            Storage::disk(config('feed_mediator.storage_disk'))->get($generation->file_path)
+        );
     }
 }

@@ -16,6 +16,9 @@
       "images": [
         {
           "url": "https://cdn.example.test/pilot-shoe-white-2.jpg"
+        },
+        {
+          "url": "https://cdn.example.test/pilot-shoe-white-3.jpg"
         }
       ],
       "group": {

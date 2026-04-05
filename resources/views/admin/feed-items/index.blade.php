@@ -6,6 +6,7 @@
     <section class="panel">
         <div class="toolbar">
             <a class="button secondary" href="{{ route('admin.feed-profiles.show', $feedProfile) }}">Back to profile</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.content-enrichment.index', $feedProfile) }}">Content enrichment</a>
             <form method="POST" action="{{ route('admin.feed-profiles.build', $feedProfile) }}">
                 @csrf
                 <button class="button" type="submit">Rebuild feed</button>

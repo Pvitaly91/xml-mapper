@@ -73,4 +73,59 @@ class FeedReleaseReportController extends AdminController
             ['Content-Type' => 'application/json; charset=UTF-8']
         );
     }
+
+    public function finalXml(
+        Request $request,
+        FeedProfile $feedProfile,
+        FeedGeneration $feedGeneration,
+        FeedReleaseReportService $reportService
+    ): StreamedResponse {
+        $this->ensureShopOwned($request, $feedProfile);
+        abort_unless($feedGeneration->feed_profile_id === $feedProfile->id, 404);
+
+        $payload = json_encode($reportService->functionalXmlReport($feedProfile, $feedGeneration), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+        return response()->streamDownload(
+            static fn () => print ($payload),
+            'generation-'.$feedGeneration->id.'-functional-xml-report.json',
+            ['Content-Type' => 'application/json; charset=UTF-8']
+        );
+    }
+
+    public function finalXmlDownload(
+        Request $request,
+        FeedProfile $feedProfile,
+        FeedGeneration $feedGeneration,
+        string $type,
+        FeedReleaseReportService $reportService
+    ): StreamedResponse {
+        $this->ensureShopOwned($request, $feedProfile);
+        abort_unless($feedGeneration->feed_profile_id === $feedProfile->id, 404);
+        abort_unless(in_array($type, ['included', 'excluded', 'issues', 'blockers'], true), 404);
+        $format = $request->string('format')->toString() ?: 'csv';
+
+        if ($format === 'json') {
+            $report = $reportService->functionalXmlReport($feedProfile, $feedGeneration);
+            $payload = json_encode(match ($type) {
+                'included' => $report['included_items'],
+                'excluded' => $report['excluded_items'],
+                'issues' => $report['issues'],
+                default => $report['blocker_summary'],
+            }, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+            return response()->streamDownload(
+                static fn () => print ($payload),
+                'generation-'.$feedGeneration->id.'-'.$type.'.json',
+                ['Content-Type' => 'application/json; charset=UTF-8']
+            );
+        }
+
+        $payload = $reportService->functionalXmlCsv($feedProfile, $feedGeneration, $type);
+
+        return response()->streamDownload(
+            static fn () => print ($payload),
+            'generation-'.$feedGeneration->id.'-'.$type.'.csv',
+            ['Content-Type' => 'text/csv; charset=UTF-8']
+        );
+    }
 }

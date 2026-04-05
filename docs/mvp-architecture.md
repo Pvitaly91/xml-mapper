@@ -15,10 +15,11 @@
 11. Final pre-live confidence is validated through Playwright against the same Blade/session stack, backed by local-only demo bootstrap fixtures instead of browser-only domain shortcuts.
 12. Large-catalog readiness is measured through deterministic scale fixtures plus persisted performance runs; the system does not make unmeasured performance claims.
 13. Mapping automation stays deterministic and explainable. Manual mappings and item-level exceptions always outrank auto-suggestions unless an operator explicitly chooses an overwrite path.
+14. Manual content overrides stay authoritative over deterministic enrichment. Rebuilds and repeated source syncs must not erase them.
 
 ## Runtime Flow
 
-`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `KastaExportConformanceService` -> `FeedItemDiagnosticsService` -> `FeedBuildService` -> `FeedGeneration` build file + diff/guard meta -> `FeedReleaseService` -> `FeedPublishService` -> stable `/feeds/{token}.xml` -> `FeedSmokeCheckService`
+`SourceConnection` -> `SourceDriverRegistry` -> driver-specific import -> cached raw snapshot -> driver-specific feed-data loader -> `ProductNormalizer` -> normalized tables -> `ValidationService` -> `KastaExportContractService` -> `FeedItemEnrichmentService` -> `VariantFamilyService` -> `KastaExportConformanceService` -> `FeedItemDiagnosticsService` -> `FeedBuildService` -> `FeedGeneration` build file + diff/guard meta -> `FeedReleaseService` -> `FeedPublishService` -> stable `/feeds/{token}.xml` -> `FeedSmokeCheckService`
 
 Operator flow:
 
@@ -69,7 +70,10 @@ Prom API connection lifecycle:
 Feed-item export lifecycle:
 
 - `ValidationService` handles source-level completeness
-- `KastaExportConformanceService` handles Kasta category requirements, value mapping completeness, field normalization, image validity and export-key stability
+- `KastaExportContractService` resolves category-aware required vs optional export fields, minimum images, color/size requirements, and size-grid requirements
+- `FeedItemEnrichmentService` produces deterministic title/description/image/vendor/article normalization previews plus bulk-apply payloads
+- `VariantFamilyService` keeps color/size families stable, resolves shared vs variant fields, detects duplicate axes, and resolves size-grid context
+- `KastaExportConformanceService` combines mapping completeness, contract rules, enrichment output, variant-family context, and export-key stability into one diagnostics payload
 - `FeedItemDiagnosticsService` resolves the final item status and operator-facing diagnostics payload
 - `KastaExportXmlService` renders the offer fragment used by both generation build and item preview
 - `FeedGenerationDiffService` compares the built generation with the latest published generation
@@ -78,6 +82,8 @@ Feed-item export lifecycle:
 - `FeedReleaseReadinessService` aggregates go-live blockers and warnings before publish
 - `FeedReleaseService` owns candidate/approve/publish/force-publish/rollback transitions
 - `FeedSmokeCheckService` verifies the published URL after publish or manual rerun
+- `FeedReconciliationService` now doubles as the Functional Export Readiness Center with blocker buckets, category summary, estimated ready-item gain, and remediation actions
+- `FeedReleaseReportService` now exports the final XML validation layer with item-to-XML traceability and downloadable included/excluded/issues/blocker reports
 - `FeedCutoverService` tracks the live merchant cutover state for one feed profile and target generation
 - `FeedFirstPullVerificationService` persists first production pull verification separately from generic smoke checks
 - `FeedReconciliationService` compares source counts, mapped counts, ready counts and published counts
@@ -136,6 +142,7 @@ Feed-item export lifecycle:
 - `MappingCoverageService` assembles coverage splits, unresolved backlog priority, recent batch history, and feedback-linked mapping issues
 - `MappingFeedbackRecommendationService` turns repeated remediation patterns into governed recommendations instead of silent self-learning
 - `FeedItemMappingExceptionService` applies and protects item-level mapping overrides so diagnostics plus export stay aligned
+- `FeedItemMappingExceptionService` also persists item-level content overrides, keeping manual enrichment authoritative without creating a second override subsystem
 - `OpsMaintenanceStatusService` aggregates backups, deploy metadata, storage usage and queue backlog for admin screens
 - `ShopControlPanelService` aggregates daily go-live state for one shop
 - `UnresolvedMappingsWorkbenchService` groups blockers into operator queues
@@ -385,6 +392,34 @@ The merchant pilot acceptance path is:
 8. `FeedReleaseService` publishes or force-publishes with audit trail and post-publish smoke check
 
 This keeps the whole acceptance workflow generation-centric and reuses the existing build/publish pipeline instead of inventing a parallel release model.
+
+## Merchant-Ready Mapped XML Flow
+
+The functional merchant flow is intentionally explicit and deterministic:
+
+1. source import populates normalized products, variants, categories, and attributes
+2. mapping automation plus manual work completes category / attribute / value coverage
+3. the Functional Export Readiness Center shows blocker buckets such as missing category mapping, missing attribute/value mapping, missing required export field, invalid content, insufficient images, size/color unresolved, duplicate family axes, and contract-validation issues
+4. the content-enrichment workflow previews title/description/image/vendor/article/size-grid normalization before apply
+5. manual item-level content overrides stay authoritative for edge cases
+6. build creates a candidate XML artifact and the final XML validation report explains exactly what was included, excluded, warned, or blocked
+
+The intended operator question is no longer “did the build job run?” but “what still prevents a full mapped XML, what is the fastest fix, and is the current candidate already publish-ready from a merchant perspective?”
+
+## Functional Demo Flow
+
+`demo:functional-export` is the reproducible local scenario for the merchant-ready path.
+
+It provisions:
+
+- a demo merchant and operator
+- a Prom YML sample source
+- a partially mapped catalog
+- deterministic mapping and enrichment steps
+- one remaining manual image blocker
+- a final approved mapped XML candidate and JSON summary
+
+This keeps local verification aligned with the real services instead of adding a second fake-only demo path.
 
 ## First Live Merchant Launch Architecture
 

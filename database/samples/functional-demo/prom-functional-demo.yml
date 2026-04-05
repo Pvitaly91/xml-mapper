@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="2026-04-05 10:00">
+    <shop>
+        <name>Functional Demo Shop</name>
+        <categories>
+            <category id="100">Apparel</category>
+            <category id="101" parentId="100" rz_id="2001">T-Shirts</category>
+            <category id="200">Shoes</category>
+            <category id="201" parentId="200" rz_id="3002">Sneakers</category>
+        </categories>
+        <offers>
+            <offer id="DEMO-TS-1" available="true">
+                <name>Basic Tee Black S</name>
+                <price>799</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>101</categoryId>
+                <vendor>Acme</vendor>
+                <vendorCode>TSHIRT-001</vendorCode>
+                <description>Базова футболка</description>
+                <picture>https://example.test/demo-tee-1.jpg</picture>
+                <param name="Color">Black</param>
+                <param name="Size">S</param>
+            </offer>
+            <offer id="DEMO-TS-2" available="true">
+                <name>Basic Tee Black M</name>
+                <price>799</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>101</categoryId>
+                <vendor>Acme</vendor>
+                <vendorCode>TSHIRT-001</vendorCode>
+                <description>Базова футболка</description>
+                <picture>https://example.test/demo-tee-2.jpg</picture>
+                <param name="Color">Black</param>
+                <param name="Size">M</param>
+            </offer>
+            <offer id="DEMO-SN-1" available="true">
+                <name>Runner Sneaker Black 42</name>
+                <price>2299</price>
+                <currencyId>UAH</currencyId>
+                <categoryId>201</categoryId>
+                <vendor>FastStep</vendor>
+                <vendorCode>SNKR-042</vendorCode>
+                <picture>https://example.test/demo-shoe-1.jpg</picture>
+                <param name="Color">Black</param>
+                <param name="Size">42</param>
+            </offer>
+        </offers>
+    </shop>
+</yml_catalog>

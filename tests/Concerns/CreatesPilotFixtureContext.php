@@ -11,6 +11,7 @@ use App\Models\FeedProfile;
 use App\Models\KastaCategory;
 use App\Models\OpsRun;
 use App\Models\PilotRun;
+use App\Models\SizeGrid;
 use App\Models\SourceCategory;
 use App\Models\SourceConnection;
 use App\Models\SourceProduct;
@@ -63,6 +64,7 @@ trait CreatesPilotFixtureContext
         Redis::shouldReceive('connection->ping')->zeroOrMoreTimes()->andReturn('PONG');
         Queue::shouldReceive('size')->zeroOrMoreTimes()->andReturn(0);
         app(HeartbeatService::class)->recordSchedulerHeartbeat(CarbonImmutable::now());
+        $this->seedPilotSizeGrids();
 
         $shop = $this->createShop();
         $admin = $this->createAdminUser($shop);
@@ -186,12 +188,29 @@ trait CreatesPilotFixtureContext
             ->where('source_connection_id', $connection->id)
             ->get()
             ->each(function (SourceProduct $product): void {
+                $isFootwear = str_contains(strtolower((string) ($product->sourceCategory?->full_path ?: $product->sourceCategory?->name ?: '')), 'shoe');
+                $images = collect([
+                    ...((array) $product->images_json),
+                    $product->primary_image_url,
+                ])->filter()->unique()->values()->all();
+
+                if ($isFootwear && count($images) < 3) {
+                    $images = collect([
+                        ...$images,
+                        'https://cdn.example.test/pilot-shoe-white-1.jpg',
+                        'https://cdn.example.test/pilot-shoe-white-2.jpg',
+                        'https://cdn.example.test/pilot-shoe-white-3.jpg',
+                    ])->filter()->unique()->take(3)->values()->all();
+                } elseif ($images === []) {
+                    $images = ['https://cdn.example.test/pilot-default.jpg'];
+                }
+
                 $product->update([
                     'vendor' => $product->vendor ?: 'Pilot Brand',
                     'brand' => $product->brand ?: 'Pilot Brand',
                     'article' => $product->article ?: 'PILOT-ART-'.$product->id,
-                    'primary_image_url' => $product->primary_image_url ?: 'https://cdn.example.test/pilot-default.jpg',
-                    'images_json' => $product->images_json ?: ['https://cdn.example.test/pilot-default.jpg'],
+                    'primary_image_url' => $images[0] ?? 'https://cdn.example.test/pilot-default.jpg',
+                    'images_json' => $images,
                 ]);
             });
 
@@ -200,14 +219,48 @@ trait CreatesPilotFixtureContext
             ->get()
             ->each(function (SourceVariant $variant): void {
                 $lookup = strtoupper((string) ($variant->external_sku ?: $variant->title ?: $variant->external_offer_id));
+                $isFootwear = str_contains($lookup, 'SHOE') || str_contains($lookup, '42');
+                $images = collect((array) $variant->images_json)->filter()->unique()->values()->all();
+
+                if ($isFootwear && count($images) < 3) {
+                    $images = collect([
+                        ...$images,
+                        'https://cdn.example.test/pilot-shoe-white-1.jpg',
+                        'https://cdn.example.test/pilot-shoe-white-2.jpg',
+                        'https://cdn.example.test/pilot-shoe-white-3.jpg',
+                    ])->filter()->unique()->take(3)->values()->all();
+                } elseif ($images === []) {
+                    $images = ['https://cdn.example.test/pilot-variant.jpg'];
+                }
 
                 $variant->update([
                     'color' => $variant->color ?: (str_contains($lookup, 'RED') ? 'Red' : (str_contains($lookup, 'WHT') || str_contains($lookup, 'WHITE') ? 'White' : 'Black')),
                     'size' => $variant->size ?: (str_contains($lookup, '42') ? '42' : (str_contains($lookup, '-M') || str_contains($lookup, ' M') ? 'M' : 'S')),
-                    'images_json' => $variant->images_json ?: ['https://cdn.example.test/pilot-variant.jpg'],
+                    'images_json' => $images,
                     'is_enabled' => true,
                 ]);
             });
+    }
+
+    protected function seedPilotSizeGrids(): void
+    {
+        SizeGrid::query()->updateOrCreate(
+            ['shop_id' => null, 'code' => 'adult-alpha'],
+            [
+                'name' => 'Adult Alpha',
+                'schema' => ['labels' => ['XS', 'S', 'M', 'L', 'XL']],
+                'is_active' => true,
+            ]
+        );
+
+        SizeGrid::query()->updateOrCreate(
+            ['shop_id' => null, 'code' => 'adult-eu-shoes'],
+            [
+                'name' => 'Adult EU Shoes',
+                'schema' => ['labels' => ['40', '41', '42', '43', '44']],
+                'is_active' => true,
+            ]
+        );
     }
 
     /**

@@ -12,6 +12,8 @@ class FeedItemMappingException extends Model
 
     public const TYPE_CATEGORY = 'category';
     public const TYPE_ATTRIBUTE_VALUE = 'attribute_value';
+    public const TYPE_CONTENT_FIELD = 'content_field';
+    public const TYPE_CONTENT_IMAGES = 'content_images';
 
     protected $fillable = [
         'shop_id',
@@ -65,5 +67,16 @@ class FeedItemMappingException extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function contentTypes(): array
+    {
+        return [
+            self::TYPE_CONTENT_FIELD,
+            self::TYPE_CONTENT_IMAGES,
+        ];
     }
 }

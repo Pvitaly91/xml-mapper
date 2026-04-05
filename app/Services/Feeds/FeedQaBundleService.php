@@ -69,6 +69,7 @@ class FeedQaBundleService
 
         $diffReport = $this->reportService->generationDiffReport($feedProfile, $generation);
         $readinessReport = $this->reportService->readinessReport($feedProfile, $generation);
+        $functionalXmlReport = $this->reportService->functionalXmlReport($feedProfile, $generation);
         $smokeCheckSummary = $this->reportService->smokeCheckReport($generation);
         $releaseNotes = $this->releaseNotes($generation);
         $invalidItemsTemp = tempnam(sys_get_temp_dir(), 'qa-invalid-');
@@ -97,6 +98,11 @@ class FeedQaBundleService
         $zip->addFile($invalidItemsTemp, 'invalid-items.csv');
         $zip->addFromString('generation-diff.json', json_encode($diffReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $zip->addFromString('readiness.json', json_encode($readinessReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $zip->addFromString('functional-xml-report.json', json_encode($functionalXmlReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $zip->addFromString('functional-included-items.csv', $this->reportService->functionalXmlCsv($feedProfile, $generation, 'included'));
+        $zip->addFromString('functional-excluded-items.csv', $this->reportService->functionalXmlCsv($feedProfile, $generation, 'excluded'));
+        $zip->addFromString('functional-issues.csv', $this->reportService->functionalXmlCsv($feedProfile, $generation, 'issues'));
+        $zip->addFromString('functional-blockers.csv', $this->reportService->functionalXmlCsv($feedProfile, $generation, 'blockers'));
         $zip->addFromString('smoke-check-summary.json', json_encode($smokeCheckSummary, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $zip->addFromString('release-notes.txt', $releaseNotes);
         $zip->close();

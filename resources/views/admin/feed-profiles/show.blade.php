@@ -21,7 +21,8 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.operations.show', $feedProfile) }}">Operations</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.hypercare.show', $feedProfile) }}">War room</a>
             <a class="button secondary" href="{{ route('admin.merchant-launches.index') }}">Launch center</a>
-            <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Reconciliation</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.reconciliation.show', $feedProfile) }}">Functional readiness</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.content-enrichment.index', $feedProfile) }}">Content enrichment</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feedback-workbench.index', $feedProfile) }}">Rejection workbench</a>
             <form method="POST" action="{{ route('admin.feed-profiles.status', $feedProfile) }}">
                 @csrf
@@ -100,6 +101,7 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.value-mappings.index', $feedProfile) }}">Value mappings</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.feed-items.index', $feedProfile) }}">Feed items</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.workbench.index', $feedProfile) }}">Unresolved workbench</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.content-enrichment.index', $feedProfile) }}">Content enrichment</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.mapping-presets.import', $feedProfile) }}">Mapping presets</a>
         </div>
     </section>

@@ -215,6 +215,7 @@ php artisan mapping:coverage {feedProfileId}
 php artisan mapping:feedback-recommendations {feedProfileId}
 php artisan mapping:template:export {feedProfileId}
 php artisan mapping:template:apply {feedProfileId} --file=/abs/path/template.json --dry-run
+php artisan demo:functional-export --fresh --json
 php artisan demo:bootstrap-e2e --fresh
 php artisan demo:bootstrap-e2e --fresh --json
 ```
@@ -1729,6 +1730,32 @@ Download:
 - CSV for blocker-count handoff
 
 The report highlights top blocker codes and source-vs-published deltas.
+
+## Functional XML Verification
+
+Use the functional export layer when the operator needs an exact answer to “why is the mapped XML still incomplete?”
+
+Recommended sequence:
+
+1. open `/admin/feed-profiles/{profile}/reconciliation` to review blocker buckets, category summaries, estimated ready-item gain, and direct remediation actions
+2. open `/admin/feed-profiles/{profile}/content-enrichment` to preview and bulk-apply deterministic title/description/image fixes
+3. use `/admin/feed-profiles/{profile}/feed-items/{item}` for manual content overrides on edge cases
+4. rebuild the candidate and inspect `/admin/feed-profiles/{profile}/generations/{generation}` for candidate XML preview/download and the final XML validation report
+
+The final XML report provides:
+
+- included item count
+- excluded item count
+- exact exclusion reasons
+- warnings/errors
+- item-to-XML traceability
+- downloadable CSVs for included, excluded, issues, and blocker summary
+
+For a full local reproducible scenario, run:
+
+```bash
+php artisan demo:functional-export --fresh --json
+```
 
 ## Manual Feedback Import And Remediation
 

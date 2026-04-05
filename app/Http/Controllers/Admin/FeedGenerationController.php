@@ -31,6 +31,7 @@ class FeedGenerationController extends AdminController
             'generation' => $feedGeneration,
             'diffReport' => $reportService->generationDiffReport($feedProfile, $feedGeneration),
             'readiness' => $readinessService->evaluate($feedProfile, $feedGeneration),
+            'functionalReport' => $reportService->functionalXmlReport($feedProfile, $feedGeneration),
             'latestSmokeCheck' => $feedGeneration->smokeChecks()->latest('checked_at')->first(),
             'releaseEvents' => $feedGeneration->releaseEvents()
                 ->with('user')

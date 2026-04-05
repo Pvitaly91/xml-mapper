@@ -75,6 +75,80 @@
 
     <div class="grid cols-2">
         <section class="panel">
+            <h2>Content Override</h2>
+            <form method="POST" action="{{ route('admin.feed-profiles.feed-items.content-override', [$feedProfile, $feedItem]) }}">
+                @csrf
+                @method('PUT')
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="content_title">Title</label>
+                        <input id="content_title" name="title" value="{{ old('title', data_get($diagnostics, 'enrichment.content.title')) }}">
+                    </div>
+                    <div class="field">
+                        <label for="content_vendor">Vendor / brand</label>
+                        <input id="content_vendor" name="vendor" value="{{ old('vendor', data_get($diagnostics, 'enrichment.content.vendor')) }}">
+                    </div>
+                    <div class="field">
+                        <label for="content_article">Article</label>
+                        <input id="content_article" name="article" value="{{ old('article', data_get($diagnostics, 'enrichment.content.article')) }}">
+                    </div>
+                    <div class="field">
+                        <label for="content_color">Color</label>
+                        <input id="content_color" name="color" value="{{ old('color', data_get($diagnostics, 'enrichment.content.color')) }}">
+                    </div>
+                    <div class="field">
+                        <label for="content_size">Size</label>
+                        <input id="content_size" name="size" value="{{ old('size', data_get($diagnostics, 'enrichment.content.size')) }}">
+                    </div>
+                    <div class="field">
+                        <label for="content_size_grid">Size grid code</label>
+                        <input id="content_size_grid" name="size_grid_code" value="{{ old('size_grid_code', data_get($diagnostics, 'normalized_export_snapshot.size_grid_code')) }}">
+                    </div>
+                    <div class="field full">
+                        <label for="content_description">Description</label>
+                        <textarea id="content_description" name="description">{{ old('description', data_get($diagnostics, 'enrichment.content.description')) }}</textarea>
+                    </div>
+                    <div class="field full">
+                        <label for="content_images">Images, one URL per line</label>
+                        <textarea id="content_images" name="images">{{ old('images', implode(PHP_EOL, data_get($diagnostics, 'enrichment.content.images', []))) }}</textarea>
+                    </div>
+                    <div class="field full">
+                        <label for="content_reason">Reason</label>
+                        <input id="content_reason" name="reason" value="{{ old('reason') }}" placeholder="Why this item needs persisted content override">
+                    </div>
+                </div>
+                <div class="toolbar" style="margin-top: 16px;">
+                    <button class="button secondary" type="submit">Save content override</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Enrichment Preview</h2>
+            @if($diagnostics)
+                <div class="detail-list">
+                    <div class="detail-row"><strong>Contract profile</strong><div>{{ data_get($diagnostics, 'contract.profile_key', 'default') }}</div></div>
+                    <div class="detail-row"><strong>Family key</strong><div>{{ data_get($diagnostics, 'family_context.family_key') ?: 'n/a' }}</div></div>
+                    <div class="detail-row"><strong>Size grid</strong><div>{{ data_get($diagnostics, 'family_context.size_grid_code') ?: 'n/a' }}</div></div>
+                    <div class="detail-row"><strong>Suggested changes</strong><div>{{ collect(data_get($diagnostics, 'enrichment.diff', []))->filter(fn ($row) => $row['changed'] ?? false)->keys()->implode(', ') ?: 'none' }}</div></div>
+                </div>
+
+                @if((data_get($diagnostics, 'enrichment.warnings', [])) !== [])
+                    <h3 style="margin-top: 18px;">Warnings</h3>
+                    <ul>
+                        @foreach(data_get($diagnostics, 'enrichment.warnings', []) as $warning)
+                            <li>{{ $warning['code'] }}: {{ $warning['message'] }}</li>
+                        @endforeach
+                    </ul>
+                @endif
+            @else
+                <p class="muted">No enrichment preview is available.</p>
+            @endif
+        </section>
+    </div>
+
+    <div class="grid cols-2">
+        <section class="panel">
             <h2>Item-Level Category Exception</h2>
             <form method="POST" action="{{ route('admin.feed-profiles.feed-items.exceptions.category', [$feedProfile, $feedItem]) }}">
                 @csrf

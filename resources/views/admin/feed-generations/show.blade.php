@@ -6,6 +6,8 @@
     @php($summary = $generation->meta['summary'] ?? [])
     @php($guard = $generation->meta['publish_guard'] ?? ['allowed' => false, 'reasons' => [], 'summary' => []])
     @php($diffSummary = $diffReport['summary'] ?? [])
+    @php($functionalSummary = $functionalReport['summary'] ?? [])
+    @php($functionalStatus = $functionalSummary['functional_status'] ?? 'n/a')
 
     <section class="panel">
         <div class="toolbar">
@@ -16,6 +18,9 @@
             <a class="button secondary" href="{{ route('admin.feed-profiles.reports.invalid-items', ['feed_profile' => $feedProfile, 'generation_id' => $generation->id]) }}">Invalid items CSV</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.diff', [$feedProfile, $generation]) }}">Diff JSON</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.readiness', [$feedProfile, $generation]) }}">Readiness JSON</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.final-xml', [$feedProfile, $generation]) }}">Final XML report</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.artifact.preview', [$feedProfile, $generation]) }}" target="_blank" rel="noreferrer">Open candidate XML</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.artifact.download', [$feedProfile, $generation]) }}">Download candidate XML</a>
             <a class="button secondary" href="{{ route('admin.feed-profiles.generations.qa-bundle', [$feedProfile, $generation]) }}">QA bundle</a>
             @if($publicFeedUrl)
                 <a class="button link" href="{{ $publicFeedUrl }}" target="_blank" rel="noreferrer">Open published feed</a>
@@ -30,6 +35,9 @@
             <div class="detail-row"><strong>Approved by</strong><div>{{ $generation->approvedBy?->email ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Published at</strong><div>{{ optional($generation->published_at)->format('Y-m-d H:i:s') ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>Counts</strong><div>ready {{ $summary['ready'] ?? 0 }}, invalid {{ $summary['invalid_total'] ?? 0 }}, excluded {{ $summary['excluded'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Candidate XML</strong><div>{{ $functionalSummary['xml_generated_successfully'] ?? false ? 'generated' : 'not generated' }}</div></div>
+            <div class="detail-row"><strong>Functional QA</strong><div>{{ $functionalStatus }}</div></div>
+            <div class="detail-row"><strong>Release readiness</strong><div>{{ $functionalSummary['release_readiness_status'] ?? 'n/a' }}</div></div>
             <div class="detail-row"><strong>Smoke check</strong><div>{{ $generation->last_smoke_check_status ?: 'n/a' }} @if($generation->last_smoke_check_at) ({{ $generation->last_smoke_check_at->format('Y-m-d H:i:s') }}) @endif</div></div>
             <div class="detail-row"><strong>Current sign-off</strong><div>{{ $generation->signoffs->where('is_current', true)->first()?->status ?: 'n/a' }}</div></div>
             <div class="detail-row"><strong>First-pull verification</strong><div>{{ $generation->meta['first_pull_verification']['status'] ?? 'n/a' }}</div></div>
@@ -207,6 +215,57 @@
             </form>
         </section>
     </div>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Functional XML QA</h2>
+            <span class="badge {{ $functionalStatus === 'publish_ready' ? 'ok' : ($functionalStatus === 'build_failed' ? 'err' : 'warn') }}">
+                {{ $functionalStatus }}
+            </span>
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>XML generated</strong><div>{{ ($functionalSummary['xml_generated_successfully'] ?? false) ? 'yes' : 'no' }}</div></div>
+            <div class="detail-row"><strong>Included items</strong><div>{{ $functionalSummary['included_items_count'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Excluded items</strong><div>{{ $functionalSummary['excluded_items_count'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Issues</strong><div>{{ $functionalSummary['issues_count'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Warnings / errors</strong><div>{{ $functionalSummary['warnings_count'] ?? 0 }} / {{ $functionalSummary['errors_count'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Artifact path</strong><div>{{ $functionalSummary['artifact_path'] ?? 'n/a' }}</div></div>
+        </div>
+
+        <div class="toolbar" style="margin-top: 16px;">
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.final-xml.download', [$feedProfile, $generation, 'included']) }}">Included CSV</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.final-xml.download', [$feedProfile, $generation, 'excluded']) }}">Excluded CSV</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.final-xml.download', [$feedProfile, $generation, 'issues']) }}">Issues CSV</a>
+            <a class="button secondary" href="{{ route('admin.feed-profiles.generations.reports.final-xml.download', [$feedProfile, $generation, 'blockers']) }}">Blockers CSV</a>
+        </div>
+
+        <div class="grid cols-2" style="margin-top: 18px;">
+            <div>
+                <h3>Excluded items sample</h3>
+                @if(($functionalReport['excluded_items'] ?? []) !== [])
+                    <ul>
+                        @foreach(array_slice($functionalReport['excluded_items'], 0, 5) as $row)
+                            <li>{{ $row['stable_offer_id'] ?: ('item #'.$row['feed_item_id']) }}: {{ collect($row['errors'])->map(fn ($error) => $error['code'])->implode(', ') ?: ($row['excluded_reason'] ?: 'excluded') }}</li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="muted">No excluded items.</p>
+                @endif
+            </div>
+            <div>
+                <h3>Blocker summary</h3>
+                @if(($functionalReport['blocker_summary'] ?? []) !== [])
+                    <ul>
+                        @foreach(array_slice($functionalReport['blocker_summary'], 0, 6) as $row)
+                            <li>{{ $row['source_category'] }}: {{ $row['blocker_label'] }} ({{ $row['count'] }})</li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="muted">No blocker summary.</p>
+                @endif
+            </div>
+        </div>
+    </section>
 
     <div class="grid cols-2">
         <section class="panel">

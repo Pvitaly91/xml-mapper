@@ -28,6 +28,7 @@ The application stores normalized source data locally, validates exportability, 
 - unresolved mappings workbench with bulk helpers and confirmation step
 - reusable mapping preset export/import with dry-run preview
 - deterministic mapping automation with rule-based suggestions, bulk auto-apply batches, feedback-driven recommendations, item-level exceptions, reusable templates, and Mapping Coverage Center
+- merchant-ready functional export flow with category-aware Kasta contract profiles, deterministic content enrichment, variant-family grouping, Functional Export Readiness Center, final XML QA reports, candidate XML preview/download, and reproducible mapped-XML demo bootstrap
 - dual source drivers via `source_connections.driver`:
   - `prom_yml`
   - `prom_api`
@@ -129,6 +130,45 @@ php artisan mapping:feedback-recommendations 1
 php artisan mapping:template:export 1
 php artisan mapping:template:apply 1 --file=/abs/path/template.json --dry-run
 ```
+
+## Merchant-Ready Functional XML Workflow
+
+The operator path for a real merchant is now:
+
+1. import source data from `prom_yml` or `prom_api`
+2. finish category / attribute / value mappings
+3. open the Functional Export Readiness Center and see exactly what still blocks the XML
+4. preview deterministic content enrichment before apply
+5. keep manual item-level content overrides authoritative where needed
+6. rebuild the candidate XML, inspect the final XML validation report, and only then treat the generation as publish-ready
+
+Main admin surfaces:
+
+- `/admin/feed-profiles/{profile}/reconciliation` for the Functional Export Readiness Center
+- `/admin/feed-profiles/{profile}/content-enrichment` for bulk enrichment preview/apply
+- `/admin/feed-profiles/{profile}/feed-items/{item}` for item-level diagnostics plus manual title/description/image overrides
+- `/admin/feed-profiles/{profile}/generations/{generation}` for candidate XML preview/download and the final XML QA summary
+
+The Functional Export Readiness Center answers:
+
+- how many source items exist
+- how many items are mapped
+- how many items are export-ready
+- how many items are blocked or excluded
+- which blocker buckets dominate by category
+- what estimated ready-item gain the top fixes unlock
+- which remediation action to take next
+
+The final XML report answers:
+
+- whether the XML artifact was generated successfully
+- which items were included
+- which items were excluded
+- exact blocker reasons and warnings
+- item-to-XML traceability
+- downloadable CSVs for included, excluded, issues, and blocker summary
+
+`publish_ready` in the functional report now means the candidate XML is complete from a merchant/export perspective and the generation has already been approved. Non-blocking ops warnings remain visible separately in release readiness.
 
 ## Environment Readiness
 
@@ -302,8 +342,11 @@ The conformance layer checks:
 - category mapping exists
 - required Kasta attributes for the mapped category are satisfied
 - missing attribute mapping vs missing value mapping vs missing source value are separated
+- category-aware contract profiles decide required vs optional export fields per category
 - vendor, article, color and size are normalized centrally
-- pictures satisfy `minimum_pictures` and remain valid URLs
+- deterministic enrichment prepares title, description, images, vendor/article normalization, and size-grid linkage before XML rendering
+- variant-family context keeps shared vs variant-specific export fields stable and detects duplicate color/size axes
+- pictures satisfy the effective export minimum and remain valid URLs
 - export key stability is preserved through the existing stable offer ID pipeline
 
 ## Feed Item Diagnostics
@@ -326,6 +369,27 @@ Operator-facing diagnostics distinguish:
 - missing required source value
 - invalid color/size
 - missing images
+
+## Content Enrichment Workflow
+
+Content enrichment stays deterministic and operator-controlled. It does not invent copy or call external AI.
+
+Preview/apply behavior:
+
+- title generation and normalization follow contract-aware rules
+- description cleanup uses deterministic fallback from existing catalog fields
+- image selection keeps variant-first ordering, removes invalid URLs, and respects minimum-images requirements
+- vendor, article, color, size, and size-grid values are normalized centrally
+- bulk apply skips items that already have manual content overrides
+- manual content overrides for title, description, images, vendor, article, color, size, or size-grid stay authoritative across rebuilds and repeated syncs
+
+Operator flow:
+
+1. open the content-enrichment screen for blocked or recently built items
+2. inspect the preview diff and rules used for every item
+3. apply safe bulk enrichment where there is no manual override
+4. use the feed-item page for explicit item-level overrides when merchant merchandising requires it
+5. rebuild the candidate XML and re-check the final XML report
 
 ## Feed Profile Export Settings
 
@@ -418,8 +482,16 @@ Downloadable operator reports:
 - invalid items CSV/JSON
 - generation diff JSON
 - release readiness JSON
+- final XML functional report JSON
+- final XML included / excluded / issues / blocker-summary CSVs
 
 Invalid-item reports include item IDs, product/variant identifiers, source category, mapped category, status and exact blocking reasons.
+
+Generation details also provide:
+
+- candidate XML preview in the browser
+- candidate XML download as an artifact
+- final XML QA summary with included/excluded counts and traceability
 
 ## Shop Onboarding And Go-Live Control
 
@@ -2182,6 +2254,7 @@ npm run e2e:smoke
 npm run e2e
 npm run e2e:report
 php artisan demo:bootstrap-e2e --fresh --json
+php artisan demo:functional-export --fresh --json
 ```
 
 The bootstrap command provisions:
@@ -2237,3 +2310,11 @@ Run the full suite:
 ```bash
 php artisan test
 ```
+
+Run the reproducible merchant-ready functional scenario locally:
+
+```bash
+php artisan demo:functional-export --fresh --json
+```
+
+The command provisions a demo merchant, imports sample source data, leaves the profile partially blocked after mapping, applies the expected mapping and enrichment steps, fixes the remaining manual image blocker, rebuilds the candidate, approves it, and writes the final mapped XML summary to `storage/app/demo/functional-export-summary.json`.

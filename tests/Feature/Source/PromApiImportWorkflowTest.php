@@ -9,6 +9,7 @@ use App\Models\CategoryMapping;
 use App\Models\FeedGeneration;
 use App\Models\FeedProfile;
 use App\Models\KastaCategory;
+use App\Models\SizeGrid;
 use App\Models\SourceCategory;
 use App\Models\SourceConnection;
 use App\Models\SourceImport;
@@ -177,6 +178,12 @@ class PromApiImportWorkflowTest extends TestCase
             'mapping_strategy' => CategoryMapping::STRATEGY_MANUAL,
             'is_active' => true,
         ]);
+        SizeGrid::create([
+            'code' => 'adult-eu-shoes',
+            'name' => 'Adult EU Shoes',
+            'schema' => ['labels' => ['41', '42', '43']],
+            'is_active' => true,
+        ]);
 
         $generation = app(FeedBuildServiceInterface::class)->build($feedProfile, $thirdImport->id);
         $published = app(FeedPublishServiceInterface::class)->publish($feedProfile->fresh(), $generation);
@@ -283,6 +290,8 @@ class PromApiImportWorkflowTest extends TestCase
                             'main_image' => 'https://cdn.example.test/shoe-main.jpg',
                             'images' => [
                                 ['url' => 'https://cdn.example.test/shoe-side.jpg'],
+                                ['url' => 'https://cdn.example.test/shoe-top.jpg'],
+                                ['url' => 'https://cdn.example.test/shoe-back.jpg'],
                             ],
                             'group' => ['id' => 1, 'name' => 'Shoes'],
                             'category' => ['id' => 1, 'caption' => 'Shoes'],

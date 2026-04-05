@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Admin\FeedItems\ManageFeedItemsAction;
 use App\Actions\Admin\FeedItems\OverrideFeedItemAction;
+use App\Actions\Admin\FeedItems\SaveFeedItemContentOverrideAction;
 use App\Http\Requests\Admin\FeedItems\FeedItemBulkActionRequest;
+use App\Http\Requests\Admin\FeedItems\FeedItemContentOverrideRequest;
 use App\Http\Requests\Admin\FeedItems\FeedItemOverrideRequest;
 use App\Models\CategoryMapping;
 use App\Models\FeedItem;
@@ -106,6 +108,27 @@ class FeedItemController extends AdminController
             'kastaCategories' => KastaCategory::query()->where('is_active', true)->orderBy('full_path')->get(),
             'xmlPreview' => $xmlPreview,
         ]);
+    }
+
+    public function updateContentOverride(
+        FeedItemContentOverrideRequest $request,
+        FeedProfile $feedProfile,
+        FeedItem $feedItem,
+        SaveFeedItemContentOverrideAction $action
+    ): RedirectResponse {
+        $this->ensureShopOwned($request, $feedProfile);
+        abort_unless($feedItem->feed_profile_id === $feedProfile->id, 404);
+
+        $payload = $request->validated();
+        $payload['images'] = collect(preg_split('/\r\n|\r|\n/', (string) ($payload['images'] ?? '')) ?: [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
+
+        $action->handle($feedProfile, $feedItem, $payload, $request->user());
+
+        return back()->with('status', 'Feed item content override saved.');
     }
 
     public function bulkUpdate(FeedItemBulkActionRequest $request, FeedProfile $feedProfile, ManageFeedItemsAction $action): RedirectResponse

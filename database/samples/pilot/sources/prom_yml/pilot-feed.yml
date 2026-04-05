@@ -34,6 +34,8 @@
                 <vendorCode>PILOT-SHOE-WHT-42</vendorCode>
                 <description>Merchant pilot sneaker.</description>
                 <picture>https://cdn.example.test/pilot-shoe-white-1.jpg</picture>
+                <picture>https://cdn.example.test/pilot-shoe-white-2.jpg</picture>
+                <picture>https://cdn.example.test/pilot-shoe-white-3.jpg</picture>
                 <param name="Color">White</param>
                 <param name="Size">42</param>
             </offer>

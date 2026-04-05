@@ -75,7 +75,7 @@ class FeedBuildService implements FeedBuildServiceInterface
                     ];
 
                     SourceVariant::query()
-                        ->with(['product.sourceCategory'])
+                        ->with(['product.sourceCategory', 'product.variants'])
                         ->where('shop_id', $feedProfile->shop_id)
                         ->where('source_connection_id', $feedProfile->source_connection_id)
                         ->where('is_enabled', true)
@@ -149,7 +149,7 @@ class FeedBuildService implements FeedBuildServiceInterface
 
                     $path = $this->buildXmlFile($feedProfile, $generation, $usedCategories);
                     $builtAt = now();
-                    $checksum = hash_file('sha256', Storage::disk(config('feed_mediator.storage_disk'))->path($path)) ?: null;
+                    $checksum = hash('sha256', Storage::disk(config('feed_mediator.storage_disk'))->get($path)) ?: null;
                     $buildDurationMs = (int) round((microtime(true) - $startedAt) * 1000);
                     $peakMemoryMb = round(memory_get_peak_usage(true) / 1024 / 1024, 2);
 
@@ -267,16 +267,10 @@ class FeedBuildService implements FeedBuildServiceInterface
     private function buildXmlFile(FeedProfile $feedProfile, FeedGeneration $generation, array $usedCategories): string
     {
         $relativePath = trim(config('feed_mediator.builds_directory'), '/').'/shop-'.$feedProfile->shop_id.'/feed-'.$feedProfile->id.'/generation-'.$generation->id.'.xml';
-        $absolutePath = Storage::disk(config('feed_mediator.storage_disk'))->path($relativePath);
-
-        if (! is_dir(dirname($absolutePath))) {
-            mkdir(dirname($absolutePath), 0777, true);
-        }
-
         $writer = new XMLWriter;
 
-        if (! $writer->openUri($absolutePath)) {
-            throw new RuntimeException(sprintf('Failed to open XMLWriter for [%s].', $absolutePath));
+        if (! $writer->openMemory()) {
+            throw new RuntimeException(sprintf('Failed to open XMLWriter for [%s].', $relativePath));
         }
 
         $writer->startDocument('1.0', 'UTF-8');
@@ -310,7 +304,7 @@ class FeedBuildService implements FeedBuildServiceInterface
         $writer->startElement('offers');
 
         FeedItem::query()
-            ->with(['sourceProduct.sourceCategory', 'sourceVariant'])
+            ->with(['sourceProduct.sourceCategory', 'sourceProduct.variants', 'sourceVariant'])
             ->where('feed_profile_id', $feedProfile->id)
             ->where('last_built_generation_id', $generation->id)
             ->where('status', FeedItem::STATUS_READY)
@@ -344,7 +338,7 @@ class FeedBuildService implements FeedBuildServiceInterface
         $writer->endElement();
         $writer->endElement();
         $writer->endDocument();
-        $writer->flush();
+        Storage::disk(config('feed_mediator.storage_disk'))->put($relativePath, $writer->outputMemory());
 
         return $relativePath;
     }
