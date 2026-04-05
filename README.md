@@ -42,6 +42,7 @@ The application stores normalized source data locally, validates exportability, 
 - live merchant launch records with baseline-vs-actual tracking, observation/defect triage, safe tuning history, stabilization handover and closeout reports
 - outbound notification routing with delivery history, correlation IDs, suppression/escalation rules, channel tests and admin Notification Center
 - Playwright-based browser E2E harness with reproducible demo bootstrap data, CI artifacts, and critical security/governance/release coverage
+- production-scale catalog readiness with deterministic scale bootstrap fixtures, persisted performance runs, budget evaluation, chunked report paths, and admin Performance Center
 
 ## Local Setup
 
@@ -1761,30 +1762,110 @@ Retention currently prunes:
 
 Retention is configurable through `.env` knobs such as `FEED_MEDIATOR_RET_*`.
 
-## Benchmark And Performance Workflow
+## Scale Bootstrap And Performance Center
 
-Command:
+Large-catalog readiness is now exercised through deterministic scale fixtures plus persisted benchmark history instead of one-off ad hoc timing notes.
+
+Bootstrap commands:
 
 ```bash
-php artisan ops:benchmark-feed {feedProfileId}
+php artisan ops:load-bootstrap --fresh --products=5000 --variants-per-product=4 --label="5k catalog"
+php artisan demo:bootstrap-scale --fresh --products=10000 --variants-per-product=5 --label="10k rehearsal"
 ```
 
-It records:
+What bootstrap provisions:
 
-- latest sync duration from `source_imports.meta.metrics`
-- latest build duration from `feed_generations.meta.metrics`
-- latest publish duration from `feed_generations.meta.publish_metrics`
-- latest smoke-check duration
-- current probe timings for reconciliation, feedback workbench, unresolved workbench and operations summary
-- peak memory usage
+- dedicated scale shop and feed profile
+- reproducible Prom YML catalog fixture on local storage
+- source categories, products, variants, images and attributes through the normal sync/normalize path
+- initial mappings and a built candidate generation
+- feedback CSV and JSON samples for the same dataset
 
-Performance hardening added in this step:
+The dataset is deterministic for the same size inputs, so repeated runs are comparable and do not rely on random demo data.
 
-- configurable build chunk sizes
-- configurable workbench page size
-- reconciliation summary no longer loads all feed items into memory just to count statuses
-- XML build no longer accumulates all ready feed item IDs in memory
-- explicit indexes for heavy reconciliation/workbench paths
+Admin entry point:
+
+- `/admin/performance`
+
+The Performance Center shows:
+
+- recent load/bootstrap and benchmark runs
+- run status, dataset size, duration and peak memory
+- per-stage budget result
+- regression comparison against the previous run
+- links back to the related shop and feed profile
+- downloadable JSON performance report for each run
+
+## Performance Runs And Budgets
+
+Persisted performance history lives in:
+
+- `performance_runs`
+- `performance_run_stages`
+
+Recorded scope:
+
+- run type
+- shop / feed profile / operator
+- dataset size
+- executed stages
+- status
+- duration
+- peak memory
+- processed products / variants / rows
+- warnings / errors / report counts
+- environment label and notes
+
+Benchmark command:
+
+```bash
+php artisan ops:benchmark-run {feedProfileId} --stages=sync,normalize,build,reconciliation,report_generation --label="local smoke"
+php artisan ops:benchmark-compare --profile={feedProfileId}
+php artisan ops:queue-health
+php artisan ops:report-heavy-queries
+php artisan ops:prune-performance-runs
+```
+
+Budget result states:
+
+- `within_budget`
+- `warning`
+- `critical`
+
+Budget coverage currently includes:
+
+- sync
+- normalize
+- build
+- publish
+- smoke
+- reconciliation
+- report generation
+- feedback import
+- queue lag
+
+When a run or stage becomes `critical`, the result is surfaced in the dashboard, operations screens, hypercare/launch snapshots, Performance Center, and ops alerts.
+
+## Large-Catalog Hardening Notes
+
+Scale hardening added in this step:
+
+- explicit indexes for feed items, feedback records, and notification deliveries on proven list/filter hotspots
+- chunked/streamed export generation for invalid-item reports, QA bundle invalid CSVs, compliance exports, pilot execution log CSVs, and launch observation/defect CSVs
+- deterministic stress-oriented tests for duplicate build/sync suppression and idempotent queue paths
+- persisted regression comparison between recent performance runs instead of vague “it felt slower” operator judgment
+
+## Large Merchant Readiness Checklist
+
+Before the first large-catalog go-live, operator and dev should verify:
+
+1. scale bootstrap finished for a dataset close enough to the target merchant size
+2. the same feed profile passed at least one persisted benchmark run across sync, normalize, build and report-heavy stages
+3. budget results are not `critical`, and any `warning` stages are understood
+4. queue health and backlog stay inside expected thresholds
+5. reconciliation, diff, compliance and invalid-item exports still complete through the chunked paths
+6. launch and hypercare screens do not show unresolved performance degradation signals
+7. comparison against the previous run does not show an unexplained heavy regression
 
 ## Security Hardening Notes
 

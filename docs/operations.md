@@ -79,6 +79,33 @@ Important env variables:
 - `FEED_MEDIATOR_REDACT_KEYS=authorization,token,secret,password,api_key,api_token,webhook_url`
 - `FEED_MEDIATOR_ERROR_TRACKING_DRIVER=sentry`
 - `FEED_MEDIATOR_ERROR_TRACKING_DSN=`
+- `FEED_MEDIATOR_REPORT_CHUNK_SIZE=500`
+- `FEED_MEDIATOR_PERF_RET_DAYS=30`
+- `FEED_MEDIATOR_PERF_REG_WARN_PCT=25`
+- `FEED_MEDIATOR_PERF_REG_CRIT_PCT=50`
+- `FEED_MEDIATOR_SCALE_FIXTURES_DIR=storage/app/scale-fixtures`
+- `FEED_MEDIATOR_SCALE_SHOP_SLUG=scale-catalog`
+- `FEED_MEDIATOR_SCALE_SHOP_NAME=Scale Catalog Shop`
+- `FEED_MEDIATOR_SCALE_SEED=4242`
+- `FEED_MEDIATOR_SCALE_FEEDBACK_LIMIT=250`
+- `FEED_MEDIATOR_BUDGET_SYNC_WARN_MS=60000`
+- `FEED_MEDIATOR_BUDGET_SYNC_CRIT_MS=180000`
+- `FEED_MEDIATOR_BUDGET_NORM_WARN_MS=120000`
+- `FEED_MEDIATOR_BUDGET_NORM_CRIT_MS=300000`
+- `FEED_MEDIATOR_BUDGET_BUILD_WARN_MS=120000`
+- `FEED_MEDIATOR_BUDGET_BUILD_CRIT_MS=300000`
+- `FEED_MEDIATOR_BUDGET_PUB_WARN_MS=30000`
+- `FEED_MEDIATOR_BUDGET_PUB_CRIT_MS=90000`
+- `FEED_MEDIATOR_BUDGET_SMOKE_WARN_MS=5000`
+- `FEED_MEDIATOR_BUDGET_SMOKE_CRIT_MS=10000`
+- `FEED_MEDIATOR_BUDGET_REC_WARN_MS=30000`
+- `FEED_MEDIATOR_BUDGET_REC_CRIT_MS=90000`
+- `FEED_MEDIATOR_BUDGET_REP_WARN_MS=30000`
+- `FEED_MEDIATOR_BUDGET_REP_CRIT_MS=90000`
+- `FEED_MEDIATOR_BUDGET_FB_WARN_MS=30000`
+- `FEED_MEDIATOR_BUDGET_FB_CRIT_MS=90000`
+- `FEED_MEDIATOR_BUDGET_QUEUE_WARN=25`
+- `FEED_MEDIATOR_BUDGET_QUEUE_CRIT=75`
 
 Browser E2E uses a dedicated `e2e` runtime profile rather than production env values. The Playwright harness sets:
 
@@ -168,6 +195,13 @@ php artisan ops:backup-db
 php artisan ops:backup-files
 php artisan ops:prune
 php artisan ops:benchmark-feed {feedProfileId}
+php artisan ops:load-bootstrap --fresh --products=5000 --variants-per-product=4 --label="5k catalog"
+php artisan demo:bootstrap-scale --fresh --products=10000 --variants-per-product=5 --label="10k rehearsal"
+php artisan ops:benchmark-run {feedProfileId} --stages=sync,normalize,build,reconciliation,report_generation --label="scale smoke"
+php artisan ops:benchmark-compare --profile={feedProfileId}
+php artisan ops:queue-health
+php artisan ops:report-heavy-queries
+php artisan ops:prune-performance-runs
 php artisan demo:bootstrap-e2e --fresh
 php artisan demo:bootstrap-e2e --fresh --json
 ```
@@ -398,24 +432,136 @@ php artisan ops:deliveries:prune
 
 The delivery retention window is controlled by `FEED_MEDIATOR_NOTIFY_RET_DAYS`. This keeps `ops_notification_deliveries` manageable without coupling external-notification cleanup to the broader artifact prune flow.
 
-## Benchmark / Performance
+## Scale Bootstrap And Performance Runs
 
-Benchmark command:
+Use deterministic scale fixtures when validating a large merchant catalog. Do not reuse browser-demo bootstrap data for this.
+
+Bootstrap commands:
 
 ```bash
-php artisan ops:benchmark-feed {feedProfileId}
+php artisan ops:load-bootstrap --fresh --products=5000 --variants-per-product=4 --label="5k catalog"
+php artisan demo:bootstrap-scale --fresh --products=10000 --variants-per-product=5 --label="10k rehearsal"
 ```
 
-The benchmark stores:
+This provisions:
 
-- latest sync/build/publish/smoke durations
-- reconciliation probe time
-- feedback workbench probe time
-- unresolved mappings probe time
-- operations summary probe time
-- peak memory usage
+- a dedicated scale shop
+- a deterministic Prom YML source fixture on local storage
+- a scale operator account for that shop
+- a real source sync / normalize / mapping / candidate-build path
+- feedback CSV and JSON samples tied to the same dataset
 
-Use it after major catalog growth, before go-live windows, and after any query/index changes.
+The resulting shop stores fixture paths and dataset summary in `shops.settings.scale_fixture`.
+
+Persisted measurement artifacts:
+
+- `performance_runs`
+- `performance_run_stages`
+
+Each run stores:
+
+- run type and scope
+- dataset size
+- stages executed
+- duration and peak memory
+- processed products / variants / rows
+- warnings / errors
+- environment label and notes
+
+Benchmark commands:
+
+```bash
+php artisan ops:benchmark-run {feedProfileId} --stages=sync,normalize,build,reconciliation,report_generation --label="scale smoke"
+php artisan ops:benchmark-compare --profile={feedProfileId}
+php artisan ops:queue-health
+php artisan ops:report-heavy-queries
+php artisan ops:prune-performance-runs
+```
+
+Use the old `ops:benchmark-feed` only for lightweight probe-style checks. Use the new persisted run layer when validating large-catalog readiness.
+
+## Performance Budget Policy
+
+Budget result states:
+
+- `within_budget`
+- `warning`
+- `critical`
+
+Configured budget families:
+
+- sync
+- normalize
+- build
+- publish
+- smoke
+- reconciliation
+- report generation
+- feedback import
+- queue lag
+
+Operator expectations:
+
+1. compare runs only against comparable datasets and stage sets
+2. treat `critical` as an ops-visible degradation, not just an FYI
+3. review warnings before large merchant go-live even if the build still technically succeeds
+4. use `ops:benchmark-compare` after query/index changes and before production-scale cutovers
+
+Critical budget breaches surface in:
+
+- dashboard
+- feed operations
+- hypercare / launch views
+- Performance Center
+- ops alerts / notification candidates
+
+## Heavy Query And Export Hotspots
+
+The current hardening specifically targets:
+
+- feed item list/filter queries
+- feedback workbench filters
+- notification center filters
+- governance/compliance exports
+- pilot execution logs
+- launch observation / defect exports
+- invalid-item CSV generation for large generations
+
+Operationally important change:
+
+- large report paths now stream or chunk output where it materially reduces memory pressure instead of assembling one giant in-memory artifact first
+
+## Queue / Lock / Idempotency Stress Checks
+
+The scale-readiness test harness now verifies deterministic, non-flaky cases for:
+
+- concurrent sync suppression
+- duplicate build suppression
+- publish idempotency for already-published generations
+- retry safety after partial failures
+- governed action execution safety around concurrent or repeated execution attempts
+
+Before a large merchant go-live:
+
+1. run the scale bootstrap close to the expected merchant size
+2. run at least one benchmark with sync, normalize, build and report-heavy stages
+3. review queue health and backlog thresholds
+4. confirm comparison against the previous run does not show an unexplained regression
+5. confirm heavy exports still complete through chunked paths
+
+## Performance Center
+
+Admin path:
+
+- `/admin/performance`
+
+It shows:
+
+- recent load/bootstrap and benchmark runs
+- filters by type, status, budget and feed profile
+- duration, processed counts and warnings
+- run-to-run regression summary
+- links to the related shop/profile and downloadable JSON reports
 
 ## Security Hardening
 

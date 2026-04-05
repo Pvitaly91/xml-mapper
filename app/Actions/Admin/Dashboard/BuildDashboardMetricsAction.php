@@ -10,6 +10,7 @@ use App\Models\SourceVariant;
 use App\Models\ValidationError;
 use App\Services\Ops\EnvironmentContextService;
 use App\Services\Ops\OpsMaintenanceStatusService;
+use App\Services\Ops\PerformanceCenterService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\SloSummaryService;
 use App\Services\Setup\DatabaseSetupInspector;
@@ -22,6 +23,7 @@ class BuildDashboardMetricsAction
         private readonly DatabaseSetupInspector $databaseSetupInspector,
         private readonly EnvironmentContextService $environmentContextService,
         private readonly SloSummaryService $sloSummaryService,
+        private readonly PerformanceCenterService $performanceCenterService,
     ) {}
 
     /**
@@ -34,6 +36,7 @@ class BuildDashboardMetricsAction
         $maintenance = $this->opsMaintenanceStatusService->summarize($shop);
         $environment = $this->environmentContextService->summary();
         $slo = $this->sloSummaryService->summarize($shop);
+        $performance = $this->performanceCenterService->summary($shop);
 
         if (! $schema['schema_ready'] || $shop === null) {
             return [
@@ -52,6 +55,7 @@ class BuildDashboardMetricsAction
                 'maintenance' => $maintenance,
                 'environment' => $environment,
                 'slo' => $slo,
+                'performance' => $performance,
                 'ops_status' => 'setup_required',
                 'schema' => $schema,
                 'setup_required' => $schema['setup_required'] || ! $schema['database_connected'],
@@ -75,6 +79,7 @@ class BuildDashboardMetricsAction
             'maintenance' => $maintenance,
             'environment' => $environment,
             'slo' => $slo,
+            'performance' => $performance,
             'ops_status' => $this->opsStatusService->overallStatus($shop),
             'schema' => $schema,
             'setup_required' => false,

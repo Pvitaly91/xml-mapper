@@ -236,4 +236,23 @@
             <div class="stat"><span class="muted">7d status</span><strong>{{ $slo7d['status'] ?? 'n/a' }}</strong></div>
         </div>
     </section>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Performance Budget</h2>
+            <span class="badge {{ ($metrics['performance']['latest']?->budget_status ?? 'within_budget') === 'critical' ? 'err' : (($metrics['performance']['latest']?->budget_status ?? 'within_budget') === 'warning' ? 'warn' : 'ok') }}">
+                {{ $metrics['performance']['latest']?->budget_status ?: 'within_budget' }}
+            </span>
+            @if($shop)
+                <a class="button secondary" href="{{ route('admin.performance.index') }}">Open performance center</a>
+            @endif
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Latest run</strong><div>{{ $metrics['performance']['latest']?->run_type ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Latest duration</strong><div>{{ $metrics['performance']['latest']?->duration_ms ? number_format($metrics['performance']['latest']->duration_ms).' ms' : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>7d warnings</strong><div>{{ $metrics['performance']['warning_count'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>7d critical</strong><div>{{ $metrics['performance']['critical_count'] ?? 0 }}</div></div>
+            <div class="detail-row"><strong>Regression</strong><div>{{ data_get($metrics, 'performance.compare.overall.message', 'No comparison yet.') }}</div></div>
+        </div>
+    </section>
 @endsection

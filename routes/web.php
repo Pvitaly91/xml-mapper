@@ -48,6 +48,7 @@ use App\Http\Controllers\Admin\NotificationCenterController;
 use App\Http\Controllers\Admin\OpsMaintenanceController;
 use App\Http\Controllers\Admin\OpsAlertController;
 use App\Http\Controllers\Admin\OpsSilenceWindowController;
+use App\Http\Controllers\Admin\PerformanceCenterController;
 use App\Http\Controllers\Admin\PilotRunController;
 use App\Http\Controllers\Admin\ShopControlPanelController;
 use App\Http\Controllers\Admin\ShopOnboardingController;
@@ -171,6 +172,10 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/notifications/test', [NotificationCenterController::class, 'testChannel'])->name('notifications.test');
         Route::get('/notifications/deliveries/{ops_notification_delivery}', [NotificationCenterController::class, 'show'])->name('notifications.deliveries.show');
         Route::post('/notifications/deliveries/{ops_notification_delivery}/retry', [NotificationCenterController::class, 'retry'])->name('notifications.deliveries.retry');
+        Route::get('/performance', [PerformanceCenterController::class, 'index'])->name('performance.index');
+        Route::post('/performance/bootstrap', [PerformanceCenterController::class, 'bootstrap'])->middleware('throttle:admin-sensitive')->name('performance.bootstrap');
+        Route::get('/performance/runs/{performance_run}', [PerformanceCenterController::class, 'show'])->name('performance.show');
+        Route::get('/performance/runs/{performance_run}/report', [PerformanceCenterController::class, 'report'])->name('performance.report');
 
         Route::resource('source-connections', SourceConnectionController::class)->except(['destroy']);
         Route::post('/source-connections/{source_connection}/test', [SourceConnectionTestController::class, 'store'])->middleware('throttle:admin-sensitive')->name('source-connections.test');
@@ -212,6 +217,7 @@ Route::prefix('admin')->group(function (): void {
         Route::post('/feed-profiles/{feed_profile}/restore-drill', [FeedRestoreDrillController::class, 'store'])->middleware('throttle:admin-sensitive')->name('feed-profiles.restore-drill.store');
         Route::get('/feed-profiles/{feed_profile}/restore-drill/{ops_run}', [FeedRestoreDrillController::class, 'show'])->name('feed-profiles.restore-drill.show');
         Route::post('/feed-profiles/{feed_profile}/benchmark', [OpsMaintenanceController::class, 'benchmark'])->middleware('throttle:admin-sensitive')->name('feed-profiles.benchmark');
+        Route::post('/feed-profiles/{feed_profile}/performance/benchmark', [PerformanceCenterController::class, 'benchmark'])->middleware('throttle:admin-sensitive')->name('feed-profiles.performance.benchmark');
         Route::get('/feed-profiles/{feed_profile}/reconciliation', [FeedReconciliationController::class, 'show'])->name('feed-profiles.reconciliation.show');
         Route::get('/feed-profiles/{feed_profile}/reports/reconciliation', [FeedReconciliationController::class, 'download'])->name('feed-profiles.reports.reconciliation');
         Route::get('/feed-profiles/{feed_profile}/runbook', [FeedRunbookController::class, 'show'])->name('feed-profiles.runbook.show');

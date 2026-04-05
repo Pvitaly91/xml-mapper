@@ -26,6 +26,7 @@ use App\Services\Ops\NotificationDeliveryService;
 use App\Services\Ops\NotificationCenterService;
 use App\Services\Ops\OpsAlertService;
 use App\Services\Ops\OpsMaintenanceStatusService;
+use App\Services\Ops\PerformanceCenterService;
 use Illuminate\Support\Collection;
 use RuntimeException;
 
@@ -40,6 +41,7 @@ class MerchantLaunchService
         private readonly OpsAlertService $opsAlertService,
         private readonly NotificationDeliveryService $notificationDeliveryService,
         private readonly NotificationCenterService $notificationCenterService,
+        private readonly PerformanceCenterService $performanceCenterService,
     ) {}
 
     /**
@@ -307,6 +309,7 @@ class MerchantLaunchService
             'tuning_actions' => $launch->tuningActions()->with('user')->latest('applied_at')->limit(20)->get(),
             'check' => $this->check($launch),
             'notifications' => $this->notificationCenterService->deliverySummaryForLaunch($launch),
+            'performance' => $this->performanceCenterService->summary($feedProfile->shop, $feedProfile),
         ];
     }
 

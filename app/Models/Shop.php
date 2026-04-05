@@ -87,4 +87,9 @@ class Shop extends Model
     {
         return $this->hasMany(PromotionRun::class);
     }
+
+    public function performanceRuns(): HasMany
+    {
+        return $this->hasMany(PerformanceRun::class);
+    }
 }

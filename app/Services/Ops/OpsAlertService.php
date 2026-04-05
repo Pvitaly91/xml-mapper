@@ -409,6 +409,7 @@ class OpsAlertService
             OpsAlert::SOURCE_SMOKE_CHECK_FAILURE => 'smoke_failed',
             OpsAlert::SOURCE_FIRST_PULL_FAILURE => 'first_pull_failed',
             OpsAlert::SOURCE_REJECTION_SPIKE => 'rejection_spike',
+            OpsAlert::SOURCE_PERFORMANCE_BUDGET => 'launch_degraded',
             default => $severity === OpsAlert::SEVERITY_CRITICAL ? 'hypercare_critical_issue' : '*',
         };
     }

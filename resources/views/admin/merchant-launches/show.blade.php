@@ -99,6 +99,19 @@
         </div>
     </section>
 
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Performance Signals</h2>
+            <span class="badge {{ ($performance['latest']?->budget_status ?? 'within_budget') === 'critical' ? 'err' : (($performance['latest']?->budget_status ?? 'within_budget') === 'warning' ? 'warn' : 'ok') }}">{{ $performance['latest']?->budget_status ?: 'within_budget' }}</span>
+            <a class="button secondary" href="{{ route('admin.performance.index', ['feed_profile_id' => $feedProfile->id]) }}">Open performance center</a>
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Latest run</strong><div>{{ $performance['latest']?->run_type ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Duration</strong><div>{{ $performance['latest']?->duration_ms ? number_format($performance['latest']->duration_ms).' ms' : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Regression</strong><div>{{ data_get($performance, 'compare.overall.message', 'No comparison yet.') }}</div></div>
+        </div>
+    </section>
+
     <div class="grid cols-2">
         <section class="panel">
             <h2>Baseline vs Actual</h2>

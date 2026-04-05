@@ -70,3 +70,9 @@ Schedule::command('ops:deliveries:prune')
     ->dailyAt('04:00')
     ->onOneServer()
     ->withoutOverlapping();
+
+Schedule::command('ops:prune-performance-runs')
+    ->name('ops:performance-prune')
+    ->dailyAt('04:30')
+    ->onOneServer()
+    ->withoutOverlapping();

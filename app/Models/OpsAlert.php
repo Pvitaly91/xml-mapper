@@ -62,6 +62,8 @@ class OpsAlert extends Model
 
     public const SOURCE_QUEUE_BACKLOG = 'queue_backlog_issue';
 
+    public const SOURCE_PERFORMANCE_BUDGET = 'performance_budget_issue';
+
     protected $fillable = [
         'shop_id',
         'feed_profile_id',

@@ -6,6 +6,7 @@ use App\Models\FeedGeneration;
 use App\Models\FeedGenerationPreviewLink;
 use App\Models\FeedProfile;
 use App\Models\OpsRun;
+use App\Models\PerformanceRun;
 use App\Models\Shop;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -24,6 +25,7 @@ class OpsMaintenanceStatusService
             'last_backup_files' => $this->latestRun(OpsRun::TYPE_BACKUP_FILES),
             'last_prune' => $this->latestRun(OpsRun::TYPE_PRUNE),
             'last_benchmark' => $this->latestRun(OpsRun::TYPE_BENCHMARK, $shop, $feedProfile),
+            'last_performance_run' => $this->latestPerformanceRun($shop, $feedProfile),
             'last_deploy' => $this->latestRun(OpsRun::TYPE_DEPLOY),
             'last_rollback' => $this->latestRun(OpsRun::TYPE_ROLLBACK),
             'storage' => $this->storageSummary(),
@@ -36,6 +38,15 @@ class OpsMaintenanceStatusService
     {
         return OpsRun::query()
             ->where('type', $type)
+            ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
+            ->when($feedProfile !== null, fn ($query) => $query->where('feed_profile_id', $feedProfile->id))
+            ->latest('started_at')
+            ->first();
+    }
+
+    private function latestPerformanceRun(?Shop $shop = null, ?FeedProfile $feedProfile = null): ?PerformanceRun
+    {
+        return PerformanceRun::query()
             ->when($shop !== null, fn ($query) => $query->where('shop_id', $shop->id))
             ->when($feedProfile !== null, fn ($query) => $query->where('feed_profile_id', $feedProfile->id))
             ->latest('started_at')

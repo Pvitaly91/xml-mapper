@@ -144,6 +144,11 @@ class User extends Authenticatable
         return $this->hasMany(PilotRun::class, 'owner_user_id');
     }
 
+    public function performanceRuns(): HasMany
+    {
+        return $this->hasMany(PerformanceRun::class);
+    }
+
     public function isAdmin(): bool
     {
         if (! $this->canUseAdminAuthentication()) {

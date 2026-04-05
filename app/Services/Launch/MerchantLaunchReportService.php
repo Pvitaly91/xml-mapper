@@ -39,17 +39,22 @@ class MerchantLaunchReportService
         $handle = fopen('php://temp', 'r+');
         fputcsv($handle, ['observed_at', 'type', 'severity', 'source', 'note', 'user']);
 
-        foreach ($launch->observations()->with('user')->orderBy('observed_at')->get() as $observation) {
-            /** @var MerchantLaunchObservation $observation */
-            fputcsv($handle, [
-                $observation->observed_at?->toIso8601String(),
-                $observation->type,
-                $observation->severity,
-                $observation->source,
-                $observation->note,
-                $observation->user?->email,
-            ]);
-        }
+        $launch->observations()
+            ->with('user')
+            ->orderBy('id')
+            ->chunkById((int) config('feed_mediator.performance.report_chunk_size', 500), function ($observations) use ($handle): void {
+                foreach ($observations as $observation) {
+                    /** @var MerchantLaunchObservation $observation */
+                    fputcsv($handle, [
+                        $observation->observed_at?->toIso8601String(),
+                        $observation->type,
+                        $observation->severity,
+                        $observation->source,
+                        $observation->note,
+                        $observation->user?->email,
+                    ]);
+                }
+            });
 
         rewind($handle);
 
@@ -61,18 +66,23 @@ class MerchantLaunchReportService
         $handle = fopen('php://temp', 'r+');
         fputcsv($handle, ['opened_at', 'type', 'severity', 'status', 'title', 'note', 'user']);
 
-        foreach ($launch->defects()->with('user')->orderBy('opened_at')->get() as $defect) {
-            /** @var MerchantLaunchDefect $defect */
-            fputcsv($handle, [
-                $defect->opened_at?->toIso8601String(),
-                $defect->type,
-                $defect->severity,
-                $defect->status,
-                $defect->title,
-                $defect->note,
-                $defect->user?->email,
-            ]);
-        }
+        $launch->defects()
+            ->with('user')
+            ->orderBy('id')
+            ->chunkById((int) config('feed_mediator.performance.report_chunk_size', 500), function ($defects) use ($handle): void {
+                foreach ($defects as $defect) {
+                    /** @var MerchantLaunchDefect $defect */
+                    fputcsv($handle, [
+                        $defect->opened_at?->toIso8601String(),
+                        $defect->type,
+                        $defect->severity,
+                        $defect->status,
+                        $defect->title,
+                        $defect->note,
+                        $defect->user?->email,
+                    ]);
+                }
+            });
 
         rewind($handle);
 
@@ -134,6 +144,12 @@ class MerchantLaunchReportService
         if (($detail['blockers'] ?? []) === []) {
             $lines[] = '- No open blockers remain.';
         }
+
+        $lines[] = '';
+        $lines[] = '## Performance';
+        $lines[] = '- Latest budget: '.data_get($detail, 'performance.latest.budget_status', 'n/a');
+        $lines[] = '- Latest duration: '.(data_get($detail, 'performance.latest.duration_ms') !== null ? data_get($detail, 'performance.latest.duration_ms').' ms' : 'n/a');
+        $lines[] = '- Regression: '.data_get($detail, 'performance.compare.overall.message', 'No comparison available.');
 
         $lines[] = '';
         $lines[] = '## Recommended Follow-up Actions';

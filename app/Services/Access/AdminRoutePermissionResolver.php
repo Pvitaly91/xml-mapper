@@ -43,6 +43,10 @@ class AdminRoutePermissionResolver
             return in_array($method, ['GET', 'HEAD'], true) ? 'notifications.view' : 'notifications.manage';
         }
 
+        if (str_starts_with($routeName, 'admin.performance.')) {
+            return in_array($method, ['GET', 'HEAD'], true) ? 'ops.view' : 'ops.manage';
+        }
+
         if ($routeName === 'admin.ops.preflight' || $routeName === 'admin.ops.backup-db' || $routeName === 'admin.ops.backup-files' || $routeName === 'admin.ops.prune') {
             return 'maintenance.manage';
         }
@@ -91,6 +95,7 @@ class AdminRoutePermissionResolver
             $routeName === 'admin.feed-profiles.operations.show'
             || str_starts_with($routeName, 'admin.feed-profiles.restore-drill.')
             || $routeName === 'admin.feed-profiles.benchmark'
+            || str_starts_with($routeName, 'admin.feed-profiles.performance.')
         ) {
             return in_array($method, ['GET', 'HEAD'], true) ? 'ops.view' : 'ops.manage';
         }

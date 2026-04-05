@@ -67,11 +67,24 @@ class FeedQaBundleService
             'signoff' => $this->signoffService->evaluate($feedProfile, $generation),
         ];
 
-        $invalidItemsCsv = $this->reportService->invalidItemsCsv($feedProfile, $generation);
         $diffReport = $this->reportService->generationDiffReport($feedProfile, $generation);
         $readinessReport = $this->reportService->readinessReport($feedProfile, $generation);
         $smokeCheckSummary = $this->reportService->smokeCheckReport($generation);
         $releaseNotes = $this->releaseNotes($generation);
+        $invalidItemsTemp = tempnam(sys_get_temp_dir(), 'qa-invalid-');
+
+        if ($invalidItemsTemp === false) {
+            throw new RuntimeException('Unable to allocate temporary QA bundle file.');
+        }
+
+        $invalidItemsHandle = fopen($invalidItemsTemp, 'w+');
+
+        if ($invalidItemsHandle === false) {
+            throw new RuntimeException('Unable to open temporary QA bundle CSV file.');
+        }
+
+        $this->reportService->writeInvalidItemsCsv($invalidItemsHandle, $feedProfile, $generation);
+        fclose($invalidItemsHandle);
 
         $zip = new ZipArchive;
 
@@ -81,12 +94,13 @@ class FeedQaBundleService
 
         $zip->addFile($disk->path($generation->file_path), 'candidate.xml');
         $zip->addFromString('summary.json', json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
-        $zip->addFromString('invalid-items.csv', $invalidItemsCsv);
+        $zip->addFile($invalidItemsTemp, 'invalid-items.csv');
         $zip->addFromString('generation-diff.json', json_encode($diffReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $zip->addFromString('readiness.json', json_encode($readinessReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $zip->addFromString('smoke-check-summary.json', json_encode($smokeCheckSummary, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $zip->addFromString('release-notes.txt', $releaseNotes);
         $zip->close();
+        @unlink($invalidItemsTemp);
 
         $this->auditService->record(
             $feedProfile,

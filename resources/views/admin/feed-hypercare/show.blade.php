@@ -61,6 +61,19 @@
         </div>
     </section>
 
+    <section class="panel">
+        <div class="toolbar">
+            <h2 style="margin: 0;">Performance Degradation</h2>
+            <span class="badge {{ ($panel['performance']['latest']?->budget_status ?? 'within_budget') === 'critical' ? 'err' : (($panel['performance']['latest']?->budget_status ?? 'within_budget') === 'warning' ? 'warn' : 'ok') }}">{{ $panel['performance']['latest']?->budget_status ?: 'within_budget' }}</span>
+            <a class="button secondary" href="{{ route('admin.performance.index', ['feed_profile_id' => $feedProfile->id]) }}">Open performance center</a>
+        </div>
+        <div class="detail-list">
+            <div class="detail-row"><strong>Latest run</strong><div>{{ $panel['performance']['latest']?->run_type ?: 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Latest duration</strong><div>{{ $panel['performance']['latest']?->duration_ms ? number_format($panel['performance']['latest']->duration_ms).' ms' : 'n/a' }}</div></div>
+            <div class="detail-row"><strong>Regression</strong><div>{{ data_get($panel, 'performance.compare.overall.message', 'No comparison yet.') }}</div></div>
+        </div>
+    </section>
+
     <div class="grid cols-2">
         <section class="panel">
             <div class="toolbar">

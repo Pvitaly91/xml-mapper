@@ -7,7 +7,7 @@ use App\Models\OpsRun;
 use App\Services\Governance\ApprovalPolicyService;
 use App\Services\Governance\GovernedActionService;
 use App\Services\Ops\BackupService;
-use App\Services\Ops\BenchmarkService;
+use App\Services\Ops\PerformanceWorkflowService;
 use App\Services\Ops\ProductionPreflightService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,16 +75,23 @@ class OpsMaintenanceController extends AdminController
         );
     }
 
-    public function benchmark(Request $request, FeedProfile $feedProfile, BenchmarkService $service): RedirectResponse
+    public function benchmark(Request $request, FeedProfile $feedProfile, PerformanceWorkflowService $service): RedirectResponse
     {
         $this->ensureShopOwned($request, $feedProfile);
 
         try {
-            $result = $service->run($feedProfile, $request->user());
+            $run = $service->runBenchmark(
+                $feedProfile,
+                ['sync', 'normalize', 'build', 'reconciliation', 'report_generation'],
+                $request->user(),
+                'admin quick benchmark'
+            );
         } catch (Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('status', 'Benchmark finished. Peak memory: '.$result['summary']['peak_memory_mb'].' MB.');
+        return redirect()
+            ->route('admin.performance.show', $run)
+            ->with('status', 'Benchmark finished with status '.$run->status.'.');
     }
 }

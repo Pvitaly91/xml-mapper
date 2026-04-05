@@ -71,6 +71,67 @@ return [
         'workbench_page_size' => (int) env('FEED_MEDIATOR_WORKBENCH_PAGE_SIZE', 20),
         'reconciliation_breakdown_limit' => (int) env('FEED_MEDIATOR_RECON_BREAKDOWN_LIMIT', 250),
         'storage_warning_bytes' => (int) env('FEED_MEDIATOR_STORAGE_WARN_BYTES', 2147483648),
+        'report_chunk_size' => (int) env('FEED_MEDIATOR_REPORT_CHUNK_SIZE', 500),
+        'retention_days' => (int) env('FEED_MEDIATOR_PERF_RET_DAYS', 30),
+        'compare' => [
+            'warning_regression_pct' => (float) env('FEED_MEDIATOR_PERF_REG_WARN_PCT', 25),
+            'critical_regression_pct' => (float) env('FEED_MEDIATOR_PERF_REG_CRIT_PCT', 50),
+        ],
+        'scale' => [
+            'fixtures_directory' => env('FEED_MEDIATOR_SCALE_FIXTURES_DIR', storage_path('app/scale-fixtures')),
+            'default_shop_slug' => env('FEED_MEDIATOR_SCALE_SHOP_SLUG', 'scale-catalog'),
+            'default_shop_name' => env('FEED_MEDIATOR_SCALE_SHOP_NAME', 'Scale Catalog Shop'),
+            'default_seed' => (int) env('FEED_MEDIATOR_SCALE_SEED', 4242),
+            'feedback_sample_limit' => (int) env('FEED_MEDIATOR_SCALE_FEEDBACK_LIMIT', 250),
+        ],
+        'budgets' => [
+            'sync' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_SYNC_WARN_MS', 60000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_SYNC_CRIT_MS', 180000),
+                'warning_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_SYNC_WARN_MB', 256),
+                'critical_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_SYNC_CRIT_MB', 512),
+            ],
+            'normalize' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_NORM_WARN_MS', 120000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_NORM_CRIT_MS', 300000),
+                'warning_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_NORM_WARN_MB', 512),
+                'critical_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_NORM_CRIT_MB', 1024),
+            ],
+            'build' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_BUILD_WARN_MS', 120000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_BUILD_CRIT_MS', 300000),
+                'warning_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_BUILD_WARN_MB', 512),
+                'critical_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_BUILD_CRIT_MB', 1024),
+            ],
+            'publish' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_PUB_WARN_MS', 30000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_PUB_CRIT_MS', 90000),
+                'warning_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_PUB_WARN_MB', 256),
+                'critical_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_PUB_CRIT_MB', 512),
+            ],
+            'smoke' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_SMOKE_WARN_MS', 5000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_SMOKE_CRIT_MS', 10000),
+            ],
+            'reconciliation' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_REC_WARN_MS', 30000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_REC_CRIT_MS', 90000),
+            ],
+            'report_generation' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_REP_WARN_MS', 30000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_REP_CRIT_MS', 90000),
+                'warning_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_REP_WARN_MB', 256),
+                'critical_memory_mb' => (float) env('FEED_MEDIATOR_BUDGET_REP_CRIT_MB', 512),
+            ],
+            'feedback_import' => [
+                'warning_ms' => (int) env('FEED_MEDIATOR_BUDGET_FB_WARN_MS', 30000),
+                'critical_ms' => (int) env('FEED_MEDIATOR_BUDGET_FB_CRIT_MS', 90000),
+            ],
+            'queue_lag' => [
+                'warning_backlog' => (int) env('FEED_MEDIATOR_BUDGET_QUEUE_WARN', 25),
+                'critical_backlog' => (int) env('FEED_MEDIATOR_BUDGET_QUEUE_CRIT', 75),
+            ],
+        ],
     ],
     'security' => [
         'headers_enabled' => (bool) env('FEED_MEDIATOR_SEC_HEADERS_ENABLED', true),

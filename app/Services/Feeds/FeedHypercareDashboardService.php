@@ -8,6 +8,7 @@ use App\Services\Ops\HypercarePolicyService;
 use App\Services\Ops\NotificationCenterService;
 use App\Services\Ops\OpsAlertService;
 use App\Services\Ops\OpsMaintenanceStatusService;
+use App\Services\Ops\PerformanceCenterService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\SilenceWindowService;
 use App\Services\Ops\SloSummaryService;
@@ -29,6 +30,7 @@ class FeedHypercareDashboardService
         private readonly SilenceWindowService $silenceWindowService,
         private readonly MerchantLaunchService $merchantLaunchService,
         private readonly NotificationCenterService $notificationCenterService,
+        private readonly PerformanceCenterService $performanceCenterService,
     ) {}
 
     /**
@@ -72,6 +74,7 @@ class FeedHypercareDashboardService
             'current_launch' => $currentLaunch ? $this->merchantLaunchService->refresh($currentLaunch) : null,
             'launch_check' => $currentLaunch ? $this->merchantLaunchService->check($currentLaunch) : null,
             'notifications' => $this->notificationCenterService->deliverySummaryForFeedProfile($feedProfile),
+            'performance' => $this->performanceCenterService->summary($feedProfile->shop, $feedProfile),
         ];
     }
 

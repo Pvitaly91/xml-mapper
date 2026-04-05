@@ -13,6 +13,7 @@
 9. Admin access is single-shop scoped per user; shop resolution is centralized and reused across admin actions.
 10. New-shop onboarding and go-live daily operations are separate operator flows built on top of the same domain services.
 11. Final pre-live confidence is validated through Playwright against the same Blade/session stack, backed by local-only demo bootstrap fixtures instead of browser-only domain shortcuts.
+12. Large-catalog readiness is measured through deterministic scale fixtures plus persisted performance runs; the system does not make unmeasured performance claims.
 
 ## Runtime Flow
 
@@ -37,6 +38,10 @@ External observability flow:
 Pre-live confidence flow:
 
 `E2eDemoBootstrapService` -> local-only demo shops/users/source fixtures -> safe summary + local manifest -> Playwright specs in `tests/e2e` -> Blade admin flows for invite/MFA/login, governed actions, approvals, release/launch/notifications/sessions -> HTML report + failure artifacts
+
+Scale-readiness flow:
+
+`ScaleCatalogBootstrapService` -> deterministic large Prom YML fixture -> bootstrap action + real sync/normalize/build path -> `PerformanceBenchmarkService` -> persisted `performance_runs` / `performance_run_stages` -> `PerformanceBudgetService` -> admin Performance Center + ops alerts + downloadable JSON reports
 
 Driver paths:
 
@@ -112,6 +117,13 @@ Feed-item export lifecycle:
 - `BackupService` produces database and files backups onto the configured storage disk
 - `PruneService` enforces retention on preview links, smoke checks and old build artifacts
 - `BenchmarkService` measures current heavy report paths plus historical sync/build/publish timings
+- `ScaleCatalogBootstrapService` provisions deterministic large-catalog fixtures without mixing them into browser demo data
+- `PerformanceRunService` persists load/bootstrap and benchmark run history
+- `PerformanceBudgetService` evaluates per-stage budgets and run-to-run regression thresholds
+- `PerformanceBenchmarkService` runs real sync/normalize/build/publish/report-heavy stages against one feed profile and persists measured output
+- `PerformanceCenterService` assembles the admin scale/performance screen
+- `PerformanceReportService` exports one persisted run as a JSON artifact
+- `PerformanceWorkflowService` keeps controllers and commands on one orchestration path for bootstrap and benchmark execution
 - `OpsMaintenanceStatusService` aggregates backups, deploy metadata, storage usage and queue backlog for admin screens
 - `ShopControlPanelService` aggregates daily go-live state for one shop
 - `UnresolvedMappingsWorkbenchService` groups blockers into operator queues
@@ -316,8 +328,15 @@ app/
     OpsMaintenanceStatusService.php
     OpsAlertService.php
     OpsRunService.php
+    PerformanceBenchmarkService.php
+    PerformanceBudgetService.php
+    PerformanceCenterService.php
+    PerformanceReportService.php
+    PerformanceRunService.php
+    PerformanceWorkflowService.php
     ProductionPreflightService.php
     PruneService.php
+    ScaleCatalogBootstrapService.php
     SilenceWindowService.php
     Services/Admin/
     CurrentAdminShopResolver.php
@@ -650,6 +669,33 @@ Rollback is code-level and symlink-based. Database rollback is deliberately not 
 - `SecretsRotationService` records secret rotation metadata without storing the rotated values
 - `SloSummaryService` aggregates rolling 24h / 7d success rates for sync/build/publish/smoke/first-pull
 - `FeedLaunchPackService` exports a reusable merchant launch pack from the same acceptance / operations / reconciliation state
+
+## Scale And Performance Layer
+
+The scale-readiness layer is intentionally additive and measurement-driven.
+
+Design rules:
+
+1. scale fixtures are deterministic and isolated from the browser/demo bootstrap path
+2. performance runs persist both scope and measured stage outputs
+3. stage budgets are config-driven and environment-aware through the existing config layer
+4. list/filter/index hardening is applied only where there is a plausible hotspot, not as blanket indexing
+5. large reports use chunked or streamed generation where memory pressure is realistic
+6. concurrency checks focus on deterministic idempotency and lock behavior instead of flaky pseudo-race tests
+
+Persisted run stages currently cover:
+
+- source sync
+- normalize
+- build
+- publish
+- smoke
+- reconciliation
+- feedback import
+- report generation
+- queue health / backlog summary
+
+This keeps large-merchant readiness attached to the same real services the production catalog uses.
 
 ## Hypercare / Incident Layer
 

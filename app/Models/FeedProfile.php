@@ -195,6 +195,11 @@ class FeedProfile extends Model
         return $this->hasMany(PromotionSnapshot::class);
     }
 
+    public function performanceRuns(): HasMany
+    {
+        return $this->hasMany(PerformanceRun::class);
+    }
+
     public function sourcePromotionRuns(): HasMany
     {
         return $this->hasMany(PromotionRun::class, 'source_feed_profile_id');

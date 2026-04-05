@@ -9,6 +9,7 @@ use App\Models\SourceConnection;
 use App\Models\SyncLog;
 use App\Services\Ops\EnvironmentContextService;
 use App\Services\Ops\OpsMaintenanceStatusService;
+use App\Services\Ops\PerformanceCenterService;
 use App\Services\Ops\OpsStatusService;
 use App\Services\Ops\RestoreDrillService;
 use App\Services\Ops\SloSummaryService;
@@ -32,6 +33,7 @@ class FeedOperationsService
         private readonly PromotionStatusService $promotionStatusService,
         private readonly PilotReadinessScoreService $pilotReadinessScoreService,
         private readonly MerchantLaunchService $merchantLaunchService,
+        private readonly PerformanceCenterService $performanceCenterService,
     ) {}
 
     /**
@@ -83,6 +85,7 @@ class FeedOperationsService
             'maintenance' => $maintenance,
             'environment' => $this->environmentContextService->summary(),
             'promotion' => $this->promotionStatusService->summarize($feedProfile),
+            'performance' => $this->performanceCenterService->summary($feedProfile->shop, $feedProfile),
             'latest_pilot_run' => $latestPilotRun,
             'pilot_score' => $this->pilotReadinessScoreService->score($feedProfile, $latestPilotRun),
             'current_launch' => $currentLaunch ? $this->merchantLaunchService->refresh($currentLaunch) : null,

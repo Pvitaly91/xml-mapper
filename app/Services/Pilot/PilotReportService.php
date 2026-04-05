@@ -50,20 +50,25 @@ class PilotReportService
         $handle = fopen('php://temp', 'r+');
         fputcsv($handle, ['occurred_at', 'event_type', 'status', 'step', 'from_state', 'to_state', 'title', 'message', 'user']);
 
-        foreach ($pilotRun->events()->with('user')->orderBy('occurred_at')->get() as $event) {
-            /** @var PilotRunEvent $event */
-            fputcsv($handle, [
-                $event->occurred_at?->toIso8601String(),
-                $event->event_type,
-                $event->status,
-                $event->step,
-                $event->from_state,
-                $event->to_state,
-                $event->title,
-                $event->message,
-                $event->user?->email,
-            ]);
-        }
+        $pilotRun->events()
+            ->with('user')
+            ->orderBy('id')
+            ->chunkById((int) config('feed_mediator.performance.report_chunk_size', 500), function ($events) use ($handle): void {
+                foreach ($events as $event) {
+                    /** @var PilotRunEvent $event */
+                    fputcsv($handle, [
+                        $event->occurred_at?->toIso8601String(),
+                        $event->event_type,
+                        $event->status,
+                        $event->step,
+                        $event->from_state,
+                        $event->to_state,
+                        $event->title,
+                        $event->message,
+                        $event->user?->email,
+                    ]);
+                }
+            });
 
         rewind($handle);
 
