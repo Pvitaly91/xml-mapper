@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Real-run checklist for the first live merchant launch: baseline vs actual, observations, defects, tuning, stabilization, and handover.')
 
+@section('safety_banner')
+    <strong>Launch closeout is guarded</strong>
+    Use this screen to capture live evidence first. If blockers still exist, handover or closeout may require governance review instead of executing immediately.
+@endsection
+
 @section('content')
     @php($feedProfile = $launch->feedProfile)
     @php($baselineMetrics = $baseline['metrics'] ?? [])
@@ -202,7 +207,7 @@
                     <label for="handover_reason">Handover reason</label>
                     <input id="handover_reason" name="reason" placeholder="Why the launch is stable for handover" required>
                 </div>
-                <button class="button" type="submit" style="margin-top: 12px;">Handover launch</button>
+                <button class="button" type="submit" style="margin-top: 12px;" data-testid="launch-handover-submit">Handover launch</button>
             </form>
 
             <form method="POST" action="{{ route('admin.merchant-launches.close', $launch) }}" style="margin-top: 16px;">
@@ -211,7 +216,7 @@
                     <label for="close_reason">Close reason</label>
                     <input id="close_reason" name="reason" placeholder="Closeout note or final decision" required>
                 </div>
-                <button class="button secondary" type="submit" style="margin-top: 12px;">Close launch</button>
+                <button class="button secondary" type="submit" style="margin-top: 12px;" data-testid="launch-close-submit">Close launch</button>
             </form>
         </section>
 

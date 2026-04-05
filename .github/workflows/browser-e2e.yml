@@ -1,0 +1,91 @@
+name: Browser E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/browser-e2e.yml'
+      - 'app/**'
+      - 'config/**'
+      - 'database/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'playwright.config.js'
+      - 'resources/**'
+      - 'routes/**'
+      - 'tests/**'
+      - 'README.md'
+  push:
+    branches:
+      - main
+      - 'codex/**'
+    paths:
+      - '.github/workflows/browser-e2e.yml'
+      - 'app/**'
+      - 'config/**'
+      - 'database/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'playwright.config.js'
+      - 'resources/**'
+      - 'routes/**'
+      - 'tests/**'
+      - 'README.md'
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * *'
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, pdo_sqlite, sqlite3, dom
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p database
+          touch database/e2e.sqlite
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser suite
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            npm run e2e
+          else
+            npm run e2e:smoke
+          fi
+
+      - name: Upload browser artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-artifacts
+          path: |
+            playwright-report
+            test-results

@@ -130,9 +130,13 @@ class SourceConnectionController extends AdminController
                 );
 
                 if ($result->status !== 'executed') {
-                    return redirect()
-                        ->route('admin.source-connections.show', $sourceConnection)
-                        ->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for secret rebind.');
+                    return $this->redirectWithGovernedResult(
+                        $request,
+                        $result,
+                        null,
+                        'Secret rebind is waiting on re-authentication or approval.',
+                        route('admin.source-connections.show', $sourceConnection)
+                    );
                 }
 
                 $connection = SourceConnection::query()->findOrFail((int) ($result->execution['source_connection_id'] ?? $sourceConnection->id));

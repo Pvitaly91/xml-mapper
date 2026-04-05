@@ -80,6 +80,17 @@ Important env variables:
 - `FEED_MEDIATOR_ERROR_TRACKING_DRIVER=sentry`
 - `FEED_MEDIATOR_ERROR_TRACKING_DSN=`
 
+Browser E2E uses a dedicated `e2e` runtime profile rather than production env values. The Playwright harness sets:
+
+- `APP_ENV=e2e`
+- `DB_CONNECTION=sqlite`
+- `DB_DATABASE=database/e2e.sqlite`
+- `QUEUE_CONNECTION=sync`
+- `SESSION_DRIVER=database`
+- `MAIL_MAILER=log`
+- `FEED_MEDIATOR_ENV_CLASS=production`
+- `FEED_MEDIATOR_ENV_LABEL=E2E Production Mirror`
+
 ## Scheduler
 
 Recommended cron:
@@ -157,6 +168,17 @@ php artisan ops:backup-db
 php artisan ops:backup-files
 php artisan ops:prune
 php artisan ops:benchmark-feed {feedProfileId}
+php artisan demo:bootstrap-e2e --fresh
+php artisan demo:bootstrap-e2e --fresh --json
+```
+
+Browser helpers:
+
+```bash
+npm run e2e:install
+npm run e2e:smoke
+npm run e2e
+npm run e2e:report
 ```
 
 Supervisor config:
@@ -250,6 +272,14 @@ GitHub Actions:
 
 - `.github/workflows/tests.yml` runs Pint + `php artisan test` on push and PR
 - `.github/workflows/deploy-production.yml` is manual (`workflow_dispatch`) and builds a release artifact only; it does not push to the server automatically
+- `.github/workflows/browser-e2e.yml` runs Playwright smoke coverage on push and PR, and the full suite on manual dispatch plus the nightly `02:30 UTC` schedule
+
+Browser artifacts:
+
+- local HTML report: `playwright-report/`
+- local failure screenshots / traces / videos: `test-results/`
+- CI uploads both directories as the `browser-e2e-artifacts` artifact
+- the invite/MFA spec disables screenshot, trace, and video capture so MFA or recovery material is not retained in normal artifacts
 
 ## Rollback Procedure
 
@@ -1965,6 +1995,78 @@ The markdown pack includes:
 - cutover / rollback / first-pull plan
 - feedback import plan
 - operator notes
+
+## Demo Bootstrap For Browser And Manual QA
+
+Reset the demo stand with one command:
+
+```bash
+php artisan demo:bootstrap-e2e --fresh
+```
+
+Outputs:
+
+- local-only manifest with demo credentials and MFA seeds: `storage/app/e2e/demo-manifest.json`
+- safe summary without secrets: `storage/app/e2e/demo-summary.json`
+
+Use the JSON mode when you need a scriptable but secret-safe summary:
+
+```bash
+php artisan demo:bootstrap-e2e --fresh --json
+```
+
+The bootstrap prepares:
+
+- demo main shop and secondary shop for shop-switch coverage
+- platform admin, reviewer, operator, and invited shop admin users
+- mapping-ready `prom_yml` source connection and feed profile
+- feedback-ready, release-ready, and governance-ready demo state for browser flows
+
+Do not upload the manifest file outside the local machine or ephemeral CI runtime.
+
+## Browser E2E Execution
+
+Stack choice:
+
+- Playwright, because the app stays Blade/session-based and needs stable CI artifact support without a browser-specific Laravel runtime
+
+Local sequence:
+
+```bash
+npm install
+npm run e2e:install
+php artisan demo:bootstrap-e2e --fresh
+npm run e2e:smoke
+npm run e2e
+```
+
+The Playwright config starts its own local app server, refreshes demo data, and uses mocked webhook endpoints under `/__e2e/mock-webhook/*` so browser tests do not call real external services.
+
+## Operator Security UX Expectations
+
+Operators should now expect:
+
+- MFA setup that shows the secret once, then transitions to recovery-code issuance and a clear continue action
+- MFA challenge and password/MFA re-auth screens that explain why the action is paused and where the operator returns after completion
+- governance feedback after dangerous actions that clearly says whether the result was executed, approval-required, or blocked
+- persistent visibility of current environment, current shop, current role, and break-glass state in the admin shell
+- production warning banners only on sensitive screens such as release freeze, governed source-secret actions, and approval execution
+
+## Manual QA Script Before First Live Merchant Launch
+
+Recommended operator script:
+
+1. Run `php artisan demo:bootstrap-e2e --fresh`.
+2. Accept the invited shop-admin account and complete password plus MFA enrollment.
+3. Log out and confirm MFA login challenge works on the next login.
+4. Switch shops as reviewer and confirm RBAC scoping is respected.
+5. Open the demo source connection, edit it, and run `Test connection`.
+6. Generate or review the candidate, preview it, and confirm QA bundle visibility.
+7. Submit a dangerous action that requires step-up and then approval.
+8. Review and approve or reject that request from the reviewer account.
+9. Open Release Center, Pilot Center, Launch Center, Hypercare, and Notification Center.
+10. Send a test notification, retry a failed delivery if present, and inspect the session screen.
+11. Confirm launch handover / closeout guarded messaging and break-glass visibility.
 
 ## Practical First 24h / 72h Operator Runbook After Go-Live
 

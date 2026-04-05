@@ -12,6 +12,7 @@
 8. Prom API contract uncertainty stays isolated inside the Prom API client/driver layer.
 9. Admin access is single-shop scoped per user; shop resolution is centralized and reused across admin actions.
 10. New-shop onboarding and go-live daily operations are separate operator flows built on top of the same domain services.
+11. Final pre-live confidence is validated through Playwright against the same Blade/session stack, backed by local-only demo bootstrap fixtures instead of browser-only domain shortcuts.
 
 ## Runtime Flow
 
@@ -32,6 +33,10 @@ Live launch execution flow:
 External observability flow:
 
 `OpsAlertService` / live workflow services -> `NotificationRoutingService` -> `NotificationDeliveryService` -> channel drivers (`database`, `log`, `email`, `webhook`) -> persisted `ops_notification_deliveries` -> admin Notification Center / reports / retry / prune
+
+Pre-live confidence flow:
+
+`E2eDemoBootstrapService` -> local-only demo shops/users/source fixtures -> safe summary + local manifest -> Playwright specs in `tests/e2e` -> Blade admin flows for invite/MFA/login, governed actions, approvals, release/launch/notifications/sessions -> HTML report + failure artifacts
 
 Driver paths:
 
@@ -98,6 +103,7 @@ Feed-item export lifecycle:
 - `NotificationRenderService` produces per-channel payload summaries while keeping channel formatting outside controllers and Blade
 - `OpsStructuredLogService` adds consistent workflow context for source, release, pilot, launch and hypercare logs
 - `OpsErrorTrackingService` provides optional error-tracking hooks when a DSN and client binding are present
+- `E2eDemoBootstrapService` provisions reproducible local-only shops, users, MFA seeds, source fixtures and safe summaries for browser and manual QA
 - `FeedOperationsService` aggregates the production operations screen for one profile
 - `FeedRunbookService` exports a cutover checklist snapshot
 - `FeedReleaseAuditService` stores manual release actions in `feed_release_events`
@@ -663,5 +669,21 @@ Design choices:
 - the public feed endpoint and Prom ingestion paths remain untouched
 - audit trail reuse avoids maintaining multiple competing incident journals
 - per-profile overrides stay in feed-profile settings so merchant-specific monitoring does not require a second config model
+- browser E2E uses a dedicated `e2e` application profile with SQLite, sync queue, database sessions, and mocked webhook endpoints so the suite exercises real Blade flows without hitting external services
+- the admin shell now surfaces current environment, current shop, current role, break-glass state, and production-danger cues so operators can understand blocked, approval-required, and re-auth-required states in context
+- sensitive invite/MFA browser coverage disables default screenshot, trace, and video capture for that spec so freshly issued MFA or recovery material does not leak into routine test artifacts
 
 This keeps rehearsal, recovery, and reliability visibility attached to the current architecture instead of inventing a parallel launch subsystem.
+
+## Browser E2E Coverage Layer
+
+The browser suite intentionally covers only the highest-risk operator flows:
+
+- invite acceptance, password set, MFA enrollment, and MFA login
+- reviewer shop switching under scoped RBAC
+- source connection edit/test and secret-governance messaging
+- dangerous action step-up and approval queue creation
+- reviewer approval execution
+- release / launch / notification-center / session-management critical paths
+
+This layer is not a separate automation backend. It is a confidence harness over the same controllers, services, policies, and Blade templates that operators use in production.

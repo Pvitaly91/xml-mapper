@@ -139,7 +139,12 @@ class FeedPromotionController extends AdminController
         }
 
         if ($result->status !== 'executed') {
-            return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for promotion apply.');
+            return $this->redirectWithGovernedResult(
+                $request,
+                $result,
+                null,
+                'Promotion apply is waiting on re-authentication or approval.'
+            );
         }
 
         $run = PromotionRun::query()->findOrFail((int) ($result->execution['promotion_run_id'] ?? 0));
@@ -191,7 +196,12 @@ class FeedPromotionController extends AdminController
         }
 
         if ($result->status !== 'executed') {
-            return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for promotion rollback.');
+            return $this->redirectWithGovernedResult(
+                $request,
+                $result,
+                null,
+                'Promotion rollback is waiting on re-authentication or approval.'
+            );
         }
 
         $run = PromotionRun::query()->findOrFail((int) ($result->execution['promotion_run_id'] ?? $promotionRun->id));

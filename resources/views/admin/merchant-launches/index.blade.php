@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Live merchant launch execution, observations, defects, baseline deviations, stabilization, and handover.')
 
+@section('safety_banner')
+    <strong>One live launch record per merchant rollout</strong>
+    Start the record only when production execution begins, then capture observations, defects, notifications, and closeout evidence in the same place.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
@@ -13,12 +18,12 @@
     <div class="grid cols-2">
         <section class="panel">
             <h2>Start Live Launch</h2>
-            <form method="POST" action="{{ route('admin.merchant-launches.store') }}">
+            <form method="POST" action="{{ route('admin.merchant-launches.store') }}" data-testid="launch-start-form">
                 @csrf
                 <div class="form-grid">
                     <div class="field full">
                         <label for="feed_profile_id">Feed profile</label>
-                        <select id="feed_profile_id" name="feed_profile_id" required>
+                        <select id="feed_profile_id" name="feed_profile_id" required data-testid="launch-feed-profile">
                             @foreach($feedProfiles as $feedProfile)
                                 <option value="{{ $feedProfile->id }}">
                                     {{ $feedProfile->name }} ({{ $feedProfile->code }}){{ $feedProfile->currentMerchantLaunch ? ' / active launch #'.$feedProfile->currentMerchantLaunch->id : '' }}
@@ -39,7 +44,7 @@
                         <textarea id="launch_note" name="note" placeholder="Production deploy context, merchant readiness note, or operator plan"></textarea>
                     </div>
                 </div>
-                <button class="button" type="submit" style="margin-top: 12px;">Start launch record</button>
+                <button class="button" type="submit" style="margin-top: 12px;" data-testid="launch-start-submit">Start launch record</button>
             </form>
         </section>
 

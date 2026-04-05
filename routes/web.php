@@ -57,9 +57,11 @@ use App\Http\Controllers\Admin\SourceConnectionTestController;
 use App\Http\Controllers\Admin\SourceSyncController;
 use App\Http\Controllers\Admin\UnresolvedMappingsWorkbenchController;
 use App\Http\Controllers\Admin\ValueMappingController;
+use App\Http\Controllers\E2e\E2eSupportController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\FeedPreviewController;
 use App\Http\Controllers\HealthController;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', HealthController::class);
@@ -67,6 +69,19 @@ Route::get('/feeds/{token}.xml', [FeedController::class, 'show'])->name('feeds.p
 Route::get('/feeds/previews/{preview_link}/{token}.xml', [FeedPreviewController::class, 'show'])
     ->middleware('signed')
     ->name('feeds.preview');
+
+if (app()->environment(['local', 'testing', 'e2e'])) {
+    Route::prefix('__e2e')->name('e2e.')->group(function (): void {
+        Route::post('/security/expire-step-up', [E2eSupportController::class, 'expireStepUp'])
+            ->middleware('auth')
+            ->withoutMiddleware([ValidateCsrfToken::class])
+            ->name('security.expire-step-up');
+        Route::post('/mock-webhook/{outcome?}', [E2eSupportController::class, 'mockWebhook'])
+            ->whereIn('outcome', ['success', 'fail'])
+            ->withoutMiddleware([ValidateCsrfToken::class])
+            ->name('mock-webhook');
+    });
+}
 
 Route::prefix('admin')->group(function (): void {
     Route::middleware('guest')->group(function (): void {

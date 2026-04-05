@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Approval, publish, rollback, smoke checks, and operator reports for pilot releases.')
 
+@section('safety_banner')
+    <strong>Release actions are environment-aware</strong>
+    Freeze, force publish, rollback, and promotion-linked actions can require step-up re-authentication or approval before execution.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
@@ -41,12 +46,12 @@
         </div>
 
         <div class="toolbar" style="margin-top: 14px;">
-            <form method="POST" action="{{ route('admin.feed-profiles.freeze', $feedProfile) }}">
+            <form method="POST" action="{{ route('admin.feed-profiles.freeze', $feedProfile) }}" data-testid="release-freeze-form">
                 @csrf
                 <input type="hidden" name="freeze" value="{{ $publishWindow['freeze_active'] ? '0' : '1' }}">
-                <input type="text" name="reason" placeholder="{{ $publishWindow['freeze_active'] ? 'Reason to unfreeze' : 'Reason to freeze' }}" required>
+                <input type="text" name="reason" placeholder="{{ $publishWindow['freeze_active'] ? 'Reason to unfreeze' : 'Reason to freeze' }}" required data-testid="release-freeze-reason">
                 <input type="text" name="confirmation" placeholder="Type CONFIRM if required">
-                <button class="button warning" type="submit">{{ $publishWindow['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
+                <button class="button warning" type="submit" data-testid="release-freeze-submit">{{ $publishWindow['freeze_active'] ? 'Disable freeze' : 'Enable freeze' }}</button>
             </form>
             <a class="button secondary" href="{{ route('admin.feed-profiles.acceptance.show', $feedProfile) }}">Acceptance screen</a>
         </div>

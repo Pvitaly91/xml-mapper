@@ -2,9 +2,14 @@
 
 @section('subtitle', 'Driver-specific source settings for Prom YML and Prom API imports.')
 
+@section('safety_banner')
+    <strong>Secret fields are masked by default</strong>
+    Production secret edits can require password re-authentication, MFA re-authentication, and approval before a rebind is applied.
+@endsection
+
 @section('content')
     <section class="panel">
-        <form method="POST" action="{{ $connection->exists ? route('admin.source-connections.update', $connection) : route('admin.source-connections.store') }}">
+        <form method="POST" action="{{ $connection->exists ? route('admin.source-connections.update', $connection) : route('admin.source-connections.store') }}" data-testid="source-connection-form">
             @csrf
             @if($connection->exists)
                 @method('PUT')
@@ -24,7 +29,7 @@
                 </div>
                 <div class="field">
                     <label for="driver">Driver</label>
-                    <select id="driver" name="driver" data-driver-select>
+                    <select id="driver" name="driver" data-driver-select data-testid="source-connection-driver">
                         @foreach($driverOptions as $driver => $label)
                             <option value="{{ $driver }}" @selected(old('driver', $connection->driver ?: \App\Models\SourceConnection::DRIVER_PROM_YML) === $driver)>{{ $label }}</option>
                         @endforeach
@@ -51,7 +56,7 @@
                 </div>
                 <div class="field full" data-driver-section="prom_api">
                     <label for="api_token">API token</label>
-                    <input id="api_token" name="api_token" type="password" value="" placeholder="{{ $connection->exists && $connection->api_token ? 'Leave blank to keep the current token' : 'Paste Prom API token' }}">
+                    <input id="api_token" name="api_token" type="password" value="" placeholder="{{ $connection->exists && $connection->api_token ? 'Leave blank to keep the current token' : 'Paste Prom API token' }}" data-testid="source-connection-api-token">
                     @if($connection->exists && $connection->api_token)
                         <p class="muted" style="margin-top: 6px;">Stored token: {{ $connection->maskedApiToken() }}</p>
                     @endif
@@ -62,7 +67,7 @@
                 </div>
                 <div class="field full" data-driver-section="prom_yml">
                     <label for="credentials_json">Credentials JSON</label>
-                    <textarea id="credentials_json" name="credentials_json" placeholder="{{ $connection->exists && !empty($connection->credentials) ? 'Leave blank to keep the current encrypted credentials bundle' : 'Paste credentials JSON when required by the source' }}">{{ old('credentials_json') }}</textarea>
+                    <textarea id="credentials_json" name="credentials_json" placeholder="{{ $connection->exists && !empty($connection->credentials) ? 'Leave blank to keep the current encrypted credentials bundle' : 'Paste credentials JSON when required by the source' }}" data-testid="source-connection-credentials-json">{{ old('credentials_json') }}</textarea>
                     @if($connection->exists && !empty($connection->credentials))
                         <p class="muted" style="margin-top: 6px;">Stored credentials are masked by default and are never rendered back into the form.</p>
                     @endif
@@ -78,7 +83,7 @@
             </div>
 
             <div class="toolbar" style="margin-top: 18px;">
-                <button type="submit" class="button">{{ $connection->exists ? 'Save changes' : 'Create connection' }}</button>
+                <button type="submit" class="button" data-testid="source-connection-submit">{{ $connection->exists ? 'Save changes' : 'Create connection' }}</button>
                 <a class="button secondary" href="{{ ($redirectToOnboarding ?? false) ? route('admin.onboarding.show') : route('admin.source-connections.index') }}">Back</a>
             </div>
         </form>

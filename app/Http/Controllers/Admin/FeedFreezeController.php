@@ -40,11 +40,11 @@ class FeedFreezeController extends AdminController
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with(
-            $this->governedFlashKey($result),
-            $result->status === 'executed'
-                ? ($request->boolean('freeze') ? 'Freeze mode enabled.' : 'Freeze mode disabled.')
-                : ($result->message ?: 'Approval workflow started for freeze toggle.')
+        return $this->redirectWithGovernedResult(
+            $request,
+            $result,
+            $request->boolean('freeze') ? 'Freeze mode enabled.' : 'Freeze mode disabled.',
+            'Freeze toggle is waiting on re-authentication or approval.'
         );
     }
 }

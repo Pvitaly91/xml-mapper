@@ -167,7 +167,12 @@ class MerchantLaunchController extends AdminController
                 );
 
                 if ($result->status !== 'executed') {
-                    return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for emergency tuning.');
+                    return $this->redirectWithGovernedResult(
+                        $request,
+                        $result,
+                        null,
+                        'Emergency tuning is waiting on re-authentication or approval.'
+                    );
                 }
             } else {
                 $service->applyTuning($merchantLaunch, $request->validated(), $request->user());
@@ -225,7 +230,12 @@ class MerchantLaunchController extends AdminController
                 );
 
                 if ($result->status !== 'executed') {
-                    return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for launch close override.');
+                    return $this->redirectWithGovernedResult(
+                        $request,
+                        $result,
+                        null,
+                        'Launch close override is waiting on re-authentication or approval.'
+                    );
                 }
             } else {
                 $service->close($merchantLaunch, (string) $request->validated('reason'), $request->user());

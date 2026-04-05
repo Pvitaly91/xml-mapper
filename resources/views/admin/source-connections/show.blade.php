@@ -2,13 +2,18 @@
 
 @section('subtitle', 'Operational state, recent imports and related feed profiles.')
 
+@section('safety_banner')
+    <strong>Connection secrets stay masked</strong>
+    Test connection validates stored credentials without rendering raw secret values back into the operator UI.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
             <a class="button link" href="{{ route('admin.source-connections.edit', $connection) }}">Edit</a>
             <form method="POST" action="{{ route('admin.source-connections.test', $connection) }}">
                 @csrf
-                <button class="button secondary" type="submit">Test connection</button>
+                <button class="button secondary" type="submit" data-testid="source-connection-test">Test connection</button>
             </form>
             <form method="POST" action="{{ route('admin.source-connections.sync', $connection) }}">
                 @csrf

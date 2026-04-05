@@ -46,7 +46,12 @@ class OpsSilenceWindowController extends AdminController
                 );
 
                 if ($result->status !== 'executed') {
-                    return back()->with($this->governedFlashKey($result), $result->message ?: 'Approval workflow started for critical silence window.');
+                    return $this->redirectWithGovernedResult(
+                        $request,
+                        $result,
+                        null,
+                        'Critical silence window is waiting on re-authentication or approval.'
+                    );
                 }
             } else {
                 $service->start(

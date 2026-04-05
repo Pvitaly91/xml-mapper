@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Inspect active admin sessions, MFA verification state, device context, and revoke sessions safely.')
 
+@section('safety_banner')
+    <strong>Session revocation is immediate governance control</strong>
+    Use “revoke other sessions” for routine containment and “revoke all sessions” only when the account or device trust is in doubt.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
@@ -64,14 +69,14 @@
             </table>
         </div>
 
-        <form method="POST" action="{{ route('admin.access.users.sessions.revoke', $sessionSubject ?: auth()->user()) }}" style="margin-top: 16px;">
+        <form method="POST" action="{{ route('admin.access.users.sessions.revoke', $sessionSubject ?: auth()->user()) }}" style="margin-top: 16px;" data-testid="sessions-revoke-other-form">
             @csrf
             <input type="hidden" name="all" value="0">
             <div class="field">
                 <label for="revoke_other_reason">Revoke other sessions</label>
                 <input id="revoke_other_reason" name="reason" placeholder="Reason for revoking every non-current session">
             </div>
-            <button class="button warning" type="submit" style="margin-top: 12px;">Revoke other sessions</button>
+            <button class="button warning" type="submit" style="margin-top: 12px;" data-testid="sessions-revoke-other-submit">Revoke other sessions</button>
         </form>
 
         <form method="POST" action="{{ route('admin.access.users.sessions.revoke', $sessionSubject ?: auth()->user()) }}" style="margin-top: 16px;">

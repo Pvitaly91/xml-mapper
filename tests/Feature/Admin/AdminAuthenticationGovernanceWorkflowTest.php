@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\ApprovalRequest;
 use App\Models\GovernanceAudit;
 use App\Models\ShopMembership;
 use App\Models\User;
@@ -158,7 +159,7 @@ class AdminAuthenticationGovernanceWorkflowTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.auth.mfa.enable'), ['code' => $code])
-            ->assertRedirect(route('admin.dashboard'))
+            ->assertRedirect(route('admin.auth.mfa.setup'))
             ->assertSessionHas('mfa_recovery_codes');
 
         $recoveryCode = $this->app['session.store']->get('mfa_recovery_codes')[0];
@@ -338,6 +339,68 @@ class AdminAuthenticationGovernanceWorkflowTest extends TestCase
         );
 
         $this->assertSame('executed', $result->status);
+    }
+
+    public function test_release_freeze_redirects_back_with_password_reauth_guidance_when_session_is_stale(): void
+    {
+        config()->set('feed_mediator.environment.class', 'production');
+
+        $shop = $this->createShop();
+        $admin = $this->createPlatformAdminUser(['password' => 'FreezePass123']);
+        $setup = app(AdminMfaService::class)->beginEnrollment($admin->fresh());
+        app(AdminMfaService::class)->confirmEnrollment($admin->fresh(), app(AdminMfaService::class)->currentCode($setup['secret']));
+        $connection = $this->createSourceConnection($shop);
+        $profile = $this->createFeedProfile($connection, $admin);
+        $releaseCenter = route('admin.feed-profiles.release-center', $profile);
+
+        $this->actingAs($admin->fresh())
+            ->withSession([
+                'admin_shop_id' => $shop->id,
+                'admin_auth.password_confirmed_at' => now()->subMinutes(60)->toIso8601String(),
+                'admin_auth.mfa_verified_at' => now()->subMinutes(60)->toIso8601String(),
+            ])
+            ->from($releaseCenter)
+            ->post(route('admin.feed-profiles.freeze', $profile), [
+                'freeze' => true,
+                'reason' => 'Production freeze requires a fresh step-up.',
+            ])
+            ->assertRedirect($releaseCenter)
+            ->assertSessionHas('admin_governance_feedback.title', 'Additional verification required')
+            ->assertSessionHas('admin_governance_feedback.action_label', 'Confirm password')
+            ->assertSessionHas('admin_governance_feedback.action_url', route('admin.auth.reauth.password.create'));
+    }
+
+    public function test_release_freeze_redirects_back_with_approval_guidance_after_policy_checks_pass(): void
+    {
+        config()->set('feed_mediator.environment.class', 'production');
+
+        $shop = $this->createShop();
+        $admin = $this->createAdminUser($shop, ['password' => 'ShopAdminPass123']);
+        $connection = $this->createSourceConnection($shop);
+        $profile = $this->createFeedProfile($connection, $admin);
+        $releaseCenter = route('admin.feed-profiles.release-center', $profile);
+
+        $response = $this->actingAs($admin)
+            ->withSession([
+                'admin_shop_id' => $shop->id,
+                'admin_auth.password_confirmed_at' => now()->toIso8601String(),
+            ])
+            ->from($releaseCenter)
+            ->post(route('admin.feed-profiles.freeze', $profile), [
+                'freeze' => true,
+                'reason' => 'Production freeze requires approval.',
+            ]);
+
+        $approval = ApprovalRequest::query()->latest('id')->firstOrFail();
+
+        $response
+            ->assertRedirect($releaseCenter)
+            ->assertSessionHas('admin_governance_feedback.title', 'Approval queued')
+            ->assertSessionHas('admin_governance_feedback.approval_id', $approval->id)
+            ->assertSessionHas('admin_governance_feedback.action_url', route('admin.access.approvals.show', $approval));
+
+        $this->assertSame(ApprovalRequest::STATUS_PENDING, $approval->status);
+        $this->assertSame(ApprovalPolicyService::ACTION_RELEASE_FREEZE, $approval->action);
     }
 
     public function test_break_glass_requires_reason_is_audited_and_expires(): void

@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Role assignments, shop-scoped memberships, pending approvals, and governance audit visibility for production operations.')
 
+@section('safety_banner')
+    <strong>Governance actions are scoped</strong>
+    The current shop and role in the shell decide what you can see here. Sensitive resets, break-glass, and approval reviews remain audited and can still require fresh password or MFA confirmation.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
@@ -148,10 +153,9 @@
                 </table>
             </div>
         </section>
-    </div>
-
         <section class="panel">
             <h2>Current Security Session</h2>
+            <p class="muted">Use break-glass only for a clearly documented emergency and end it as soon as the safer path is restored.</p>
             <div class="detail-list">
                 <div class="detail-row"><strong>User</strong><div>{{ $sessionSubject?->email ?: auth()->user()->email }}</div></div>
                 <div class="detail-row"><strong>Suspicious IPs (24h)</strong><div>{{ $suspiciousIpCount }}</div></div>
@@ -161,9 +165,9 @@
                 @csrf
                 <div class="field">
                     <label for="break_glass_reason">Start Break-Glass</label>
-                    <input id="break_glass_reason" name="reason" placeholder="Emergency reason required">
+                    <input id="break_glass_reason" name="reason" placeholder="Emergency reason required" data-testid="break-glass-reason">
                 </div>
-                <button class="button warning" type="submit">Start break-glass</button>
+                <button class="button warning" type="submit" data-testid="break-glass-start">Start break-glass</button>
             </form>
             <form method="POST" action="{{ route('admin.auth.break-glass.end') }}">
                 @csrf
@@ -260,6 +264,7 @@
 
     <section class="panel">
         <h2>Pending Approval Queue</h2>
+        <p class="muted">If approval is blocked, the detail screen tells the operator whether password re-authentication, MFA re-authentication, or 4-eyes review is still missing.</p>
         <div class="table-wrap">
             <table>
                 <thead><tr><th>ID</th><th>Action</th><th>Risk</th><th>Status</th><th>Requester</th><th>Shop</th><th>Target</th><th></th></tr></thead>

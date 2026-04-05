@@ -47,11 +47,11 @@ class FeedRollbackController extends AdminController
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with(
-            $this->governedFlashKey($result),
-            $result->status === 'executed'
-                ? 'Feed rolled back to generation #'.($result->execution['generation_id'] ?? $targetGeneration?->id ?? 'n/a').'.'
-                : ($result->message ?: 'Approval workflow started for rollback.')
+        return $this->redirectWithGovernedResult(
+            $request,
+            $result,
+            'Feed rolled back to generation #'.($result->execution['generation_id'] ?? $targetGeneration?->id ?? 'n/a').'.',
+            'Rollback is waiting on re-authentication or approval.'
         );
     }
 }

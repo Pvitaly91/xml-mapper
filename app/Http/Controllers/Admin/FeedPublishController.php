@@ -47,11 +47,11 @@ class FeedPublishController extends AdminController
                     targetLabel: $feedProfile->code
                 );
 
-                return back()->with(
-                    $this->governedFlashKey($result),
-                    $result->status === 'executed'
-                        ? 'Feed force-published from generation #'.($result->execution['generation_id'] ?? $generation?->id ?? 'n/a').'.'
-                        : ($result->message ?: 'Approval workflow started for force publish.')
+                return $this->redirectWithGovernedResult(
+                    $request,
+                    $result,
+                    'Feed force-published from generation #'.($result->execution['generation_id'] ?? $generation?->id ?? 'n/a').'.',
+                    'Force publish is waiting on re-authentication or approval.'
                 );
             }
 

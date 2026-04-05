@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Review the requested action payload, risk level, approval policy, and immutable governance history before execution.')
 
+@section('safety_banner')
+    <strong>Approval execution is final for this queued payload</strong>
+    Review the environment, risk class, 4-eyes requirement, and payload summary before approving. Approval executes the stored request payload, not a new free-form action.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
@@ -43,7 +48,7 @@
                         <label for="approve_note">Approval note</label>
                         <textarea id="approve_note" name="note" placeholder="Why the action is safe to execute"></textarea>
                     </div>
-                    <button class="button" type="submit" style="margin-top: 12px;">Approve and execute</button>
+                    <button class="button" type="submit" style="margin-top: 12px;" data-testid="approval-approve-submit">Approve and execute</button>
                 </form>
                 <form method="POST" action="{{ route('admin.access.approvals.reject', $approval) }}">
                     @csrf
@@ -51,7 +56,7 @@
                         <label for="reject_note">Rejection note</label>
                         <textarea id="reject_note" name="note" placeholder="Why the request is blocked or rejected"></textarea>
                     </div>
-                    <button class="button danger" type="submit" style="margin-top: 12px;">Reject</button>
+                    <button class="button danger" type="submit" style="margin-top: 12px;" data-testid="approval-reject-submit">Reject</button>
                 </form>
             @else
                 <p class="muted">This approval request is already in terminal or executed state.</p>

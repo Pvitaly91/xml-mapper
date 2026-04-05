@@ -41,6 +41,7 @@ The application stores normalized source data locally, validates exportability, 
 - persisted pilot execution workflow with operator state/history, evidence pack export, readiness score, pilot center and fixture-backed proof tests
 - live merchant launch records with baseline-vs-actual tracking, observation/defect triage, safe tuning history, stabilization handover and closeout reports
 - outbound notification routing with delivery history, correlation IDs, suppression/escalation rules, channel tests and admin Notification Center
+- Playwright-based browser E2E harness with reproducible demo bootstrap data, CI artifacts, and critical security/governance/release coverage
 
 ## Local Setup
 
@@ -2040,6 +2041,78 @@ Published feeds are served from:
 ```
 
 The endpoint serves only already-built and already-published files. No runtime XML rendering happens in the public controller.
+
+## Browser E2E And Demo QA
+
+Playwright is the browser E2E stack for this repository. It fits the current Blade/session architecture cleanly, keeps controllers thin, and gives stable HTML reports plus screenshots, traces, and videos on failure.
+
+Install browser-test dependencies once:
+
+```bash
+npm install
+npm run e2e:install
+```
+
+Prepare reproducible demo data for browser tests or manual operator walkthroughs:
+
+```bash
+php artisan demo:bootstrap-e2e --fresh
+```
+
+Useful local commands:
+
+```bash
+npm run e2e:smoke
+npm run e2e
+npm run e2e:report
+php artisan demo:bootstrap-e2e --fresh --json
+```
+
+The bootstrap command provisions:
+
+- demo main and secondary shops for shop-switch and scoped-RBAC coverage
+- platform admin, reviewer, operator, and invited shop-admin accounts
+- mapping-ready `prom_yml` source fixtures and a publish-ready feed profile
+- local-only manifest with demo credentials and MFA seeds at `storage/app/e2e/demo-manifest.json`
+- safe summary without secrets at `storage/app/e2e/demo-summary.json`
+
+Handling rules:
+
+- never upload `storage/app/e2e/demo-manifest.json` to CI artifacts or external reports
+- browser artifacts are stored in `playwright-report/` and `test-results/`
+- the invite/MFA spec disables screenshot, trace, and video capture to avoid leaking freshly issued MFA or recovery material
+
+Covered browser flows include:
+
+- invite -> accept -> password set -> MFA enrollment -> login
+- MFA login challenge
+- shop switching under RBAC rules
+- source connection create/edit/test under governance constraints
+- dangerous actions that require step-up re-auth or approval creation
+- reviewer approval queue actions
+- release, pilot, launch, notification-center, and session-management happy paths
+
+CI browser workflow:
+
+- `.github/workflows/browser-e2e.yml`
+- push / pull request: smoke subset via `npm run e2e:smoke`
+- manual dispatch / nightly schedule: full suite via `npm run e2e`
+- both `playwright-report/` and `test-results/` are uploaded as CI artifacts
+
+## Manual Pre-Live QA Script
+
+Before a first live merchant launch, run this short manual script on a demo or staging mirror:
+
+1. Run `php artisan demo:bootstrap-e2e --fresh`.
+2. Open `/admin/login`, sign in as the invited user from the safe summary, accept the invite, and set the password.
+3. Enroll MFA, save the recovery codes locally, log out, and confirm a fresh MFA login challenge works.
+4. Confirm current environment, current shop, current role, and any break-glass state are clearly visible in the admin shell.
+5. Open onboarding or source connections, edit the demo connection, and run `Test connection`.
+6. Build or review the candidate generation and confirm preview / QA bundle visibility.
+7. Submit a governed dangerous action and confirm the UI tells the operator whether password re-auth, MFA re-auth, or approval is required.
+8. Sign in as reviewer, open the approval queue, and approve or reject the pending request.
+9. Open Release Center, Pilot Center, Launch Center, and Notification Center to confirm recent state, alerts, and outbound test-delivery behavior.
+10. Open the sessions screen, revoke other sessions, and confirm the action is visible and audited.
 
 ## Tests
 

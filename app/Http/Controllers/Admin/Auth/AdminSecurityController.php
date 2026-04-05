@@ -102,10 +102,16 @@ class AdminSecurityController extends Controller
 
     public function showMfaSetup(Request $request, AdminMfaService $service): View
     {
+        $user = $request->user();
+        $setup = $user->hasMfaEnabled()
+            ? ['secret' => null, 'provisioning_uri' => null, 'qr_svg' => null]
+            : $service->beginEnrollment($user);
+
         return view('admin.auth.mfa-setup', [
-            'user' => $request->user(),
-            'setup' => $service->beginEnrollment($request->user()),
+            'user' => $user,
+            'setup' => $setup,
             'recoveryCodes' => session('mfa_recovery_codes', []),
+            'stepUp' => session('admin_step_up'),
         ]);
     }
 
@@ -131,8 +137,8 @@ class AdminSecurityController extends Controller
             targetLabel: $request->user()->email
         );
 
-        return redirect()->route('admin.dashboard')
-            ->with('status', 'MFA enabled.')
+        return redirect()->route('admin.auth.mfa.setup')
+            ->with('status', 'MFA enabled. Store the recovery codes now; they will not be shown again.')
             ->with('mfa_recovery_codes', $result['recovery_codes']);
     }
 
@@ -140,6 +146,7 @@ class AdminSecurityController extends Controller
     {
         return view('admin.auth.mfa-challenge', [
             'user' => $request->user(),
+            'stepUp' => session('admin_step_up'),
         ]);
     }
 
@@ -183,7 +190,9 @@ class AdminSecurityController extends Controller
 
     public function showPasswordReauth(): View
     {
-        return view('admin.auth.reauth-password');
+        return view('admin.auth.reauth-password', [
+            'stepUp' => session('admin_step_up'),
+        ]);
     }
 
     public function verifyPasswordReauth(
@@ -196,12 +205,18 @@ class AdminSecurityController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('status', 'Password re-authentication confirmed.');
+        $intendedUrl = $request->session()->pull('admin_step_up.intended_url', route('admin.dashboard'));
+        $request->session()->forget('admin_step_up');
+
+        return redirect()->to($intendedUrl)
+            ->with('status', 'Password re-authentication confirmed. Resume the blocked action.');
     }
 
     public function showMfaReauth(): View
     {
-        return view('admin.auth.reauth-mfa');
+        return view('admin.auth.reauth-mfa', [
+            'stepUp' => session('admin_step_up'),
+        ]);
     }
 
     public function verifyMfaReauth(
@@ -214,7 +229,11 @@ class AdminSecurityController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('status', 'MFA re-authentication confirmed.');
+        $intendedUrl = $request->session()->pull('admin_step_up.intended_url', route('admin.dashboard'));
+        $request->session()->forget('admin_step_up');
+
+        return redirect()->to($intendedUrl)
+            ->with('status', 'MFA re-authentication confirmed. Resume the blocked action.');
     }
 
     public function startBreakGlass(

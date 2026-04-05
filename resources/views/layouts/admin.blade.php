@@ -9,7 +9,7 @@
         * { box-sizing: border-box; } body { margin: 0; font-family: "Segoe UI", sans-serif; background: radial-gradient(circle at top right, #dfeef1 0%, transparent 26%), var(--bg); color: var(--text); } a { color: inherit; text-decoration: none; }
         .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; } .sidebar { background: #173b43; color: #f8fbfb; padding: 28px 20px; } .brand { font-size: 22px; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 8px; } .brand small { display: block; font-size: 12px; letter-spacing: 0.08em; opacity: 0.78; margin-top: 4px; }
         .nav { margin-top: 28px; display: grid; gap: 8px; } .nav a { display: block; padding: 10px 12px; border-radius: 10px; color: rgba(248, 251, 251, 0.88); } .nav a.active, .nav a:hover { background: rgba(255,255,255,0.10); color: #fff; }
-        .sidebar .meta { margin-top: 28px; font-size: 13px; color: rgba(248,251,251,0.72); } .content { padding: 28px; } .topbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 22px; }
+        .sidebar .meta { margin-top: 28px; font-size: 13px; color: rgba(248,251,251,0.72); } .content { padding: 28px; } .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 22px; }
         .topbar h1 { margin: 0; font-size: 32px; } .topbar p { margin: 4px 0 0; color: var(--muted); } .logout { border: 1px solid rgba(255,255,255,0.15); background: transparent; color: #fff; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
         .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: 0 18px 36px rgba(25, 34, 48, 0.05); margin-bottom: 18px; } .panel h2, .panel h3 { margin-top: 0; }
         .grid { display: grid; gap: 18px; } .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
@@ -21,9 +21,15 @@
         .muted { color: var(--muted); } .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; } .field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; } .field input, .field select, .field textarea { width: 100%; border: 1px solid #c7d0d9; border-radius: 10px; padding: 10px 12px; font: inherit; background: #fff; }
         .field textarea { min-height: 112px; } .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } .form-grid .full { grid-column: 1 / -1; } .checks { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; } .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
         .detail-list { display: grid; gap: 10px; } .detail-row { display: grid; grid-template-columns: 200px 1fr; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); } .detail-row:last-child { border-bottom: 0; padding-bottom: 0; } .error-list { margin: 0; padding-left: 18px; color: var(--danger); }
+        .topbar-meta { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; max-width: 420px; }
+        .context-strip { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+        .notice { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); margin-bottom: 18px; }
+        .notice.warn { background: var(--warning-soft); border-color: #edd595; color: var(--warning); }
+        .notice.err { background: var(--danger-soft); border-color: #f2b3b3; color: var(--danger); }
+        .notice strong { display: block; margin-bottom: 4px; }
         code { font-family: Consolas, "Courier New", monospace; background: rgba(23, 59, 67, 0.06); padding: 2px 6px; border-radius: 6px; }
         pre { white-space: pre-wrap; background: var(--panel-alt); border: 1px solid var(--line); border-radius: 12px; padding: 14px; overflow: auto; }
-        @media (max-width: 1080px) { .app { grid-template-columns: 1fr; } .content { padding: 18px; } .grid.cols-2, .form-grid { grid-template-columns: 1fr; } .detail-row { grid-template-columns: 1fr; gap: 6px; } }
+        @media (max-width: 1080px) { .app { grid-template-columns: 1fr; } .content { padding: 18px; } .grid.cols-2, .form-grid { grid-template-columns: 1fr; } .detail-row { grid-template-columns: 1fr; gap: 6px; } .topbar { flex-direction: column; } .topbar-meta { align-items: flex-start; max-width: none; } .context-strip { justify-content: flex-start; } }
     </style>
 </head>
 <body>
@@ -60,7 +66,7 @@
                     <form method="POST" action="{{ route('admin.access.switch-shop') }}" style="margin-top: 14px;">
                         @csrf
                         <label for="layout_shop_id" style="display: block; margin-bottom: 6px;">Current shop</label>
-                        <select id="layout_shop_id" name="shop_id" onchange="this.form.submit()" style="width: 100%; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,0.08); color: #fff;">
+                        <select id="layout_shop_id" name="shop_id" onchange="this.form.submit()" style="width: 100%; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,0.08); color: #fff;" data-testid="layout-shop-switch">
                             @foreach($adminLayout['availableShops'] as $shopOption)
                                 <option value="{{ $shopOption->id }}" @selected((int) ($currentShop->id ?? 0) === (int) $shopOption->id) style="color: #192230;">{{ $shopOption->name }}</option>
                             @endforeach
@@ -83,14 +89,40 @@
                 @endif
             </div>
             @isset($appEnvironment)
-                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                    <span class="badge {{ $appEnvironment['badge_class'] }}">{{ $appEnvironment['label'] }}</span>
+                <div class="topbar-meta">
+                    <div class="context-strip">
+                        <span class="badge {{ $appEnvironment['badge_class'] }}">{{ $appEnvironment['label'] }}</span>
+                        @if($adminLayout['currentRoleLabel'] ?? null)
+                            <span class="badge">{{ $adminLayout['currentRoleLabel'] }}</span>
+                        @endif
+                        <span class="badge">{{ $currentShop?->name ?: 'Platform scope' }}</span>
+                        @if($adminLayout['security']['break_glass_expires_at'] ?? null)
+                            <span class="badge err">Break-glass active</span>
+                        @endif
+                    </div>
                     @if(($appEnvironment['warnings'] ?? []) !== [])
-                        <div class="muted" style="max-width: 380px; text-align: right;">{{ $appEnvironment['warnings'][0] }}</div>
+                        <div class="muted" style="text-align: right;">{{ $appEnvironment['warnings'][0] }}</div>
                     @endif
                 </div>
             @endisset
         </div>
+        @if(($adminLayout['security']['break_glass_expires_at'] ?? null) !== null)
+            <div class="notice err">
+                <strong>Break-glass mode is active</strong>
+                This session has temporary emergency elevation until {{ $adminLayout['security']['break_glass_expires_at'] }}. Every sensitive action remains audited.
+            </div>
+        @endif
+        @if(($appEnvironment['is_production'] ?? false) && request()->routeIs('admin.access.*', 'admin.source-connections.*', 'admin.feed-profiles.release-center', 'admin.feed-profiles.promotion.*', 'admin.merchant-launches.*', 'admin.notifications.*'))
+            <div class="notice warn">
+                <strong>Production safety context</strong>
+                Role scope, recent re-authentication, and approval policy are enforced here before high-risk actions can execute.
+            </div>
+        @endif
+        @hasSection('safety_banner')
+            <div class="notice warn">
+                @yield('safety_banner')
+            </div>
+        @endif
         @include('components.admin.flash')
         @yield('content')
     </main>

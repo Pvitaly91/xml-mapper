@@ -16,6 +16,7 @@ use App\Services\Access\AdminAccessService;
 use App\Services\Auth\AdminAccountLifecycleService;
 use App\Services\Auth\AdminInvitationService;
 use App\Services\Auth\AdminSessionService;
+use App\Services\Auth\AdminStepUpAuthService;
 use App\Services\Governance\AccessCenterService;
 use App\Services\Governance\ComplianceReportService;
 use App\Services\Governance\GovernedActionService;
@@ -164,9 +165,21 @@ class AccessCenterController extends AdminController
     public function approve(
         ApprovalDecisionRequest $request,
         ApprovalRequest $approvalRequest,
-        GovernedActionService $service
+        GovernedActionService $service,
+        AdminStepUpAuthService $stepUpAuthService
     ): RedirectResponse {
         $this->ensureScopedApproval($request, $approvalRequest);
+
+        $stepUp = $stepUpAuthService->authorizeAction($approvalRequest->action, $request->user(), $approvalRequest->shop);
+
+        if (! $stepUp->allowed()) {
+            return $this->redirectWithStepUpResult(
+                $request,
+                $stepUp,
+                'Approval execution needs additional verification.',
+                route('admin.access.approvals.show', $approvalRequest)
+            );
+        }
 
         try {
             $service->approve($approvalRequest, $request->user(), $request->validated('note'));

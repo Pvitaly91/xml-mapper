@@ -2,6 +2,11 @@
 
 @section('subtitle', 'Outbound delivery history, channel routing, retry/test actions, and suppression visibility for live support.')
 
+@section('safety_banner')
+    <strong>Use test delivery before relying on a route in production</strong>
+    Test messages write delivery history, respect redaction, and make channel failures debuggable without waiting for a real incident.
+@endsection
+
 @section('content')
     <section class="panel">
         <div class="toolbar">
@@ -20,12 +25,12 @@
     <div class="grid cols-2">
         <section class="panel">
             <h2>Send Test Notification</h2>
-            <form method="POST" action="{{ route('admin.notifications.test') }}">
+            <form method="POST" action="{{ route('admin.notifications.test') }}" data-testid="notification-test-form">
                 @csrf
                 <div class="form-grid">
                     <div class="field">
                         <label for="test_channel">Channel</label>
-                        <select id="test_channel" name="channel">
+                        <select id="test_channel" name="channel" data-testid="notification-test-channel">
                             @foreach(['database','log','email','webhook'] as $channel)
                                 <option value="{{ $channel }}">{{ $channel }}</option>
                             @endforeach
@@ -33,25 +38,25 @@
                     </div>
                     <div class="field full">
                         <label for="test_target">Target</label>
-                        <input id="test_target" name="target" placeholder="emails comma-separated / webhook URL / log channel / blank for database admins">
+                        <input id="test_target" name="target" placeholder="emails comma-separated / webhook URL / log channel / blank for database admins" data-testid="notification-test-target">
                     </div>
                 </div>
-                <button class="button secondary" type="submit" style="margin-top: 12px;">Send test</button>
+                <button class="button secondary" type="submit" style="margin-top: 12px;" data-testid="notification-test-submit">Send test</button>
             </form>
         </section>
 
         <section class="panel">
             <h2>Create Route</h2>
-            <form method="POST" action="{{ route('admin.notifications.routes.store') }}">
+            <form method="POST" action="{{ route('admin.notifications.routes.store') }}" data-testid="notification-route-form">
                 @csrf
                 <div class="form-grid">
                     <div class="field">
                         <label for="route_name">Name</label>
-                        <input id="route_name" name="name" required>
+                        <input id="route_name" name="name" required data-testid="notification-route-name">
                     </div>
                     <div class="field">
                         <label for="route_scope">Scope</label>
-                        <select id="route_scope" name="scope">
+                        <select id="route_scope" name="scope" data-testid="notification-route-scope">
                             <option value="global">global</option>
                             <option value="shop">shop</option>
                             <option value="feed_profile">feed_profile</option>
@@ -59,7 +64,7 @@
                     </div>
                     <div class="field">
                         <label for="route_channel">Channel</label>
-                        <select id="route_channel" name="channel">
+                        <select id="route_channel" name="channel" data-testid="notification-route-channel">
                             @foreach(['database','log','email','webhook'] as $channel)
                                 <option value="{{ $channel }}">{{ $channel }}</option>
                             @endforeach
@@ -96,7 +101,7 @@
                     </div>
                     <div class="field">
                         <label for="route_target">Target value</label>
-                        <input id="route_target" name="target_value" placeholder="emails / webhook URL / log channel">
+                        <input id="route_target" name="target_value" placeholder="emails / webhook URL / log channel" data-testid="notification-route-target">
                     </div>
                     <div class="field">
                         <label for="route_qs">Quiet start</label>
@@ -135,7 +140,7 @@
                         <input id="route_muted" type="datetime-local" name="muted_until">
                     </div>
                 </div>
-                <button class="button" type="submit" style="margin-top: 12px;">Save route</button>
+                <button class="button" type="submit" style="margin-top: 12px;" data-testid="notification-route-submit">Save route</button>
             </form>
         </section>
     </div>

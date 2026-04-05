@@ -67,11 +67,11 @@ class OpsMaintenanceController extends AdminController
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with(
-            $this->governedFlashKey($result),
-            $result->status === 'executed'
-                ? 'Prune finished with '.count((array) ($result->execution['summary'] ?? [])).' retention counters updated.'
-                : ($result->message ?: 'Approval workflow started for prune.')
+        return $this->redirectWithGovernedResult(
+            $request,
+            $result,
+            'Prune finished with '.count((array) ($result->execution['summary'] ?? [])).' retention counters updated.',
+            'Prune is waiting on re-authentication or approval.'
         );
     }
 
